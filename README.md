@@ -10,3 +10,7 @@ Data is not included in this repo. Download the following file and place it in t
 https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/IG0UN2
 
 Download `1976-2024-house.tab` from that page.
+
+**American Presidency Project**
+`for POTUS approval ratings`
+https://docs.google.com/spreadsheets/d/1iEl565M1mICTubTtoxXMdxzaHzAcPTnb3kpRndsrfyY/edit?gid=1517284305#gid=1517284305
