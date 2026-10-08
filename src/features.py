@@ -1,9 +1,13 @@
+import logging
+
 import pandas as pd
 import numpy as np
 
+logger = logging.getLogger(__name__)
+
 PRES_PARTY = {
     1976: "REPUBLICAN",  # Ford
-    1978: "DEMOCRAT",    # Carter
+    1978: "DEMOCRAT",  # Carter
     1980: "DEMOCRAT",
     1982: "REPUBLICAN",  # Reagan
     1984: "REPUBLICAN",
@@ -11,7 +15,7 @@ PRES_PARTY = {
     1988: "REPUBLICAN",
     1990: "REPUBLICAN",  # Bush Sr
     1992: "REPUBLICAN",
-    1994: "DEMOCRAT",    # Clinton
+    1994: "DEMOCRAT",  # Clinton
     1996: "DEMOCRAT",
     1998: "DEMOCRAT",
     2000: "DEMOCRAT",
@@ -19,35 +23,65 @@ PRES_PARTY = {
     2004: "REPUBLICAN",
     2006: "REPUBLICAN",
     2008: "REPUBLICAN",
-    2010: "DEMOCRAT",    # Obama
+    2010: "DEMOCRAT",  # Obama
     2012: "DEMOCRAT",
     2014: "DEMOCRAT",
     2016: "DEMOCRAT",
     2018: "REPUBLICAN",  # Trump
     2020: "REPUBLICAN",
-    2022: "DEMOCRAT",    # Biden
+    2022: "DEMOCRAT",  # Biden
     2024: "DEMOCRAT",
     2026: "REPUBLICAN",  # Trump
 }
 
 # Net Dem advantage in generic congressional ballot (Dem% - Rep%), pre-election polling.
 # Positive = Dem-favorable environment, negative = Rep-favorable.
+# TODO: replace with the real values, tackle silent quitters
 GENERIC_BALLOT = {
-    1976: 12, 1978:  8, 1980: -5, 1982:  9, 1984:  2, 1986:  7, 1988:  4, 1990:  7,
-    1992: 10, 1994: -6, 1996:  4, 1998:  3, 2000:  1, 2002: -5, 2004: -1, 2006: 11,
-    2008: 12, 2010: -9, 2012:  1, 2014: -6, 2016:  1, 2018:  8, 2020:  6, 2022: -3,
-    2024: -2, 2026:  7,
+    1976: 12,
+    1978: 8,
+    1980: -5,
+    1982: 9,
+    1984: 2,
+    1986: 7,
+    1988: 4,
+    1990: 7,
+    1992: 10,
+    1994: -6,
+    1996: 4,
+    1998: 3,
+    2000: 1,
+    2002: -5,
+    2004: -1,
+    2006: 11,
+    2008: 12,
+    2010: -9,
+    2012: 1,
+    2014: -6,
+    2016: 1,
+    2018: 8,
+    2020: 6,
+    2022: -3,
+    2024: -2,
+    2026: 7,
 }
 
 REDISTRICTING_YEARS = {1982, 1992, 2002, 2012, 2022}
 
 _DROP_COLS = [
-    "year", "state_po", "district", "party",
-    "candidatevotes", "totalvotes", "vote_share", "dem_won",
+    "year",
+    "state_po",
+    "district",
+    "party",
+    "candidatevotes",
+    "totalvotes",
+    "vote_share",
+    "dem_won",
 ]
 
 
 def load_house_data(path: str) -> pd.DataFrame:
+    logger.info("Loading house data from %s", path)
     df = pd.read_csv(path, low_memory=False)
 
     bool_cols = ["runoff", "special", "writein", "unofficial", "fusion_ticket"]
@@ -59,9 +93,18 @@ def load_house_data(path: str) -> pd.DataFrame:
         df = df[df[col] == False]
 
     drop = [
-        "state_fips", "state_cen", "state_ic", "fusion_ticket",
-        "office", "mode", "version",
-        "stage", "special", "runoff", "unofficial", "writein",
+        "state_fips",
+        "state_cen",
+        "state_ic",
+        "fusion_ticket",
+        "office",
+        "mode",
+        "version",
+        "stage",
+        "special",
+        "runoff",
+        "unofficial",
+        "writein",
     ]
     df = df.drop(columns=[c for c in drop if c in df.columns])
     df = df[df["party"].notna()]
@@ -73,23 +116,34 @@ def load_house_data(path: str) -> pd.DataFrame:
         "INDEPENDENT-REPUBLICAN": "REPUBLICAN",
     }
     df["party"] = df["party"].replace(party_map)
-    return df.reset_index(drop=True)
+    df = df.reset_index(drop=True)
+    logger.info("Loaded %d rows", len(df))
+    return df
 
 
 def build_party_votes(df: pd.DataFrame) -> pd.DataFrame:
     return df.loc[
         df.groupby(["year", "state_po", "district", "party"])["candidatevotes"].idxmax()
-    ][["year", "state_po", "district", "party", "candidatevotes", "totalvotes"]].reset_index(drop=True)
+    ][
+        ["year", "state_po", "district", "party", "candidatevotes", "totalvotes"]
+    ].reset_index(
+        drop=True
+    )
 
 
-def build_dems_reps(party_votes: pd.DataFrame, dem_lean_window: int = 4) -> pd.DataFrame:
+def build_dems_reps(
+    party_votes: pd.DataFrame, dem_lean_window: int = 4
+) -> pd.DataFrame:
+    logger.info("Computing dem lean features (window=%d)", dem_lean_window)
     reps = party_votes[party_votes["party"] == "REPUBLICAN"][
         ["year", "state_po", "district", "candidatevotes"]
     ].rename(columns={"candidatevotes": "rep_votes"})
 
-    dems = party_votes[party_votes["party"] == "DEMOCRAT"].rename(
-        columns={"candidatevotes": "dem_votes"}
-    ).copy()
+    dems = (
+        party_votes[party_votes["party"] == "DEMOCRAT"]
+        .rename(columns={"candidatevotes": "dem_votes"})
+        .copy()
+    )
 
     dems_reps = dems.merge(reps, on=["year", "state_po", "district"], how="left")
     dems_reps["dem_vote_share"] = dems_reps["dem_votes"] / (
@@ -104,10 +158,14 @@ def build_dems_reps(party_votes: pd.DataFrame, dem_lean_window: int = 4) -> pd.D
     dems_reps["dem_lean_trend"] = dems_reps.groupby(["state_po", "district"])[
         "dem_vote_share"
     ].transform(
-        lambda x: x.shift(1).rolling(dem_lean_window).apply(
-            lambda v: np.polyfit(range(dem_lean_window), v, 1)[0]
-            if not np.any(np.isnan(v))
-            else np.nan,
+        lambda x: x.shift(1)
+        .rolling(dem_lean_window)
+        .apply(
+            lambda v: (
+                np.polyfit(range(dem_lean_window), v, 1)[0]
+                if not np.any(np.isnan(v))
+                else np.nan
+            ),
             raw=True,
         )
     )
@@ -115,8 +173,11 @@ def build_dems_reps(party_votes: pd.DataFrame, dem_lean_window: int = 4) -> pd.D
 
 
 def load_approval(path: str) -> pd.DataFrame:
+    logger.info("Loading approval ratings from %s", path)
     approval = pd.read_csv(
-        path, sep="\t", header=None,
+        path,
+        sep="\t",
+        header=None,
         names=["start", "end", "approve", "disapprove", "unsure"],
     )
     approval["year"] = pd.to_datetime(approval["start"]).dt.year
@@ -139,6 +200,7 @@ def build_winners(
     dems_reps: pd.DataFrame,
     approval: pd.DataFrame,
 ) -> pd.DataFrame:
+    logger.info("Building winners table")
     winners = party_votes.loc[
         party_votes.groupby(["year", "state_po", "district"])["candidatevotes"].idxmax()
     ].reset_index(drop=True)
@@ -154,26 +216,32 @@ def build_winners(
 
 
 def add_incumbency_features(winners: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
+    logger.info("Adding incumbency features")
     winner_names = (
-        df.loc[df.groupby(["year", "state_po", "district"])["candidatevotes"].idxmax()]
-        [["year", "state_po", "district", "candidate"]]
+        df.loc[df.groupby(["year", "state_po", "district"])["candidatevotes"].idxmax()][
+            ["year", "state_po", "district", "candidate"]
+        ]
         .sort_values(["state_po", "district", "year"])
         .reset_index(drop=True)
     )
-    winner_names["prev_winner"] = (
-        winner_names.groupby(["state_po", "district"])["candidate"].shift(1)
-    )
+    winner_names["prev_winner"] = winner_names.groupby(["state_po", "district"])[
+        "candidate"
+    ].shift(1)
     all_cands = (
         df.groupby(["year", "state_po", "district"])["candidate"]
         .apply(set)
         .reset_index()
         .rename(columns={"candidate": "candidates"})
     )
-    winner_names = winner_names.merge(all_cands, on=["year", "state_po", "district"], how="left")
+    winner_names = winner_names.merge(
+        all_cands, on=["year", "state_po", "district"], how="left"
+    )
     winner_names["is_incumbent_on_ballot"] = winner_names.apply(
-        lambda r: float(r["prev_winner"] in r["candidates"])
-        if pd.notna(r["prev_winner"])
-        else np.nan,
+        lambda r: (
+            float(r["prev_winner"] in r["candidates"])
+            if pd.notna(r["prev_winner"])
+            else np.nan
+        ),
         axis=1,
     )
     winners = winners.merge(
@@ -186,19 +254,25 @@ def add_incumbency_features(winners: pd.DataFrame, df: pd.DataFrame) -> pd.DataF
 
 
 def build_feature_matrix(winners: pd.DataFrame) -> tuple:
+    """Returns (X, y, years) — years is a Series aligned with X for walk-forward splitting."""
+    logger.info("Building feature matrix")
     seats_per_year = (
         winners.groupby(["year", "party"])["district"].count().unstack(fill_value=0)
     )
     seats_per_year = seats_per_year[["DEMOCRAT", "REPUBLICAN"]]
     seats_per_year["Majority"] = np.where(
-        seats_per_year["DEMOCRAT"] > seats_per_year["REPUBLICAN"], "DEMOCRAT", "REPUBLICAN"
+        seats_per_year["DEMOCRAT"] > seats_per_year["REPUBLICAN"],
+        "DEMOCRAT",
+        "REPUBLICAN",
     )
     majority_map = seats_per_year["Majority"].shift(1).to_dict()
 
     w = winners.copy()
     w["nation_incumbent_party"] = w["year"].map(majority_map)
     w = w.sort_values(["state_po", "district", "year"])
-    w["district_incumbent_party"] = w.groupby(["state_po", "district"])["party"].shift(1)
+    w["district_incumbent_party"] = w.groupby(["state_po", "district"])["party"].shift(
+        1
+    )
     w["dem_won"] = (w["party"] == "DEMOCRAT").astype(int)
     w = w[w["district_incumbent_party"] != "INDEPENDENT"]
     w = pd.get_dummies(
@@ -209,17 +283,25 @@ def build_feature_matrix(winners: pd.DataFrame) -> tuple:
 
     X = w.drop(columns=_DROP_COLS).dropna()
     y = w["dem_won"][X.index]
-    return X, y
+    years = w["year"][X.index]
+    logger.info("Feature matrix: %d rows, %d features", len(X), len(X.columns))
+    return X, y, years
 
 
 def build_pred_2026(
     winners: pd.DataFrame,
     dems_reps: pd.DataFrame,
     X_columns,
-) -> pd.DataFrame:
-    incumbents = winners[winners["year"] == 2024][
-        ["state_po", "district", "party"]
-    ].rename(columns={"party": "district_incumbent_party"})
+) -> tuple:
+    """Returns (pred_features, district_ids) where district_ids labels each row."""
+    logger.info("Building 2026 prediction features")
+    incumbents = (
+        winners[winners["year"] == 2024][["state_po", "district", "party"]]
+        .rename(columns={"party": "district_incumbent_party"})
+        .reset_index(drop=True)
+    )
+
+    district_ids = incumbents[["state_po", "district"]].copy()
 
     dem_lean_2026 = (
         dems_reps[dems_reps["year"].isin([2018, 2020, 2022, 2024])]
@@ -233,9 +315,11 @@ def build_pred_2026(
         .sort_values(["state_po", "district", "year"])
         .groupby(["state_po", "district"])["dem_vote_share"]
         .apply(
-            lambda v: np.polyfit(range(len(v)), v.values, 1)[0]
-            if len(v) == 4 and not np.any(np.isnan(v.values))
-            else np.nan
+            lambda v: (
+                np.polyfit(range(len(v)), v.values, 1)[0]
+                if len(v) == 4 and not np.any(np.isnan(v.values))
+                else np.nan
+            )
         )
         .reset_index()
         .rename(columns={"dem_vote_share": "dem_lean_trend"})
@@ -258,4 +342,5 @@ def build_pred_2026(
     pred = pred.reindex(columns=X_columns, fill_value=0)
     pred["dem_lean"] = pred["dem_lean"].fillna(pred["dem_lean"].median())
     pred["dem_lean_trend"] = pred["dem_lean_trend"].fillna(0)
-    return pred
+    logger.info("  → %d districts", len(pred))
+    return pred, district_ids

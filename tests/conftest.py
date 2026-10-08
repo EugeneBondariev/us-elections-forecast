@@ -25,7 +25,7 @@ def real_data():
     approval = load_approval(DATA_DIR / "Approval-Ratings-for-POTUS-raw.xls")
     winners = build_winners(party_votes, dems_reps, approval)
     winners = add_incumbency_features(winners, df)
-    X, y = build_feature_matrix(winners)
+    X, y, years = build_feature_matrix(winners)
     return {
         "df": df,
         "party_votes": party_votes,
@@ -33,4 +33,5 @@ def real_data():
         "winners": winners,
         "X": X,
         "y": y,
+        "years": years,
     }
