@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import pandas as pd
 
+from src.validators import validate_feature_matrix
 from src.constants import (
     Col,
     Val,
@@ -196,6 +197,7 @@ def build_feature_matrix(winners: pd.DataFrame) -> tuple:
     y = w[Col.DEM_WON][X.index]
     years = w[Col.YEAR][X.index]
     logger.info("Feature matrix: %d rows, %d features", len(X), len(X.columns))
+    validate_feature_matrix(X)
     return X, y, years
 
 
