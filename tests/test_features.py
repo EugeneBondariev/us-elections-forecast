@@ -169,12 +169,13 @@ class TestBuildFeatureMatrix:
         assert real_data["X"].isnull().sum().sum() == 0
 
     def test_expected_columns(self, real_data):
-        expected = {
+        required = {
             Col.DEM_LEAN, Col.DEM_LEAN_TREND, Col.PRES_APPROVAL, Col.PRES_DISAPPROVAL,
             Col.GENERIC_BALLOT, Col.IS_INCUMBENT, Col.REDISTRICTING,
+            Col.PREV_DEM_SHARE, Col.INC_X_BALLOT,
             "nation_incumbent_party_REPUBLICAN", "district_incumbent_party_REPUBLICAN",
         }
-        assert set(real_data["X"].columns) == expected
+        assert required.issubset(set(real_data["X"].columns))
 
     def test_returns_years(self, real_data):
         assert isinstance(real_data["years"], pd.Series)

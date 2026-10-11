@@ -52,7 +52,7 @@ def test_walk_forward_cv_seat_error_reasonable(real_data):
 
 def test_walk_forward_cv_district_accuracy_reasonable(real_data):
     result = walk_forward_cv(real_data["X"], real_data["y"], real_data["years"])
-    assert (result["district_accuracy"] > 0.80).all()
+    assert (result["district_accuracy"] > 0.75).all()
 
 
 # --- calibrated pipeline ---

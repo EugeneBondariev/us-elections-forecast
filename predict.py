@@ -1,9 +1,11 @@
 import logging
+import os
 from pathlib import Path
 
 import numpy as np
 
 from src.logging_config import setup_logging
+from src.fundraising import load_fundraising
 from src.features import (
     add_incumbency_features,
     build_dems_reps,
@@ -13,6 +15,7 @@ from src.features import (
     build_winners,
     load_approval,
     load_clean_house_data,
+    load_pres_lean,
 )
 from src.model import (
     cross_validate,
@@ -92,7 +95,15 @@ def main() -> None:
     top_candidates = get_top_candidate_per_party(df)
     dems_reps = build_dems_reps(top_candidates)
     approval = load_approval(DATA_DIR / "Approval-Ratings-for-POTUS-raw.xls")
-    winners = build_winners(top_candidates, dems_reps, approval)
+    pres_lean = load_pres_lean(
+        DATA_DIR / "president-2008-2020-by-district.csv",
+        DATA_DIR / "president-2020-2024-by-district.csv",
+    )
+    fundraising = load_fundraising(
+        cache_path=DATA_DIR / "fec_fundraising.csv",
+        api_key=os.getenv("FEC_API_KEY"),
+    )
+    winners = build_winners(top_candidates, dems_reps, approval, pres_lean, fundraising)
     winners = add_incumbency_features(winners, df)
     X, y, years = build_feature_matrix(winners)
 
@@ -102,7 +113,9 @@ def main() -> None:
     _log_feature_stability(walk_forward_feature_importance(X, y, years))
 
     pipeline = train(X, y)
-    pred_2026, district_ids = build_pred_2026(winners, dems_reps, X.columns)
+    pred_2026, district_ids = build_pred_2026(
+        winners, dems_reps, X.columns, pres_lean=pres_lean, fundraising=fundraising
+    )
     proba = pipeline.predict_proba(pred_2026)[:, 1]
 
     _log_simulation(simulate_election(proba), len(proba))

@@ -1,0 +1,122 @@
+import logging
+import os
+import time
+from pathlib import Path
+
+import pandas as pd
+import requests
+
+logger = logging.getLogger(__name__)
+
+FEC_BASE = "https://api.fec.gov/v1"
+DEFAULT_YEARS = [2014, 2016, 2018, 2020, 2022, 2024, 2026]
+
+
+def _fetch_year(api_key: str, year: int) -> list[dict]:
+    records = []
+    page = 1
+    while True:
+        try:
+            resp = requests.get(
+                f"{FEC_BASE}/candidates/totals/",
+                params={
+                    "api_key": api_key,
+                    "office": "H",
+                    "election_year": year,
+                    "page": page,
+                    "per_page": 100,
+                },
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as exc:
+            logger.error("FEC API error year=%d page=%d: %s", year, page, exc)
+            break
+
+        results = data.get("results", [])
+        if not results:
+            break
+
+        for r in results:
+            district_raw = str(r.get("district") or "0").lstrip("0") or "0"
+            try:
+                district = int(district_raw)
+            except ValueError:
+                district = 0
+            records.append({
+                "year": year,
+                "state_po": r.get("state"),
+                "district": district,
+                "party": r.get("party"),
+                "receipts": float(r.get("receipts") or 0),
+            })
+
+        pages = data.get("pagination", {}).get("pages", 1)
+        if page >= pages:
+            break
+        page += 1
+        time.sleep(0.12)
+
+    logger.info("  %d: fetched %d candidate records", year, len(records))
+    return records
+
+
+def fetch_and_cache(cache_path, api_key: str, years=None) -> pd.DataFrame:
+    """Fetch House fundraising totals from FEC API and cache to CSV."""
+    if years is None:
+        years = DEFAULT_YEARS
+    cache_path = Path(cache_path)
+
+    all_records = []
+    for year in years:
+        all_records.extend(_fetch_year(api_key, year))
+
+    df = pd.DataFrame(all_records)
+    df = df[df["state_po"].notna()]
+
+    dem = (
+        df[df["party"] == "DEM"]
+        .groupby(["year", "state_po", "district"])["receipts"]
+        .max()
+        .reset_index(name="dem_receipts")
+    )
+    rep = (
+        df[df["party"] == "REP"]
+        .groupby(["year", "state_po", "district"])["receipts"]
+        .max()
+        .reset_index(name="rep_receipts")
+    )
+
+    result = dem.merge(rep, on=["year", "state_po", "district"], how="outer").fillna(0)
+    total = result["dem_receipts"] + result["rep_receipts"]
+    result["fundraising_dem_share"] = (result["dem_receipts"] / total.clip(lower=1)).where(
+        total > 0, 0.5
+    )
+    result = result[["year", "state_po", "district", "fundraising_dem_share"]]
+
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    result.to_csv(cache_path, index=False)
+    logger.info("Cached %d district-year records to %s", len(result), cache_path)
+    return result
+
+
+def load_fundraising(cache_path, api_key: str = None, years=None) -> pd.DataFrame | None:
+    """Load fundraising data from cache if available, otherwise fetch from FEC API.
+
+    Returns None (silently) if no API key is provided and no cache exists.
+    """
+    cache_path = Path(cache_path)
+
+    if cache_path.exists():
+        logger.info("Loading fundraising from cache: %s", cache_path)
+        return pd.read_csv(cache_path)
+
+    if api_key is None:
+        api_key = os.getenv("FEC_API_KEY")
+    if api_key is None:
+        logger.warning("FEC_API_KEY not set and no cache found — skipping fundraising feature")
+        return None
+
+    logger.info("Fetching fundraising data from FEC API for years %s", years or DEFAULT_YEARS)
+    return fetch_and_cache(cache_path, api_key, years)
