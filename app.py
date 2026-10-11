@@ -1,5 +1,5 @@
-import matplotlib.pyplot as plt
 import numpy as np
+import plotly.graph_objects as go
 import streamlit as st
 
 from src.forecast import run_forecast
@@ -25,7 +25,7 @@ ci_68_hi = int(np.percentile(sim, 84))
 COMPETITIVE_THRESHOLD = 0.15  # 35–65% Dem win probability
 n_competitive = int(((districts["proba_dem"] - 0.5).abs() < COMPETITIVE_THRESHOLD).sum())
 
-tab_overview, tab_districts = st.tabs(["Overview", "Districts"])
+tab_overview, tab_districts, tab_map = st.tabs(["Overview", "Districts", "Map"])
 
 with tab_overview:
     c1, c2, c3, c4 = st.columns(4)
@@ -35,21 +35,15 @@ with tab_overview:
     c4.metric("Competitive (35–65% Dem)", n_competitive)
 
     st.subheader("Seat distribution — 10,000 simulations")
-    fig, ax = plt.subplots(figsize=(10, 4))
-    bins = np.arange(sim.min() - 0.5, sim.max() + 1.5, 1)
-    ax.hist(sim, bins=bins, color="#1565c0", alpha=0.75)
-    ax.axvspan(ci_68_lo, ci_68_hi, alpha=0.12, color="#1565c0",
-               label=f"68% CI  {ci_68_lo}–{ci_68_hi}")
-    ax.axvline(218, color="#333333", linestyle="--", linewidth=1.5, label="Majority (218)")
-    ax.axvline(median_dem, color="#e53935", linestyle="-", linewidth=2,
-               label=f"Median ({median_dem})")
-    ax.set_xlabel("Democratic seats")
-    ax.set_ylabel("Simulations")
-    ax.legend(fontsize=9)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    st.pyplot(fig)
-    plt.close(fig)
+    fig = go.Figure(go.Histogram(
+        x=sim,
+        xbins=dict(start=sim.min()-0.5, end=sim.max()+0.5, size=1),
+        marker_color=["#3366cc" if x >= 218 else "#cc3333" for x in range(int(sim.min()), int(sim.max())+1)],
+    ))
+    fig.add_vline(x=217.5, line_dash="dash", line_color="black")
+    fig.update_layout(showlegend=False, xaxis_title="Dem Seats", yaxis_title="Simulations",
+                      margin=dict(l=20,r=20,t=20,b=20), height=300)
+    st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("Competitive districts (35–65% Dem win probability)")
     comp = (
@@ -120,24 +114,77 @@ with tab_districts:
                 st.write(f"**Presidential lean (2020/24):** {sel['pres_lean'] * 100:.1f}%")
 
         with dcol2:
-            prob = float(sel["proba_dem"])
-            fig2, ax2 = plt.subplots(figsize=(6, 1.2))
-            ax2.barh([""], [prob], color="#1565c0", height=0.5)
-            ax2.barh([""], [1 - prob], left=[prob], color="#c62828", height=0.5)
-            ax2.axvline(0.5, color="white", linestyle="--", linewidth=1.5)
-            ax2.set_xlim(0, 1)
-            ax2.set_xticks([0, 0.25, 0.5, 0.75, 1])
-            ax2.set_xticklabels(["0%", "25%", "50%", "75%", "100%"])
-            ax2.spines["top"].set_visible(False)
-            ax2.spines["right"].set_visible(False)
-            ax2.spines["left"].set_visible(False)
-            if prob > 0.12:
-                ax2.text(prob / 2, 0, f"Dem {prob * 100:.0f}%",
-                         ha="center", va="center", color="white",
-                         fontweight="bold", fontsize=10)
-            if (1 - prob) > 0.12:
-                ax2.text(prob + (1 - prob) / 2, 0, f"Rep {(1 - prob) * 100:.0f}%",
-                         ha="center", va="center", color="white",
-                         fontweight="bold", fontsize=10)
-            st.pyplot(fig2)
-            plt.close(fig2)
+            row = sel
+            fig2 = go.Figure(go.Bar(
+                x=[row["proba_dem"]],
+                orientation="h",
+                marker_color="#3366cc" if row["proba_dem"] >= 0.5 else "#cc3333",
+            ))
+            fig2.update_layout(xaxis=dict(range=[0,1], title="P(Dem win)"),
+                               height=80, margin=dict(l=0,r=0,t=0,b=0),
+                               showlegend=False)
+            st.plotly_chart(fig2, use_container_width=True)
+
+            if "shap_values" in data:
+                shap_df = data["shap_values"]
+                idx = df.reset_index(drop=True).index[event.selection.rows[0]]
+                row_pos = event.selection.rows[0]
+                if row_pos < len(shap_df):
+                    sv = shap_df.iloc[row_pos].sort_values(key=abs, ascending=False).head(5)
+                    fig_shap = go.Figure(go.Bar(
+                        x=sv.values,
+                        y=sv.index,
+                        orientation="h",
+                        marker_color=["#3366cc" if v > 0 else "#cc3333" for v in sv.values],
+                    ))
+                    fig_shap.update_layout(
+                        title="Top SHAP drivers",
+                        height=250,
+                        margin=dict(l=0, r=0, t=30, b=0),
+                        xaxis_title="SHAP value (+ = Dem)",
+                    )
+                    st.plotly_chart(fig_shap, use_container_width=True)
+
+with tab_map:
+    import plotly.express as px
+
+    state_agg = (
+        districts
+        .groupby("state_po", as_index=False)
+        .agg(
+            mean_proba_dem=("proba_dem", "mean"),
+            n_competitive=("proba_dem", lambda s: int(((s - 0.5).abs() < COMPETITIVE_THRESHOLD).sum())),
+        )
+    )
+
+    fig_map = px.choropleth(
+        state_agg,
+        locations="state_po",
+        locationmode="USA-states",
+        color="mean_proba_dem",
+        color_continuous_scale="RdBu",
+        range_color=[0.2, 0.8],
+        scope="usa",
+        title="Average Dem win probability by state",
+        labels={"mean_proba_dem": "Avg Dem %"},
+    )
+    fig_map.update_layout(height=500)
+    st.plotly_chart(fig_map, use_container_width=True)
+
+    st.subheader("Most competitive states")
+    top_competitive = (
+        state_agg
+        .sort_values("n_competitive", ascending=False)
+        .head(5)
+        .copy()
+    )
+    top_competitive["Avg Dem %"] = (top_competitive["mean_proba_dem"] * 100).round(1)
+    top_competitive = top_competitive.rename(columns={
+        "state_po": "State",
+        "n_competitive": "Competitive districts",
+    })
+    st.dataframe(
+        top_competitive[["State", "Avg Dem %", "Competitive districts"]],
+        use_container_width=False,
+        hide_index=True,
+    )
