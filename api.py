@@ -1,12 +1,39 @@
+from contextlib import asynccontextmanager
+
+import numpy as np
 from fastapi import FastAPI
 from src.forecast import run_forecast
-import numpy as np
+from src.constants import Col
 
-app = FastAPI(title="US House Forecast 2026")
+_cache: dict | None = None
+
+def _get_forecast() -> dict:
+    global _cache
+    if _cache is None:
+        _cache = run_forecast()
+    return _cache
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _get_forecast()  # warm the cache on startup
+    yield
+
+app = FastAPI(title="US House Forecast 2026", lifespan=lifespan)
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "cache_ready": _cache is not None}
+
+@app.get("/refresh")
+def refresh():
+    global _cache
+    _cache = None
+    _get_forecast()
+    return {"status": "refreshed"}
 
 @app.get("/forecast")
 def forecast():
-    result = run_forecast()
+    result = _get_forecast()
     sim = result["seats_sim"]
     return {
         "median_dem_seats": int(np.median(sim)),
@@ -18,18 +45,17 @@ def forecast():
 
 @app.get("/districts")
 def districts():
-    result = run_forecast()
+    result = _get_forecast()
     df = result["districts"]
     return df[["label", "proba_dem", "district_incumbent"]].to_dict(orient="records")
 
 @app.get("/districts/{state}/{district_num}")
 def district_detail(state: str, district_num: int):
-    result = run_forecast()
+    from fastapi import HTTPException
+    result = _get_forecast()
     df = result["districts"]
-    from src.constants import Col
     row = df[(df[Col.STATE] == state.upper()) & (df[Col.DISTRICT] == district_num)]
     if row.empty:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="District not found")
     r = row.iloc[0]
     return {

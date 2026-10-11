@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 import mlflow
+import mlflow.sklearn
 import numpy as np
 
 from src.logging_config import setup_logging
@@ -140,6 +141,12 @@ def main() -> None:
         mlflow.log_metric("mean_abs_seat_error", wf["seat_error"].abs().mean())
 
         pipeline = train(X, y, sample_weight=compute_sample_weights(years))
+        mlflow.sklearn.log_model(
+            pipeline,
+            artifact_path="model",
+            registered_model_name="us-house-stacking-ensemble",
+        )
+        logger.info("Model logged to MLflow registry as 'us-house-stacking-ensemble'")
         pred_2026, district_ids = build_pred_2026(
             winners, dems_reps, X.columns, pres_lean=pres_lean, fundraising=fundraising
         )
