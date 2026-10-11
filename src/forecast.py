@@ -17,6 +17,8 @@ from src.features import (
 from src.fundraising import load_fundraising
 from src.model import compute_sample_weights, explain_districts, simulate_election, train
 
+__all__ = ["run_forecast"]
+
 
 def run_forecast(data_dir: Path = Path("data")) -> dict:
     """Run the full 2026 House forecast pipeline.
@@ -72,9 +74,10 @@ def run_forecast(data_dir: Path = Path("data")) -> dict:
         ).values
 
     sim = simulate_election(districts["proba_dem"].values)
-    districts["label"] = districts.apply(
-        lambda r: f"{r[Col.STATE]}-{'AL' if r[Col.DISTRICT] == 0 else r[Col.DISTRICT]}",
-        axis=1,
+    districts["label"] = np.where(
+        districts[Col.DISTRICT] == 0,
+        districts[Col.STATE].astype(str) + "-AL",
+        districts[Col.STATE].astype(str) + "-" + districts[Col.DISTRICT].astype(str),
     )
     incumbents_2024 = winners[winners[Col.YEAR] == 2024][
         [Col.STATE, Col.DISTRICT, Col.PARTY]
@@ -82,9 +85,10 @@ def run_forecast(data_dir: Path = Path("data")) -> dict:
     districts = districts.merge(
         incumbents_2024, on=[Col.STATE, Col.DISTRICT], how="left"
     )
-    districts["is_open"] = districts.apply(
-        lambda r: (r[Col.STATE], r[Col.DISTRICT]) in OPEN_SEATS_2026, axis=1
-    )
+    districts["is_open"] = [
+        (state, dist) in OPEN_SEATS_2026
+        for state, dist in zip(districts[Col.STATE], districts[Col.DISTRICT])
+    ]
     districts["dem_lean"] = pred_2026[Col.DEM_LEAN].values
     if Col.PRES_LEAN in pred_2026.columns:
         districts["pres_lean"] = pred_2026[Col.PRES_LEAN].values

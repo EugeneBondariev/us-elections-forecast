@@ -5,6 +5,11 @@ from pandera.typing import Series
 
 from src.constants import Col
 
+__all__ = [
+    "HouseDataSchema", "FeatureMatrixSchema",
+    "validate_house_data", "validate_feature_matrix",
+]
+
 
 class HouseDataSchema(pa.DataFrameModel):
     year: Series[int] = pa.Field(ge=1976, le=2030, alias=Col.YEAR)

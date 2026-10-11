@@ -20,6 +20,15 @@ from src.constants import (
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "get_top_candidate_per_party",
+    "build_dems_reps",
+    "build_winners",
+    "add_incumbency_features",
+    "build_feature_matrix",
+    "build_pred_2026",
+]
+
 _DROP_COLS = [
     Col.YEAR,
     Col.STATE,

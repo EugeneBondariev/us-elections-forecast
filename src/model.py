@@ -16,6 +16,15 @@ from src.constants import DEM_MAJORITY_SEATS
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "WeightedPipeline",
+    "build_pipeline", "build_gbm_pipeline", "build_rf_pipeline",
+    "build_ensemble", "build_stacking_ensemble", "build_calibrated_pipeline",
+    "compute_sample_weights", "train", "cross_validate",
+    "feature_weights", "walk_forward_cv", "walk_forward_feature_importance",
+    "explain_districts", "simulate_election", "bayesian_simulate", "bootstrap_ci",
+]
+
 class WeightedPipeline(Pipeline):
     """Pipeline that accepts sample_weight and routes it to the model step."""
     def fit(self, X, y, sample_weight=None, **params):

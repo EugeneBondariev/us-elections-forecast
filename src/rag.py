@@ -1,5 +1,7 @@
 """RAG system: embed district fact sheets, retrieve by natural language query."""
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 import numpy as np
@@ -7,10 +9,12 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["build_index", "load_index", "retrieve", "rag_answer"]
+
 CHROMA_DIR = Path("data/chroma_db")
 
 
-def _district_to_text(row: pd.Series) -> str:
+def _district_to_text(row: dict | pd.Series) -> str:
     """Convert a district row to a searchable text document."""
     label = row.get("label", f"{row.get('state_po','?')}-{row.get('district','?')}")
     proba = row.get("proba_dem", 0.5)
@@ -47,9 +51,9 @@ def build_index(districts: pd.DataFrame, persist: bool = True) -> object:
     )
 
     docs, ids, metas = [], [], []
-    for _, row in districts.iterrows():
+    for row in districts.to_dict(orient="records"):
         text = _district_to_text(row)
-        label = row.get("label", str(row.name))
+        label = str(row.get("label", row.get("district", "unknown")))
         docs.append(text)
         ids.append(label)
         metas.append({

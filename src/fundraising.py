@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import time
@@ -7,6 +9,8 @@ import pandas as pd
 import requests
 
 logger = logging.getLogger(__name__)
+
+__all__ = ["load_fundraising", "fetch_and_cache"]
 
 FEC_BASE = "https://api.fec.gov/v1"
 DEFAULT_YEARS = [2014, 2016, 2018, 2020, 2022, 2024, 2026]
@@ -101,10 +105,15 @@ def fetch_and_cache(cache_path, api_key: str, years=None) -> pd.DataFrame:
     return result
 
 
-def load_fundraising(cache_path, api_key: str = None, years=None) -> pd.DataFrame | None:
+def load_fundraising(
+    cache_path: str | Path,
+    api_key: str | None = None,
+    years: list[int] | None = None,
+) -> pd.DataFrame | None:
     """Load fundraising data from cache if available, otherwise fetch from FEC API.
 
-    Returns None (silently) if no API key is provided and no cache exists.
+    Returns None if no API key is provided and no cache exists — callers treat
+    None as "feature unavailable" and skip fundraising columns.
     """
     cache_path = Path(cache_path)
 

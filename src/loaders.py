@@ -10,6 +10,13 @@ from src.constants import Col, Val, PRES_PARTY
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "load_pres_lean",
+    "load_clean_house_data",
+    "load_cook_ratings",
+    "load_approval",
+]
+
 
 def load_pres_lean(path_2008_2020: str | Path, path_2020_2024: str | Path) -> pd.DataFrame:
     """Parse presidential results by district from two Downballot CSVs.
@@ -53,31 +60,27 @@ def load_pres_lean(path_2008_2020: str | Path, path_2020_2024: str | Path) -> pd
     df2[Col.STATE] = [p[0] for p in parsed2]
     df2[Col.DISTRICT] = [p[1] for p in parsed2]
 
-    records = []
-    for _, row in df1.iterrows():
-        for col_name, year in [("obama_08", 2008), ("obama_12", 2012), ("clinton_16", 2016), ("biden_20", 2020)]:
-            try:
-                records.append({
-                    Col.STATE: row[Col.STATE],
-                    Col.DISTRICT: row[Col.DISTRICT],
-                    "pres_year": year,
-                    Col.PRES_LEAN: float(row[col_name]) / 100,
-                })
-            except (ValueError, TypeError):
-                pass
-    for _, row in df2.iterrows():
-        try:
-            records.append({
-                Col.STATE: row[Col.STATE],
-                Col.DISTRICT: row[Col.DISTRICT],
-                "pres_year": 2024,
-                Col.PRES_LEAN: float(row["harris_24"]) / 100,
-            })
-        except (ValueError, TypeError):
-            pass
+    year_col_map = {"obama_08": 2008, "obama_12": 2012, "clinton_16": 2016, "biden_20": 2020}
+    df1_long = (
+        df1[[Col.STATE, Col.DISTRICT] + list(year_col_map.keys())]
+        .melt(id_vars=[Col.STATE, Col.DISTRICT], var_name="col_name", value_name="raw")
+    )
+    df1_long["pres_year"] = df1_long["col_name"].map(year_col_map)
+    df1_long[Col.PRES_LEAN] = pd.to_numeric(df1_long["raw"], errors="coerce") / 100
+    df1_long = df1_long.dropna(subset=[Col.PRES_LEAN])
 
-    logger.info("Loaded presidential lean: %d district-year records", len(records))
-    return pd.DataFrame(records)
+    df2_long = df2[[Col.STATE, Col.DISTRICT, "harris_24"]].copy()
+    df2_long["pres_year"] = 2024
+    df2_long[Col.PRES_LEAN] = pd.to_numeric(df2_long["harris_24"], errors="coerce") / 100
+    df2_long = df2_long.dropna(subset=[Col.PRES_LEAN])
+
+    result = pd.concat(
+        [df1_long[[Col.STATE, Col.DISTRICT, "pres_year", Col.PRES_LEAN]],
+         df2_long[[Col.STATE, Col.DISTRICT, "pres_year", Col.PRES_LEAN]]],
+        ignore_index=True,
+    )
+    logger.info("Loaded presidential lean: %d district-year records", len(result))
+    return result
 
 
 def load_clean_house_data(path: str | Path) -> pd.DataFrame:

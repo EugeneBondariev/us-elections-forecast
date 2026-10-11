@@ -8,6 +8,8 @@ from src.constants import DEM_MAJORITY_SEATS
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["generate_narrative"]
+
 SYSTEM_PROMPT = """You are a nonpartisan political analyst writing a concise forecast briefing.
 Your audience: politically-informed readers who want data-driven analysis, not spin.
 Rules:
@@ -34,12 +36,11 @@ def _build_prompt(sim: np.ndarray, districts: pd.DataFrame, n_districts: int) ->
         .head(10)
     )
     comp_lines = []
-    for _, r in comp.iterrows():
-        lean = "Dem" if r["proba_dem"] >= 0.5 else "Rep"
-        inc = r.get("district_incumbent", "unknown")
-        open_seat = r.get("is_open", False)
+    for r in comp.itertuples(index=False):
+        inc = getattr(r, "district_incumbent", "unknown")
+        open_seat = getattr(r, "is_open", False)
         tag = " (open seat)" if open_seat else f" (incumbent: {str(inc).title()})"
-        comp_lines.append(f"  {r['label']}: {r['proba_dem']*100:.1f}% Dem{tag}")
+        comp_lines.append(f"  {r.label}: {r.proba_dem*100:.1f}% Dem{tag}")
 
     # Open seats count
     n_open = int(districts.get("is_open", pd.Series(dtype=bool)).sum()) if "is_open" in districts.columns else "unknown"
