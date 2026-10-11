@@ -4,7 +4,7 @@ from pathlib import Path
 from src.forecast import run_forecast
 from src.rag import build_index
 
-def main():
+def main() -> None:
     print("Running forecast to get districts...")
     result = run_forecast()
     districts = result["districts"]

@@ -3,8 +3,7 @@
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
-from sklearn.calibration import CalibratedClassifierCV, calibration_curve
+from sklearn.calibration import calibration_curve
 from sklearn.metrics import brier_score_loss
 from sklearn.model_selection import cross_val_predict
 
@@ -19,9 +18,10 @@ from src.loaders import load_approval, load_clean_house_data
 from src.model import build_calibrated_pipeline, build_pipeline
 
 DATA_DIR = Path("data")
+OUTPUTS_DIR = Path("outputs")
 
 
-def main():
+def main() -> None:
     df = load_clean_house_data(DATA_DIR / "1976-2024-house.tab")
     top_candidates = get_top_candidate_per_party(df)
     dems_reps = build_dems_reps(top_candidates)
@@ -51,11 +51,11 @@ def main():
     ax.set_title("Reliability diagram — LR calibration")
     ax.legend()
     ax.grid(alpha=0.3)
-    plt.tight_layout()
-    out = DATA_DIR / "calibration_curve.png"
-    plt.savefig(out, dpi=150)
+    fig.tight_layout()
+    out = OUTPUTS_DIR / "calibration_curve.png"
+    fig.savefig(out, dpi=150)
     print(f"Saved: {out}")
-    plt.close()
+    plt.close(fig)
 
 
 if __name__ == "__main__":

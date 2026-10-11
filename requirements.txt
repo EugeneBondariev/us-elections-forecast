@@ -14,3 +14,4 @@ requests==2.34.2
 pandera>=0.20
 anthropic>=0.40
 chromadb>=0.5
+statsmodels>=0.14

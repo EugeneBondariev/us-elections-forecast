@@ -13,6 +13,8 @@ Usage:
     python scripts/feature_significance.py
 """
 
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
@@ -34,7 +36,8 @@ from src.features import (
 )
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
-OUTPUT_PATH = DATA_DIR / "feature_significance.png"
+OUTPUTS_DIR = Path(__file__).resolve().parents[1] / "outputs"
+OUTPUT_PATH = OUTPUTS_DIR / "feature_significance.png"
 N_PERMUTATIONS = 1000
 TOP_N_PERMUTATION = 5
 TOP_N_CHART = 20
@@ -167,7 +170,7 @@ def save_significance_chart(
 
 # ── main ─────────────────────────────────────────────────────────────────────
 
-def main():
+def main() -> None:
     # ── Load data (same pattern as conftest.py) ───────────────────────────────
     print("Loading data...")
     df = load_clean_house_data(DATA_DIR / "1976-2024-house.tab")

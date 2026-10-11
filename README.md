@@ -7,11 +7,10 @@ Predicts 2026 US House election outcomes district-by-district using a stacking e
 
 ```
 src/           Model pipeline, feature engineering, loaders, forecast backend, RAG, narrative
-scripts/       One-off analysis scripts (Cook parser, SHAP, calibration, tuning, agent CLI, etc.)
+scripts/       Pipeline and analysis scripts (predict, Cook parser, SHAP, calibration, tuning, agent CLI, etc.)
 tests/         Pytest suite — unit tests run without data files; integration tests skip if absent
 api.py         FastAPI endpoints (cached on startup, /health, /refresh)
 app.py         Streamlit dashboard
-predict.py     CLI: walk-forward validation, MLflow logging, LLM narrative
 ```
 
 ## Data requirements
@@ -31,7 +30,7 @@ Optional: `cook.html` (run `python scripts/parse_cook.py` after saving) and `fec
 
 ```bash
 pip install -r requirements.txt
-python predict.py          # CLI forecast + MLflow logging
+python scripts/predict.py  # CLI forecast + MLflow logging
 streamlit run app.py       # dashboard at localhost:8501
 uvicorn api:app --reload   # REST API at localhost:8000
 docker compose up          # both services via Docker
@@ -48,6 +47,7 @@ Walk-forward CV (always train on years < test year) feeds a stacking ensemble �
 
 | Script | What it does |
 |---|---|
+| `predict.py` | CLI forecast: walk-forward validation, MLflow logging, LLM narrative |
 | `parse_cook.py` | Cook Political Report HTML → `data/cook.csv` |
 | `build_db.py` | Source CSVs → SQLite (`data/elections.db`) |
 | `tune.py` | Optuna hyperparameter search for LightGBM |

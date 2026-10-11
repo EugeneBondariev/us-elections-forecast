@@ -3,7 +3,6 @@
 import os
 import json
 import numpy as np
-import pandas as pd
 from src.constants import DEM_MAJORITY_SEATS
 
 TOOLS = [
@@ -80,13 +79,13 @@ def _run_tool(name: str, inputs: dict, forecast: dict) -> str:
             .head(n)
         )
         rows = []
-        for _, r in comp.iterrows():
+        for r in comp.itertuples(index=False):
             rows.append({
-                "label": r["label"],
-                "proba_dem_pct": round(r["proba_dem"] * 100, 1),
-                "lean": "Dem" if r["proba_dem"] >= 0.5 else "Rep",
-                "incumbent": str(r.get("district_incumbent", "unknown")).title(),
-                "is_open": bool(r.get("is_open", False)),
+                "label": r.label,
+                "proba_dem_pct": round(r.proba_dem * 100, 1),
+                "lean": "Dem" if r.proba_dem >= 0.5 else "Rep",
+                "incumbent": str(getattr(r, "district_incumbent", "unknown")).title(),
+                "is_open": bool(getattr(r, "is_open", False)),
             })
         return json.dumps(rows)
 
@@ -118,11 +117,11 @@ def _run_tool(name: str, inputs: dict, forecast: dict) -> str:
         if state_df.empty:
             return json.dumps({"error": f"No districts found for state {state}"})
         rows = []
-        for _, r in state_df.iterrows():
+        for r in state_df.itertuples(index=False):
             rows.append({
-                "label": r["label"],
-                "proba_dem_pct": round(float(r["proba_dem"]) * 100, 1),
-                "lean": "Dem" if r["proba_dem"] >= 0.5 else "Rep",
+                "label": r.label,
+                "proba_dem_pct": round(float(r.proba_dem) * 100, 1),
+                "lean": "Dem" if r.proba_dem >= 0.5 else "Rep",
             })
         return json.dumps({"state": state, "n_districts": len(rows), "districts": rows})
 
@@ -172,7 +171,7 @@ def run_agent(user_question: str, forecast: dict, api_key: str) -> str:
     return "No response generated."
 
 
-def main():
+def main() -> None:
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         print("Error: ANTHROPIC_API_KEY environment variable not set.")

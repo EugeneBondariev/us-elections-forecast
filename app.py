@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -57,7 +58,7 @@ with tab_overview:
         .copy()
     )
     comp["Dem win %"] = (comp["proba_dem"] * 100).round(1)
-    comp["Lean"] = comp["proba_dem"].apply(lambda p: "Dem" if p >= 0.5 else "Rep")
+    comp["Lean"] = np.where(comp["proba_dem"] >= 0.5, "Dem", "Rep")
     comp = comp.rename(columns={
         "label": "District",
         "district_incumbent": "Incumbent party",
@@ -160,8 +161,6 @@ with tab_districts:
                     st.plotly_chart(fig_shap, use_container_width=True)
 
 with tab_map:
-    import plotly.express as px
-
     state_agg = (
         districts
         .groupby("state_po", as_index=False)

@@ -50,7 +50,7 @@ def parse(html: str) -> list[dict]:
     return rows
 
 
-def main():
+def main() -> None:
     root = Path(__file__).parent.parent
     html_path = root / "data" / "cook.html"
     csv_path = root / "data" / "cook.csv"

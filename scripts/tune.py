@@ -75,7 +75,7 @@ def objective(trial, X, y, years):
     return float(np.mean(accuracies)) if accuracies else 0.0
 
 
-def main():
+def main() -> None:
     print("Loading data...")
     X, y, years = load_data()
     print(f"  {len(X)} rows, {X.shape[1]} features, years {years.min()}-{years.max()}")

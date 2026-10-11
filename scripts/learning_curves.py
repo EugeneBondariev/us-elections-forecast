@@ -17,6 +17,7 @@ from src.loaders import load_approval, load_clean_house_data
 from src.model import build_gbm_pipeline, build_pipeline
 
 DATA_DIR = Path("data")
+OUTPUTS_DIR = Path("outputs")
 
 
 def _plot_curve(ax, train_sizes, train_scores, cv_scores, title):
@@ -38,7 +39,7 @@ def _plot_curve(ax, train_sizes, train_scores, cv_scores, title):
     ax.set_ylim(0.5, 1.02)
 
 
-def main():
+def main() -> None:
     df = load_clean_house_data(DATA_DIR / "1976-2024-house.tab")
     top_candidates = get_top_candidate_per_party(df)
     dems_reps = build_dems_reps(top_candidates)
@@ -67,12 +68,12 @@ def main():
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
     _plot_curve(ax1, ts_lr, tr_lr, cv_lr, "Logistic Regression")
     _plot_curve(ax2, ts_gbm, tr_gbm, cv_gbm, "LightGBM")
-    plt.suptitle("Learning curves — US House district classifier", y=1.01)
-    plt.tight_layout()
-    out = DATA_DIR / "learning_curves.png"
-    plt.savefig(out, dpi=150, bbox_inches="tight")
+    fig.suptitle("Learning curves — US House district classifier", y=1.01)
+    fig.tight_layout()
+    out = OUTPUTS_DIR / "learning_curves.png"
+    fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved: {out}")
-    plt.close()
+    plt.close(fig)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,10 @@
 import logging
 import os
+import sys
 import tempfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import mlflow
 import mlflow.sklearn
@@ -41,10 +44,10 @@ def _label(state_po: str, district: int) -> str:
 def _log_walk_forward(wf) -> None:
     logger.info("Walk-forward validation (2000-2024):")
     logger.info("  %4s  %6s  %6s  %6s  %8s", "year", "actual", "pred", "error", "accuracy")
-    for _, row in wf.iterrows():
+    for row in wf.itertuples(index=False):
         logger.info("  %4d  %6d  %6d  %+6d  %7.1f%%",
-                    row["year"], row["actual_dem"], row["predicted_dem"],
-                    row["seat_error"], row["district_accuracy"] * 100)
+                    row.year, row.actual_dem, row.predicted_dem,
+                    row.seat_error, row.district_accuracy * 100)
     logger.info("  Mean absolute seat error: %.1f", wf["seat_error"].abs().mean())
 
 
@@ -72,9 +75,9 @@ def _log_competitive_districts(district_ids) -> None:
         .head(15)
     )
     logger.info("Most competitive districts:")
-    for _, row in competitive.iterrows():
-        lean = "Dem" if row["proba_dem"] >= 0.5 else "Rep"
-        logger.info("  %-8s  %.1f%% %s", row["label"], row["proba_dem"] * 100, lean)
+    for row in competitive.itertuples(index=False):
+        lean = "Dem" if row.proba_dem >= 0.5 else "Rep"
+        logger.info("  %-8s  %.1f%% %s", row.label, row.proba_dem * 100, lean)
 
 
 def _log_feature_weights(pipeline, X_columns) -> None:
@@ -135,9 +138,9 @@ def main() -> None:
 
         _log_feature_stability(walk_forward_feature_importance(X, y, years))
 
-        for _, row in wf.iterrows():
-            mlflow.log_metric(f"accuracy_{int(row['year'])}", row["district_accuracy"])
-            mlflow.log_metric(f"seat_error_{int(row['year'])}", row["seat_error"])
+        for row in wf.itertuples(index=False):
+            mlflow.log_metric(f"accuracy_{int(row.year)}", row.district_accuracy)
+            mlflow.log_metric(f"seat_error_{int(row.year)}", row.seat_error)
         mlflow.log_metric("mean_wf_accuracy", wf["district_accuracy"].mean())
         mlflow.log_metric("mean_abs_seat_error", wf["seat_error"].abs().mean())
 

@@ -13,7 +13,7 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 DB_PATH = DATA_DIR / "elections.db"
 
 
-def main():
+def main() -> None:
     conn = sqlite3.connect(DB_PATH)
     try:
         # Table: house_results

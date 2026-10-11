@@ -3,6 +3,8 @@
 Usage:
     python scripts/pca_analysis.py
 """
+from __future__ import annotations
+
 import os
 import sys
 from pathlib import Path
@@ -26,12 +28,13 @@ from src.fundraising import load_fundraising
 from src.loaders import load_approval, load_clean_house_data, load_pres_lean
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
-OUTPUT_PATH = DATA_DIR / "pca_plot.png"
+OUTPUTS_DIR = Path(__file__).resolve().parents[1] / "outputs"
+OUTPUT_PATH = OUTPUTS_DIR / "pca_plot.png"
 N_COMPONENTS = 10
 TOP_N_FEATURES = 5
 
 
-def main():
+def main() -> None:
     # ── Load data via the project pipeline ──────────────────────────────────
     df = load_clean_house_data(DATA_DIR / "1976-2024-house.tab")
     top_candidates = get_top_candidate_per_party(df)
