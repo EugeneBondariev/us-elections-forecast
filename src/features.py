@@ -42,6 +42,7 @@ _DROP_COLS = [
 
 
 def get_top_candidate_per_party(df: pd.DataFrame) -> pd.DataFrame:
+    """Return the highest-vote candidate per party-district-year."""
     return (
         df.loc[
             df.groupby([Col.YEAR, Col.STATE, Col.DISTRICT, Col.PARTY])[
@@ -54,6 +55,7 @@ def get_top_candidate_per_party(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_dems_reps(top_candidates: pd.DataFrame, dem_lean_window: int = 4) -> pd.DataFrame:
+    """Merge Dem/Rep top candidates and compute rolling lean and trend features."""
     logger.info("Computing dem lean features (window=%d)", dem_lean_window)
     reps = top_candidates[top_candidates[Col.PARTY] == Val.REPUBLICAN][
         [Col.YEAR, Col.STATE, Col.DISTRICT, Col.CANDIDATE_VOTES]
@@ -100,6 +102,7 @@ def build_winners(
     pres_lean: pd.DataFrame | None = None,
     fundraising: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
+    """Build winners table by merging top candidates with structural and economic features."""
     logger.info("Building winners table")
     winners = top_candidates.loc[
         top_candidates.groupby([Col.YEAR, Col.STATE, Col.DISTRICT])[
@@ -140,6 +143,7 @@ def build_winners(
 
 
 def add_incumbency_features(winners: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
+    """Add is_incumbent, prev_winner, and redistricting flag to the winners table."""
     logger.info("Adding incumbency features")
     winner_names = (
         df.loc[

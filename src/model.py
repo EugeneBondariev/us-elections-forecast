@@ -34,6 +34,7 @@ class WeightedPipeline(Pipeline):
 
 
 def build_pipeline() -> WeightedPipeline:
+    """Logistic Regression pipeline with StandardScaler."""
     return WeightedPipeline([
         ("scaler", StandardScaler()),
         ("model", LogisticRegression(max_iter=1000)),
@@ -41,6 +42,7 @@ def build_pipeline() -> WeightedPipeline:
 
 
 def build_gbm_pipeline() -> WeightedPipeline:
+    """LightGBM pipeline with StandardScaler."""
     return WeightedPipeline([
         ("scaler", StandardScaler()),
         ("model", LGBMClassifier(
@@ -57,6 +59,7 @@ def build_gbm_pipeline() -> WeightedPipeline:
 
 
 def build_rf_pipeline() -> WeightedPipeline:
+    """Random Forest pipeline with StandardScaler."""
     return WeightedPipeline([
         ("scaler", StandardScaler()),
         ("model", RandomForestClassifier(
@@ -96,6 +99,7 @@ def build_stacking_ensemble() -> StackingClassifier:
 
 
 def build_calibrated_pipeline() -> CalibratedClassifierCV:
+    """Isotonic-calibrated LR pipeline (5-fold)."""
     return CalibratedClassifierCV(build_pipeline(), method="isotonic", cv=5)
 
 
@@ -106,6 +110,7 @@ def compute_sample_weights(years: pd.Series, half_life: int = 4) -> np.ndarray:
 
 
 def train(X: pd.DataFrame, y: pd.Series, sample_weight: np.ndarray | None = None) -> StackingClassifier:
+    """Fit stacking ensemble on X, y and return the trained model."""
     logger.info("Training stacking ensemble on %d samples, %d features", len(X), X.shape[1])
     model = build_stacking_ensemble()
     model.fit(X, y, sample_weight=sample_weight)
@@ -113,6 +118,7 @@ def train(X: pd.DataFrame, y: pd.Series, sample_weight: np.ndarray | None = None
 
 
 def cross_validate(X: pd.DataFrame, y: pd.Series, cv: int = 5) -> float:
+    """Return mean stratified CV accuracy for the base LR pipeline."""
     logger.info("Running %d-fold cross-validation", cv)
     return cross_val_score(build_pipeline(), X, y, cv=cv).mean()
 

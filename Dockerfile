@@ -9,7 +9,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project
 COPY src/ src/
 COPY data/ data/
-COPY app.py predict.py api.py ./
+COPY app.py api.py ./
+COPY scripts/ scripts/
 
 # Default: run streamlit
 EXPOSE 8501 8000

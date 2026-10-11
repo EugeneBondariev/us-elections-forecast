@@ -1,8 +1,10 @@
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
 from src.constants import Col, Val, GENERIC_BALLOT, PRES_PARTY, REDISTRICTING_YEARS
-from src.loaders import load_approval, load_clean_house_data
+from src.loaders import load_approval, load_clean_house_data, load_cook_ratings, load_pres_lean
 from src.features import build_dems_reps, build_pred_2026
 
 ELECTION_YEARS = set(range(1976, 2025, 2))
@@ -207,6 +209,73 @@ class TestBuildPred2026:
             real_data["winners"], real_data["dems_reps"], real_data["X"].columns
         )
         assert len(pred) > 400
+
+
+class TestLoadCookRatings:
+    def test_missing_file_returns_empty(self, tmp_path):
+        result = load_cook_ratings(tmp_path / "nonexistent.csv")
+        assert result.empty
+        assert Col.COOK_PROB in result.columns
+
+    def test_loads_correct_columns(self, tmp_path):
+        p = tmp_path / "cook.csv"
+        p.write_text("state_po,district,rating,cook_prob\nPA,7,lean-d,0.72\nAZ,6,tossup,0.50\n")
+        result = load_cook_ratings(p)
+        assert len(result) == 2
+        assert set(result.columns) == {Col.STATE, Col.DISTRICT, Col.COOK_PROB}
+
+    def test_cook_prob_bounded(self, tmp_path):
+        p = tmp_path / "cook.csv"
+        p.write_text("state_po,district,rating,cook_prob\nPA,7,lean-d,0.72\nAZ,6,tossup,0.50\n")
+        result = load_cook_ratings(p)
+        assert result[Col.COOK_PROB].between(0, 1).all()
+
+
+class TestLoadPresLean:
+    @staticmethod
+    def _write_2008_2020(tmp_path: Path) -> Path:
+        lines = (
+            "header row 1\n"
+            "header row 2\n"
+            "CA-1,incumbent,DEMOCRAT,55,45,52,48,54,46,53,47\n"
+        )
+        p = tmp_path / "pres_2008_2020.csv"
+        p.write_text(lines)
+        return p
+
+    @staticmethod
+    def _write_2020_2024(tmp_path: Path) -> Path:
+        lines = (
+            "header row 1\n"
+            "header row 2\n"
+            "header row 3\n"
+            "CA-1,incumbent,DEMOCRAT,51,49,2,55,45,10\n"
+        )
+        p = tmp_path / "pres_2020_2024.csv"
+        p.write_text(lines)
+        return p
+
+    def test_required_columns(self, tmp_path):
+        result = load_pres_lean(
+            self._write_2008_2020(tmp_path),
+            self._write_2020_2024(tmp_path),
+        )
+        for col in (Col.STATE, Col.DISTRICT, "pres_year", Col.PRES_LEAN):
+            assert col in result.columns
+
+    def test_pres_lean_bounded(self, tmp_path):
+        result = load_pres_lean(
+            self._write_2008_2020(tmp_path),
+            self._write_2020_2024(tmp_path),
+        )
+        assert result[Col.PRES_LEAN].between(0, 1).all()
+
+    def test_covers_expected_years(self, tmp_path):
+        result = load_pres_lean(
+            self._write_2008_2020(tmp_path),
+            self._write_2020_2024(tmp_path),
+        )
+        assert {2008, 2012, 2016, 2020, 2024}.issubset(set(result["pres_year"].unique()))
 
 
 @pytest.mark.usefixtures("real_data")

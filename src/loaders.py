@@ -84,6 +84,7 @@ def load_pres_lean(path_2008_2020: str | Path, path_2020_2024: str | Path) -> pd
 
 
 def load_clean_house_data(path: str | Path) -> pd.DataFrame:
+    """Load MIT Election Lab house CSV and apply standard filters (general, no special/runoff)."""
     logger.info("Loading house data from %s", path)
     df = pd.read_csv(path, low_memory=False)
 
@@ -118,6 +119,7 @@ def load_clean_house_data(path: str | Path) -> pd.DataFrame:
 
 
 def load_cook_ratings(path: str | Path) -> pd.DataFrame:
+    """Load Cook Political cook.csv; return empty DataFrame with correct columns if file is absent."""
     path = Path(path)
     if not path.exists():
         logger.info("cook.csv not found at %s — skipping Cook blend", path)
@@ -128,6 +130,7 @@ def load_cook_ratings(path: str | Path) -> pd.DataFrame:
 
 
 def load_approval(path: str | Path) -> pd.DataFrame:
+    """Load presidential approval TSV; sign-adjust so positive approval = Dem-favorable."""
     logger.info("Loading approval ratings from %s", path)
     approval = pd.read_csv(
         path,

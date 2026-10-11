@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 import numpy as np
 from src.forecast import run_forecast
 from src.constants import Col, DEM_MAJORITY_SEATS
@@ -39,7 +39,6 @@ def districts(request: Request):
 
 @app.get("/districts/{state}/{district_num}")
 def district_detail(state: str, district_num: int, request: Request):
-    from fastapi import HTTPException
     df = request.app.state.forecast["districts"]
     row = df[(df[Col.STATE] == state.upper()) & (df[Col.DISTRICT] == district_num)]
     if row.empty:
