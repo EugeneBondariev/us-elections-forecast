@@ -8,11 +8,11 @@ from src.features import (
     add_incumbency_features,
     build_dems_reps,
     build_feature_matrix,
-    build_party_votes,
+    get_top_candidate_per_party,
     build_pred_2026,
     build_winners,
     load_approval,
-    load_house_data,
+    load_clean_house_data,
 )
 from src.model import (
     cross_validate,
@@ -20,6 +20,7 @@ from src.model import (
     simulate_election,
     train,
     walk_forward_cv,
+    walk_forward_feature_importance,
 )
 
 DATA_DIR = Path("data")
@@ -75,21 +76,30 @@ def _log_feature_weights(pipeline, X_columns) -> None:
         logger.info("  %s: %.1f%%", feat, w)
 
 
+def _log_feature_stability(fi) -> None:
+    logger.info("Feature importance stability (walk-forward 2000-2024):")
+    logger.info("  %-45s  %5s  %5s  %5s", "feature", "min%", "max%", "std")
+    for col in fi.columns:
+        logger.info("  %-45s  %5.1f  %5.1f  %5.1f",
+                    col, fi[col].min(), fi[col].max(), fi[col].std())
+
+
 def main() -> None:
     log_path = setup_logging()
     logger.info("Run log: %s", log_path)
 
-    df = load_house_data(DATA_DIR / "1976-2024-house.tab")
-    party_votes = build_party_votes(df)
-    dems_reps = build_dems_reps(party_votes)
+    df = load_clean_house_data(DATA_DIR / "1976-2024-house.tab")
+    top_candidates = get_top_candidate_per_party(df)
+    dems_reps = build_dems_reps(top_candidates)
     approval = load_approval(DATA_DIR / "Approval-Ratings-for-POTUS-raw.xls")
-    winners = build_winners(party_votes, dems_reps, approval)
+    winners = build_winners(top_candidates, dems_reps, approval)
     winners = add_incumbency_features(winners, df)
     X, y, years = build_feature_matrix(winners)
 
     wf = walk_forward_cv(X, y, years)
     _log_walk_forward(wf)
     _log_cv_summary(wf, cross_validate(X, y))
+    _log_feature_stability(walk_forward_feature_importance(X, y, years))
 
     pipeline = train(X, y)
     pred_2026, district_ids = build_pred_2026(winners, dems_reps, X.columns)

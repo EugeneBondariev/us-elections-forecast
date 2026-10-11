@@ -6,10 +6,10 @@ from src.features import (
     add_incumbency_features,
     build_dems_reps,
     build_feature_matrix,
-    build_party_votes,
+    get_top_candidate_per_party,
     build_winners,
     load_approval,
-    load_house_data,
+    load_clean_house_data,
 )
 
 DATA_DIR = Path("data")
@@ -19,16 +19,16 @@ DATA_DIR = Path("data")
 def real_data():
     if not (DATA_DIR / "1976-2024-house.tab").exists():
         pytest.skip("data files not present")
-    df = load_house_data(DATA_DIR / "1976-2024-house.tab")
-    party_votes = build_party_votes(df)
-    dems_reps = build_dems_reps(party_votes)
+    df = load_clean_house_data(DATA_DIR / "1976-2024-house.tab")
+    top_candidates = get_top_candidate_per_party(df)
+    dems_reps = build_dems_reps(top_candidates)
     approval = load_approval(DATA_DIR / "Approval-Ratings-for-POTUS-raw.xls")
-    winners = build_winners(party_votes, dems_reps, approval)
+    winners = build_winners(top_candidates, dems_reps, approval)
     winners = add_incumbency_features(winners, df)
     X, y, years = build_feature_matrix(winners)
     return {
         "df": df,
-        "party_votes": party_votes,
+        "top_candidates": top_candidates,
         "dems_reps": dems_reps,
         "winners": winners,
         "X": X,

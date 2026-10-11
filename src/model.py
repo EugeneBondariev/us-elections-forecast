@@ -75,6 +75,29 @@ def walk_forward_cv(
     return pd.DataFrame(results)
 
 
+def walk_forward_feature_importance(
+    X: pd.DataFrame,
+    y: pd.Series,
+    years: pd.Series,
+    start_test_year: int = 2000,
+) -> pd.DataFrame:
+    """Feature weight (%) per walk-forward year.
+
+    Rows = test years, columns = features. Useful for checking whether the model
+    leans on the same signals consistently or shifts across eras.
+    """
+    test_years = sorted(yr for yr in years.unique() if yr >= start_test_year)
+    rows = []
+    for test_year in test_years:
+        train_idx = years[years < test_year].index
+        if len(train_idx) == 0:
+            continue
+        pipeline = build_pipeline()
+        pipeline.fit(X.loc[train_idx], y.loc[train_idx])
+        rows.append({"year": test_year, **feature_weights(pipeline, X.columns)})
+    return pd.DataFrame(rows).set_index("year")
+
+
 def simulate_election(
     proba: np.ndarray,
     n: int = 10_000,
