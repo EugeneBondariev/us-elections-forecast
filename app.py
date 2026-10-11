@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.forecast import run_forecast
+from src.constants import COMPETITIVE_MARGIN, DEM_MAJORITY_SEATS
 
 st.set_page_config(page_title="2026 US House Forecast", layout="wide")
 st.title("2026 US House Election Forecast")
@@ -21,11 +22,10 @@ districts = data["districts"]
 n_districts = data["n_districts"]
 
 median_dem = int(np.median(sim))
-p_majority = float((sim >= 218).mean() * 100)
+p_majority = float((sim >= DEM_MAJORITY_SEATS).mean() * 100)
 ci_68_lo = int(np.percentile(sim, 16))
 ci_68_hi = int(np.percentile(sim, 84))
-COMPETITIVE_THRESHOLD = 0.15  # 35–65% Dem win probability
-n_competitive = int(((districts["proba_dem"] - 0.5).abs() < COMPETITIVE_THRESHOLD).sum())
+n_competitive = int(((districts["proba_dem"] - 0.5).abs() < COMPETITIVE_MARGIN).sum())
 
 tab_overview, tab_districts, tab_map = st.tabs(["Overview", "Districts", "Map"])
 
@@ -40,7 +40,7 @@ with tab_overview:
     fig = go.Figure(go.Histogram(
         x=sim,
         xbins=dict(start=sim.min()-0.5, end=sim.max()+0.5, size=1),
-        marker_color=["#3366cc" if x >= 218 else "#cc3333" for x in range(int(sim.min()), int(sim.max())+1)],
+        marker_color=["#3366cc" if x >= DEM_MAJORITY_SEATS else "#cc3333" for x in range(int(sim.min()), int(sim.max())+1)],
     ))
     fig.add_vline(x=217.5, line_dash="dash", line_color="black")
     fig.update_layout(showlegend=False, xaxis_title="Dem Seats", yaxis_title="Simulations",
@@ -51,7 +51,7 @@ with tab_overview:
     comp = (
         districts
         .assign(margin=lambda df: (df["proba_dem"] - 0.5).abs())
-        .query("margin < @COMPETITIVE_THRESHOLD")
+        .query("margin < @COMPETITIVE_MARGIN")
         .sort_values("margin")
         [["label", "proba_dem", "district_incumbent", "is_open"]]
         .copy()
@@ -167,7 +167,7 @@ with tab_map:
         .groupby("state_po", as_index=False)
         .agg(
             mean_proba_dem=("proba_dem", "mean"),
-            n_competitive=("proba_dem", lambda s: int(((s - 0.5).abs() < COMPETITIVE_THRESHOLD).sum())),
+            n_competitive=("proba_dem", lambda s: int(((s - 0.5).abs() < COMPETITIVE_MARGIN).sum())),
         )
     )
 

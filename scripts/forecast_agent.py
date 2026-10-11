@@ -4,6 +4,7 @@ import os
 import json
 import numpy as np
 import pandas as pd
+from src.constants import DEM_MAJORITY_SEATS
 
 TOOLS = [
     {
@@ -63,7 +64,7 @@ def _run_tool(name: str, inputs: dict, forecast: dict) -> str:
         return json.dumps({
             "median_dem_seats": median,
             "rep_seats": n_districts - median,
-            "p_dem_majority_pct": round(float((sim >= 218).mean() * 100), 1),
+            "p_dem_majority_pct": round(float((sim >= DEM_MAJORITY_SEATS).mean() * 100), 1),
             "ci_68": [int(np.percentile(sim, 16)), int(np.percentile(sim, 84))],
             "ci_95": [int(np.percentile(sim, 2.5)), int(np.percentile(sim, 97.5))],
             "n_districts": n_districts,

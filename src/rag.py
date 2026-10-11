@@ -28,6 +28,7 @@ def _district_to_text(row: pd.Series) -> str:
     ).strip()
 
 
+# chromadb imported lazily — downloads embedding model on first use
 def build_index(districts: pd.DataFrame, persist: bool = True) -> object:
     """Build a ChromaDB collection from district fact sheets. Returns the collection."""
     import chromadb
@@ -79,6 +80,7 @@ def retrieve(query: str, n_results: int = 5, collection=None) -> list[dict]:
     return [{"text": d, **m} for d, m in zip(docs, metas)]
 
 
+# anthropic imported lazily — optional dependency, only needed when ANTHROPIC_API_KEY is set
 def rag_answer(query: str, collection=None, api_key: str | None = None) -> str:
     """Retrieve relevant districts and generate an LLM answer. Requires ANTHROPIC_API_KEY."""
     import os

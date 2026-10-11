@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.constants import Col, OPEN_SEATS_2026
+from src.constants import Col, OPEN_SEATS_2026, COOK_ALPHA
 from src.loaders import load_approval, load_clean_house_data, load_cook_ratings, load_pres_lean
 from src.features import (
     add_incumbency_features,
@@ -61,7 +61,6 @@ def run_forecast(data_dir: Path = Path("data")) -> dict:
             how="left",
         )
         has_cook = districts[Col.COOK_PROB].notna()
-        COOK_ALPHA = 0.35
         districts["proba_dem"] = np.where(
             has_cook,
             (1 - COOK_ALPHA) * districts["proba_dem"]

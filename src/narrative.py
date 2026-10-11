@@ -4,6 +4,7 @@ import os
 import logging
 import numpy as np
 import pandas as pd
+from src.constants import DEM_MAJORITY_SEATS
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ Rules:
 
 def _build_prompt(sim: np.ndarray, districts: pd.DataFrame, n_districts: int) -> str:
     median = int(np.median(sim))
-    p_maj = float((sim >= 218).mean() * 100)
+    p_maj = float((sim >= DEM_MAJORITY_SEATS).mean() * 100)
     ci_lo = int(np.percentile(sim, 2.5))
     ci_hi = int(np.percentile(sim, 97.5))
     ci68_lo = int(np.percentile(sim, 16))
@@ -62,6 +63,7 @@ Write the briefing now."""
     return prompt
 
 
+# anthropic imported lazily — optional dependency, only needed when ANTHROPIC_API_KEY is set
 def generate_narrative(sim: np.ndarray, districts: pd.DataFrame, n_districts: int) -> str:
     """Call Anthropic API to generate a forecast narrative. Returns empty string on failure."""
     api_key = os.getenv("ANTHROPIC_API_KEY")

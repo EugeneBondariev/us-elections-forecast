@@ -7,6 +7,7 @@ import mlflow
 import mlflow.sklearn
 import numpy as np
 
+from src.constants import DEM_MAJORITY_SEATS
 from src.logging_config import setup_logging
 from src.fundraising import load_fundraising
 from src.loaders import load_approval, load_clean_house_data, load_pres_lean
@@ -60,7 +61,7 @@ def _log_simulation(sim, n_districts: int) -> None:
                 int(np.percentile(sim, 16)), int(np.percentile(sim, 84)))
     logger.info("  95%% CI:           %d-%d Dem",
                 int(np.percentile(sim, 2.5)), int(np.percentile(sim, 97.5)))
-    logger.info("  P(Dem majority):  %.1f%%", (sim >= 218).mean() * 100)
+    logger.info("  P(Dem majority):  %.1f%%", (sim >= DEM_MAJORITY_SEATS).mean() * 100)
 
 
 def _log_competitive_districts(district_ids) -> None:
@@ -159,7 +160,7 @@ def main() -> None:
         if narrative:
             logger.info("Forecast narrative:\n%s", narrative)
         mlflow.log_metric("median_dem_seats", int(np.median(sim)))
-        mlflow.log_metric("p_dem_majority", float((sim >= 218).mean()))
+        mlflow.log_metric("p_dem_majority", float((sim >= DEM_MAJORITY_SEATS).mean()))
 
         for feat, w in list(feature_weights(pipeline, X.columns).items())[:15]:
             mlflow.log_metric(f"fi_{feat[:40]}", round(w, 2))
