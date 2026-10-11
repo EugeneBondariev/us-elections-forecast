@@ -1,17 +1,9 @@
 import pandas as pd
 import pytest
 
-from src.features import (
-    Col,
-    Val,
-    GENERIC_BALLOT,
-    PRES_PARTY,
-    REDISTRICTING_YEARS,
-    build_dems_reps,
-    build_pred_2026,
-    load_approval,
-    load_clean_house_data,
-)
+from src.constants import Col, Val, GENERIC_BALLOT, PRES_PARTY, REDISTRICTING_YEARS
+from src.loaders import load_approval, load_clean_house_data
+from src.features import build_dems_reps, build_pred_2026
 
 ELECTION_YEARS = set(range(1976, 2025, 2))
 
@@ -173,6 +165,7 @@ class TestBuildFeatureMatrix:
             Col.DEM_LEAN, Col.DEM_LEAN_TREND, Col.PRES_APPROVAL, Col.PRES_DISAPPROVAL,
             Col.GENERIC_BALLOT, Col.IS_INCUMBENT, Col.REDISTRICTING,
             Col.PREV_DEM_SHARE, Col.INC_X_BALLOT,
+            Col.ECON_GROWTH, Col.UNEMPLOYMENT,
             "nation_incumbent_party_REPUBLICAN", "district_incumbent_party_REPUBLICAN",
         }
         assert required.issubset(set(real_data["X"].columns))

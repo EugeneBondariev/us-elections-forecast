@@ -8,9 +8,8 @@ from src.features import (
     build_feature_matrix,
     get_top_candidate_per_party,
     build_winners,
-    load_approval,
-    load_clean_house_data,
 )
+from src.loaders import load_approval, load_clean_house_data
 
 DATA_DIR = Path("data")
 
