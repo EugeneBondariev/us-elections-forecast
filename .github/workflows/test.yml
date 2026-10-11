@@ -1,0 +1,38 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Verify imports
+        run: |
+          python -c "
+          from src.model import build_pipeline, build_stacking_ensemble, bootstrap_ci, explain_districts
+          from src.features import build_feature_matrix, build_winners
+          from src.forecast import run_forecast
+          from src.loaders import load_clean_house_data
+          print('All imports OK')
+          "
+
+      # Tests require data files (data/1976-2024-house.tab etc.) not committed to the repo.
+      # conftest.py uses pytest.skip() when files are absent, so all tests will be skipped
+      # (exit code 5). The || true converts that to success so CI doesn't fail.
+      - name: Run tests
+        run: python -m pytest tests/ -q --tb=short || test $? -eq 5
