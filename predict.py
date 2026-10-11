@@ -1,11 +1,14 @@
 import logging
 import os
+import tempfile
 from pathlib import Path
 
+import mlflow
 import numpy as np
 
 from src.logging_config import setup_logging
 from src.fundraising import load_fundraising
+from src.loaders import load_approval, load_clean_house_data, load_pres_lean
 from src.features import (
     add_incumbency_features,
     build_dems_reps,
@@ -13,11 +16,10 @@ from src.features import (
     get_top_candidate_per_party,
     build_pred_2026,
     build_winners,
-    load_approval,
-    load_clean_house_data,
-    load_pres_lean,
 )
 from src.model import (
+    bootstrap_ci,
+    compute_sample_weights,
     cross_validate,
     feature_weights,
     simulate_election,
@@ -107,26 +109,65 @@ def main() -> None:
     winners = add_incumbency_features(winners, df)
     X, y, years = build_feature_matrix(winners)
 
-    wf = walk_forward_cv(X, y, years)
-    _log_walk_forward(wf)
-    _log_cv_summary(wf, cross_validate(X, y))
-    _log_feature_stability(walk_forward_feature_importance(X, y, years))
+    cook_alpha = 0.35 if (DATA_DIR / "cook.csv").exists() else 0.0
 
-    pipeline = train(X, y)
-    pred_2026, district_ids = build_pred_2026(
-        winners, dems_reps, X.columns, pres_lean=pres_lean, fundraising=fundraising
-    )
-    proba = pipeline.predict_proba(pred_2026)[:, 1]
+    mlflow.set_experiment("us-house-forecast")
+    with mlflow.start_run():
+        mlflow.log_param("n_features", X.shape[1])
+        mlflow.log_param("n_train_samples", len(X))
+        mlflow.log_param("cook_alpha", cook_alpha)
 
-    _log_simulation(simulate_election(proba), len(proba))
+        wf = walk_forward_cv(X, y, years)
+        _log_walk_forward(wf)
+        _log_cv_summary(wf, cross_validate(X, y))
 
-    district_ids = district_ids.copy()
-    district_ids["proba_dem"] = proba
-    district_ids["label"] = district_ids.apply(
-        lambda r: _label(r["state_po"], r["district"]), axis=1
-    )
-    _log_competitive_districts(district_ids)
-    _log_feature_weights(pipeline, X.columns)
+        ci_results = bootstrap_ci(X, y, years)
+        logger.info("Bootstrap 95%% CI (200 draws):")
+        logger.info("  Accuracy: %.4f [%.4f, %.4f]",
+                    ci_results["accuracy_mean"], ci_results["accuracy_low"], ci_results["accuracy_high"])
+        logger.info("  Seat error: %.1f [%.1f, %.1f]",
+                    ci_results["seat_error_mean"], ci_results["seat_error_low"], ci_results["seat_error_high"])
+        mlflow.log_metric("bootstrap_accuracy_mean", ci_results["accuracy_mean"])
+        mlflow.log_metric("bootstrap_accuracy_low", ci_results["accuracy_low"])
+        mlflow.log_metric("bootstrap_accuracy_high", ci_results["accuracy_high"])
+
+        _log_feature_stability(walk_forward_feature_importance(X, y, years))
+
+        for _, row in wf.iterrows():
+            mlflow.log_metric(f"accuracy_{int(row['year'])}", row["district_accuracy"])
+            mlflow.log_metric(f"seat_error_{int(row['year'])}", row["seat_error"])
+        mlflow.log_metric("mean_wf_accuracy", wf["district_accuracy"].mean())
+        mlflow.log_metric("mean_abs_seat_error", wf["seat_error"].abs().mean())
+
+        pipeline = train(X, y, sample_weight=compute_sample_weights(years))
+        pred_2026, district_ids = build_pred_2026(
+            winners, dems_reps, X.columns, pres_lean=pres_lean, fundraising=fundraising
+        )
+        proba = pipeline.predict_proba(pred_2026)[:, 1]
+
+        sim = simulate_election(proba)
+        _log_simulation(sim, len(proba))
+        mlflow.log_metric("median_dem_seats", int(np.median(sim)))
+        mlflow.log_metric("p_dem_majority", float((sim >= 218).mean()))
+
+        for feat, w in list(feature_weights(pipeline, X.columns).items())[:15]:
+            mlflow.log_metric(f"fi_{feat[:40]}", round(w, 2))
+
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="w") as f:
+            wf.to_csv(f, index=False)
+            tmp = f.name
+        mlflow.log_artifact(tmp, artifact_path="walk_forward")
+        os.unlink(tmp)
+
+        logger.info("MLflow run logged (experiment: us-house-forecast)")
+
+        district_ids = district_ids.copy()
+        district_ids["proba_dem"] = proba
+        district_ids["label"] = district_ids.apply(
+            lambda r: _label(r["state_po"], r["district"]), axis=1
+        )
+        _log_competitive_districts(district_ids)
+        _log_feature_weights(pipeline, X.columns)
 
 
 if __name__ == "__main__":

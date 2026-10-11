@@ -1,21 +1,21 @@
 import os
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
+
+from src.constants import Col, OPEN_SEATS_2026
+from src.loaders import load_approval, load_clean_house_data, load_cook_ratings, load_pres_lean
 from src.features import (
-    Col,
-    OPEN_SEATS_2026,
     add_incumbency_features,
     build_dems_reps,
     build_feature_matrix,
     build_pred_2026,
     build_winners,
     get_top_candidate_per_party,
-    load_approval,
-    load_clean_house_data,
-    load_pres_lean,
 )
 from src.fundraising import load_fundraising
-from src.model import simulate_election, train
+from src.model import compute_sample_weights, explain_districts, simulate_election, train
 
 
 def run_forecast(data_dir: Path = Path("data")) -> dict:
@@ -41,17 +41,38 @@ def run_forecast(data_dir: Path = Path("data")) -> dict:
     )
     winners = build_winners(top_candidates, dems_reps, approval, pres_lean, fundraising)
     winners = add_incumbency_features(winners, df)
-    X, y, _ = build_feature_matrix(winners)
+    X, y, years = build_feature_matrix(winners)
 
-    pipeline = train(X, y)
+    pipeline = train(X, y, sample_weight=compute_sample_weights(years))
     pred_2026, district_ids = build_pred_2026(
         winners, dems_reps, X.columns, pres_lean=pres_lean, fundraising=fundraising
     )
     proba = pipeline.predict_proba(pred_2026)[:, 1]
-    sim = simulate_election(proba)
+    shap_df = explain_districts(pipeline, pred_2026)
 
     districts = district_ids.copy()
     districts["proba_dem"] = proba
+
+    cook = load_cook_ratings(data_dir / "cook.csv")
+    if not cook.empty:
+        districts = districts.merge(
+            cook[[Col.STATE, Col.DISTRICT, Col.COOK_PROB]],
+            on=[Col.STATE, Col.DISTRICT],
+            how="left",
+        )
+        has_cook = districts[Col.COOK_PROB].notna()
+        COOK_ALPHA = 0.35
+        districts["proba_dem"] = np.where(
+            has_cook,
+            (1 - COOK_ALPHA) * districts["proba_dem"]
+            + COOK_ALPHA * districts[Col.COOK_PROB].fillna(districts["proba_dem"]),
+            districts["proba_dem"],
+        )
+        districts["cook_rating"] = cook.set_index([Col.STATE, Col.DISTRICT])["rating"].reindex(
+            pd.MultiIndex.from_arrays([districts[Col.STATE], districts[Col.DISTRICT]])
+        ).values
+
+    sim = simulate_election(districts["proba_dem"].values)
     districts["label"] = districts.apply(
         lambda r: f"{r[Col.STATE]}-{'AL' if r[Col.DISTRICT] == 0 else r[Col.DISTRICT]}",
         axis=1,
@@ -73,4 +94,5 @@ def run_forecast(data_dir: Path = Path("data")) -> dict:
         "seats_sim": sim,
         "n_districts": len(proba),
         "districts": districts,
+        "shap_values": shap_df,
     }
