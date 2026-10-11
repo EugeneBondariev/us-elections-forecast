@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 
@@ -9,7 +11,7 @@ from src.constants import Col, Val, PRES_PARTY
 logger = logging.getLogger(__name__)
 
 
-def load_pres_lean(path_2008_2020, path_2020_2024) -> pd.DataFrame:
+def load_pres_lean(path_2008_2020: str | Path, path_2020_2024: str | Path) -> pd.DataFrame:
     """Parse presidential results by district from two Downballot CSVs.
 
     Returns long-format DataFrame: state_po, district, pres_year, pres_lean (Dem fraction 0-1).
@@ -78,7 +80,7 @@ def load_pres_lean(path_2008_2020, path_2020_2024) -> pd.DataFrame:
     return pd.DataFrame(records)
 
 
-def load_clean_house_data(path: str) -> pd.DataFrame:
+def load_clean_house_data(path: str | Path) -> pd.DataFrame:
     logger.info("Loading house data from %s", path)
     df = pd.read_csv(path, low_memory=False)
 
@@ -112,7 +114,7 @@ def load_clean_house_data(path: str) -> pd.DataFrame:
     return df
 
 
-def load_cook_ratings(path) -> pd.DataFrame:
+def load_cook_ratings(path: str | Path) -> pd.DataFrame:
     path = Path(path)
     if not path.exists():
         logger.info("cook.csv not found at %s — skipping Cook blend", path)
@@ -122,7 +124,7 @@ def load_cook_ratings(path) -> pd.DataFrame:
     return df[[Col.STATE, Col.DISTRICT, Col.COOK_PROB]]
 
 
-def load_approval(path: str) -> pd.DataFrame:
+def load_approval(path: str | Path) -> pd.DataFrame:
     logger.info("Loading approval ratings from %s", path)
     approval = pd.read_csv(
         path,

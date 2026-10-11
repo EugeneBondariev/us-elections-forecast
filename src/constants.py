@@ -1,4 +1,7 @@
-class Col:
+from enum import StrEnum
+
+
+class Col(StrEnum):
     # raw source columns
     YEAR = "year"
     STATE = "state_po"
@@ -48,7 +51,7 @@ class Col:
     COOK_PROB = "cook_prob"
 
 
-class Val:
+class Val(StrEnum):
     GEN = "GEN"
     DEMOCRAT = "DEMOCRAT"
     REPUBLICAN = "REPUBLICAN"
@@ -57,6 +60,15 @@ class Val:
     FOGLIETTA_DEM = "FOGLIETTA (DEMOCRAT)"
     INDEPENDENT_REP = "INDEPENDENT-REPUBLICAN"
 
+
+# --- Named constants (replaces inline magic numbers) ---
+
+DEM_MAJORITY_SEATS = 218      # seats needed for a House majority
+COOK_ALPHA = 0.35             # Cook Political blend weight
+COMPETITIVE_MARGIN = 0.15     # |proba_dem - 0.5| < this → competitive district
+
+
+# --- Lookup dictionaries ---
 
 PRES_PARTY = {
     1976: "REPUBLICAN",  # Ford
@@ -142,7 +154,7 @@ ECON_GROWTH = {
     1996:  3.7,   # Clinton; robust expansion
     1998:  4.7,   # Clinton; dot-com boom
     2000:  3.8,   # Clinton; late expansion
-    2002:  1.7,   # Bush Jr; post-9/11 slow recovery
+    2002:  1.7,   # Bush Jr; post-recession slow recovery
     2004:  3.5,   # Bush Jr; expansion
     2006:  2.5,   # Bush Jr; solid
     2008: -0.3,   # Bush Jr; financial crisis beginning

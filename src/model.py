@@ -1,10 +1,9 @@
+from __future__ import annotations
+
 import logging
 
 import numpy as np
 import pandas as pd
-from scipy.stats import beta as beta_dist
-
-logger = logging.getLogger(__name__)
 from sklearn.calibration import CalibratedClassifierCV
 from lightgbm import LGBMClassifier
 from sklearn.ensemble import RandomForestClassifier, StackingClassifier, VotingClassifier
@@ -12,6 +11,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+
+from src.constants import DEM_MAJORITY_SEATS
+
+logger = logging.getLogger(__name__)
 
 class WeightedPipeline(Pipeline):
     """Pipeline that accepts sample_weight and routes it to the model step."""
@@ -93,7 +96,7 @@ def compute_sample_weights(years: pd.Series, half_life: int = 4) -> np.ndarray:
     return np.exp(-np.log(2) / half_life * elections_ago).values
 
 
-def train(X: pd.DataFrame, y: pd.Series, sample_weight=None) -> StackingClassifier:
+def train(X: pd.DataFrame, y: pd.Series, sample_weight: np.ndarray | None = None) -> StackingClassifier:
     logger.info("Training stacking ensemble on %d samples, %d features", len(X), X.shape[1])
     model = build_stacking_ensemble()
     model.fit(X, y, sample_weight=sample_weight)
@@ -105,7 +108,7 @@ def cross_validate(X: pd.DataFrame, y: pd.Series, cv: int = 5) -> float:
     return cross_val_score(build_pipeline(), X, y, cv=cv).mean()
 
 
-def feature_weights(model, feature_names) -> dict:
+def feature_weights(model: object, feature_names: pd.Index | list[str]) -> dict[str, float]:
     """Extract normalised feature importance (%) from LR pipeline, GBM pipeline, or ensemble."""
     if isinstance(model, (VotingClassifier, StackingClassifier)):
         importances = model.named_estimators_["gbm"].named_steps["model"].feature_importances_
@@ -168,7 +171,7 @@ def walk_forward_feature_importance(
     return pd.DataFrame(rows).set_index("year")
 
 
-def explain_districts(model: VotingClassifier, X_pred: pd.DataFrame) -> pd.DataFrame:
+def explain_districts(model: StackingClassifier, X_pred: pd.DataFrame) -> pd.DataFrame:
     """Return SHAP values per feature for the prediction set.
     Uses the LightGBM sub-model (faster and more meaningful than LR for SHAP).
     Returns DataFrame: rows=districts (same index as X_pred), columns=features.
@@ -227,9 +230,9 @@ def bayesian_simulate(
     wins = rng.binomial(1, sampled_p)
     result = wins.sum(axis=1)
     median_seats = int(np.median(result))
-    p_majority = float((result >= 218).mean())
-    logger.info("Bayesian simulation results: median=%d seats, P(majority>=218)=%.1f%%",
-                median_seats, p_majority * 100)
+    p_majority = float((result >= DEM_MAJORITY_SEATS).mean())
+    logger.info("Bayesian simulation results: median=%d seats, P(majority>=%d)=%.1f%%",
+                median_seats, DEM_MAJORITY_SEATS, p_majority * 100)
     return result
 
 
@@ -240,7 +243,7 @@ def bootstrap_ci(
     n_bootstrap: int = 200,
     ci: float = 0.95,
     seed: int = 42,
-) -> dict:
+) -> dict[str, float]:
     """
     Bootstrap CI for walk-forward district accuracy and mean seat error.
     Re-samples districts (with replacement) within each test year,

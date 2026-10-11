@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 
 import numpy as np
@@ -86,8 +88,8 @@ def build_winners(
     top_candidates: pd.DataFrame,
     dems_reps: pd.DataFrame,
     approval: pd.DataFrame,
-    pres_lean=None,
-    fundraising=None,
+    pres_lean: pd.DataFrame | None = None,
+    fundraising: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     logger.info("Building winners table")
     winners = top_candidates.loc[
@@ -164,7 +166,7 @@ def add_incumbency_features(winners: pd.DataFrame, df: pd.DataFrame) -> pd.DataF
     return winners
 
 
-def build_feature_matrix(winners: pd.DataFrame) -> tuple:
+def build_feature_matrix(winners: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
     """Returns (X, y, years) — years is a Series aligned with X for walk-forward splitting."""
     logger.info("Building feature matrix")
     seats_per_year = (
@@ -194,6 +196,7 @@ def build_feature_matrix(winners: pd.DataFrame) -> tuple:
     )
 
     X = w.drop(columns=_DROP_COLS, errors="ignore").dropna()
+    X.columns = pd.Index([str(c) for c in X.columns])  # StrEnum → plain str for sklearn compatibility
     y = w[Col.DEM_WON][X.index]
     years = w[Col.YEAR][X.index]
     logger.info("Feature matrix: %d rows, %d features", len(X), len(X.columns))
@@ -204,15 +207,15 @@ def build_feature_matrix(winners: pd.DataFrame) -> tuple:
 def build_pred_2026(
     winners: pd.DataFrame,
     dems_reps: pd.DataFrame,
-    X_columns,
+    feature_columns: pd.Index,
     pres_approval: int = -32,
     pres_disapproval: int = 65,
     open_seats: set = OPEN_SEATS_2026,
-    pres_lean=None,
-    fundraising=None,
+    pres_lean: pd.DataFrame | None = None,
+    fundraising: pd.DataFrame | None = None,
     econ_growth_2026: float = -ECON_GROWTH[2026],  # negative: Rep president, weak economy
     unemployment_2026: float = UNEMPLOYMENT[2026],  # positive: Rep president, high unemp = Dem-favorable
-) -> tuple:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Returns (pred_features, district_ids) where district_ids labels each row."""
     logger.info("Building 2026 prediction features")
     incumbents = (
@@ -265,7 +268,7 @@ def build_pred_2026(
     pred = pred.merge(prev_share_2026, on=[Col.STATE, Col.DISTRICT], how="left")
     pred[Col.PREV_DEM_SHARE] = pred[Col.PREV_DEM_SHARE].fillna(pred[Col.PREV_DEM_SHARE].median())
     pred[Col.INC_X_BALLOT] = pred[Col.IS_INCUMBENT] * pred[Col.GENERIC_BALLOT]
-    if pres_lean is not None and Col.PRES_LEAN in list(X_columns):
+    if pres_lean is not None and Col.PRES_LEAN in list(feature_columns):
         lean_2026 = (
             pres_lean[pres_lean["pres_year"].isin([2020, 2024])]
             .groupby([Col.STATE, Col.DISTRICT])[Col.PRES_LEAN]
@@ -274,7 +277,7 @@ def build_pred_2026(
         )
         pred = pred.merge(lean_2026, on=[Col.STATE, Col.DISTRICT], how="left")
         pred[Col.PRES_LEAN] = pred[Col.PRES_LEAN].fillna(0.5)
-    if fundraising is not None and Col.FUNDRAISING_DEM_SHARE in list(X_columns):
+    if fundraising is not None and Col.FUNDRAISING_DEM_SHARE in list(feature_columns):
         fund_2026 = fundraising[fundraising[Col.YEAR] == 2026][
             [Col.STATE, Col.DISTRICT, Col.FUNDRAISING_DEM_SHARE]
         ]
@@ -286,7 +289,7 @@ def build_pred_2026(
         columns=[Col.NATION_INCUMBENT, Col.DISTRICT_INCUMBENT, Col.STATE],
         drop_first=True,
     )
-    pred = pred.reindex(columns=X_columns, fill_value=0)
+    pred = pred.reindex(columns=feature_columns, fill_value=0)
     pred[Col.DEM_LEAN] = pred[Col.DEM_LEAN].fillna(pred[Col.DEM_LEAN].median())
     pred[Col.DEM_LEAN_TREND] = pred[Col.DEM_LEAN_TREND].fillna(0)
     logger.info("  → %d districts", len(pred))

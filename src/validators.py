@@ -6,13 +6,6 @@ from pandera.typing import Series
 from src.constants import Col
 
 
-class HouseRowSchema(pa.DataFrameModel):
-    """Schema for a single row after load_clean_house_data."""
-    class Config:
-        coerce = True
-        strict = False  # allow extra columns
-
-# Raw house data
 class HouseDataSchema(pa.DataFrameModel):
     year: Series[int] = pa.Field(ge=1976, le=2030, alias=Col.YEAR)
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
