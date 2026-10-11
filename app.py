@@ -7,6 +7,7 @@ import streamlit as st
 
 from src.forecast import run_forecast
 from src.constants import COMPETITIVE_MARGIN, DEM_MAJORITY_SEATS
+from src.narrative import generate_narrative
 
 st.set_page_config(page_title="2026 US House Forecast", layout="wide")
 st.title("2026 US House Election Forecast")
@@ -43,7 +44,7 @@ with tab_overview:
         xbins=dict(start=sim.min()-0.5, end=sim.max()+0.5, size=1),
         marker_color=["#3366cc" if x >= DEM_MAJORITY_SEATS else "#cc3333" for x in range(int(sim.min()), int(sim.max())+1)],
     ))
-    fig.add_vline(x=217.5, line_dash="dash", line_color="black")
+    fig.add_vline(x=DEM_MAJORITY_SEATS - 0.5, line_dash="dash", line_color="black")
     fig.update_layout(showlegend=False, xaxis_title="Dem Seats", yaxis_title="Simulations",
                       margin=dict(l=20,r=20,t=20,b=20), height=300)
     st.plotly_chart(fig, use_container_width=True)
@@ -72,7 +73,6 @@ with tab_overview:
 
     st.subheader("Forecast narrative")
     if os.getenv("ANTHROPIC_API_KEY"):
-        from src.narrative import generate_narrative
         with st.spinner("Generating narrative..."):
             narrative = generate_narrative(sim, districts, n_districts)
         if narrative:
@@ -102,6 +102,7 @@ with tab_districts:
     display = df[["label", "proba_dem", "district_incumbent", "is_open", "dem_lean"]].copy()
     display["proba_dem"] = (display["proba_dem"] * 100).round(1)
     display["dem_lean"] = (display["dem_lean"] * 100).round(1)
+    display["district_incumbent"] = display["district_incumbent"].str.title()
     display.columns = ["District", "Dem win %", "Incumbent party", "Open seat", "Dem lean (hist %)"]
     display = display.sort_values("Dem win %", ascending=False).reset_index(drop=True)
 
@@ -142,7 +143,6 @@ with tab_districts:
 
             if "shap_values" in data:
                 shap_df = data["shap_values"]
-                idx = df.reset_index(drop=True).index[event.selection.rows[0]]
                 row_pos = event.selection.rows[0]
                 if row_pos < len(shap_df):
                     sv = shap_df.iloc[row_pos].sort_values(key=abs, ascending=False).head(5)
