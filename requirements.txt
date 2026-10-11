@@ -12,3 +12,5 @@ optuna==5.0.0
 shap==0.52.0
 requests==2.34.2
 pandera>=0.20
+anthropic>=0.40
+chromadb>=0.5

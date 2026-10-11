@@ -154,6 +154,10 @@ def main() -> None:
 
         sim = simulate_election(proba)
         _log_simulation(sim, len(proba))
+        from src.narrative import generate_narrative
+        narrative = generate_narrative(sim, district_ids, len(proba))
+        if narrative:
+            logger.info("Forecast narrative:\n%s", narrative)
         mlflow.log_metric("median_dem_seats", int(np.median(sim)))
         mlflow.log_metric("p_dem_majority", float((sim >= 218).mean()))
 

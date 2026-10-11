@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
@@ -66,6 +68,18 @@ with tab_overview:
         use_container_width=True,
         hide_index=True,
     )
+
+    st.subheader("Forecast narrative")
+    if os.getenv("ANTHROPIC_API_KEY"):
+        from src.narrative import generate_narrative
+        with st.spinner("Generating narrative..."):
+            narrative = generate_narrative(sim, districts, n_districts)
+        if narrative:
+            st.write(narrative)
+        else:
+            st.info("Narrative generation failed — check logs.")
+    else:
+        st.info("Set ANTHROPIC_API_KEY to enable AI-generated narrative.")
 
 with tab_districts:
     f1, f2, f3 = st.columns([1, 1, 1])
