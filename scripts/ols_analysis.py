@@ -128,7 +128,6 @@ def main() -> None:
     log.info("\n--- Average Marginal Effects (Logit) ---")
     ame = logit.get_margeff(at="overall")
     print(ame.summary(
-        title="Logit Average Marginal Effects",
         xname=[FEATURE_LABELS.get(f, f) for f in available],
     ))
 
@@ -209,7 +208,6 @@ def main() -> None:
         ).as_text())
         fh.write("\n\n")
         fh.write(ame.summary(
-            title="Logit Average Marginal Effects",
             xname=[FEATURE_LABELS.get(f, f) for f in available],
         ).as_text())
     log.info("Text summary saved → %s", out_txt)

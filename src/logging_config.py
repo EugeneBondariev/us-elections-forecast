@@ -5,7 +5,7 @@ from pathlib import Path
 import colorlog
 
 
-def setup_logging(level: int = logging.INFO, log_dir: str = "logs") -> Path:
+def setup_logging(level: int = logging.INFO, log_dir: str = "logs/app") -> Path:
     console_handler = colorlog.StreamHandler()
     console_handler.setFormatter(
         colorlog.ColoredFormatter(
