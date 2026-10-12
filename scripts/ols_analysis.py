@@ -86,7 +86,7 @@ def _load_data() -> tuple[pd.DataFrame, pd.Series, pd.Series]:
 def main() -> None:
     from src.paths import OUTPUTS_DIR as outputs_dir
     log.info("Loading data...")
-    X_full, y, years = _load_data()
+    X_full, y, _ = _load_data()
 
     # Restrict to structural features only for interpretable econometric analysis
     available = [f for f in STRUCTURAL_FEATURES if f in X_full.columns]
@@ -127,9 +127,7 @@ def main() -> None:
 
     log.info("\n--- Average Marginal Effects (Logit) ---")
     ame = logit.get_margeff(at="overall")
-    print(ame.summary(
-        xname=[FEATURE_LABELS.get(f, f) for f in available],
-    ))
+    print(ame.summary())
 
     # -----------------------------------------------------------------------
     # 3. Compare: OLS coefficients vs Logit AME
@@ -207,9 +205,7 @@ def main() -> None:
             xname=["const"] + [FEATURE_LABELS.get(f, f) for f in available],
         ).as_text())
         fh.write("\n\n")
-        fh.write(ame.summary(
-            xname=[FEATURE_LABELS.get(f, f) for f in available],
-        ).as_text())
+        fh.write(ame.summary().as_text())
     log.info("Text summary saved → %s", out_txt)
 
 
