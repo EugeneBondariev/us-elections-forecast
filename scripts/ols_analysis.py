@@ -144,7 +144,7 @@ def main() -> None:
 
     ame_vals = ame_df.loc[common, "dy/dx"]
     ame_lo   = ame_df.loc[common, "Conf. Int. Low"]
-    ame_hi   = ame_df.loc[common, "Conf. Int. Hi"]
+    ame_hi   = ame_df.loc[common, "Cont. Int. Hi."]
 
     labels = [FEATURE_LABELS.get(f, f) for f in common]
     n = len(common)

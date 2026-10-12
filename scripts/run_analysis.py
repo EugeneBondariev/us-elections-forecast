@@ -41,7 +41,11 @@ class _Tee:
         self._file = log_path.open("w", encoding="utf-8")
 
     def write(self, message: str) -> None:
-        self._terminal.write(message)
+        try:
+            self._terminal.write(message)
+        except UnicodeEncodeError:
+            enc = getattr(self._terminal, "encoding", "utf-8") or "utf-8"
+            self._terminal.write(message.encode(enc, errors="replace").decode(enc))
         self._file.write(message)
 
     def flush(self) -> None:
