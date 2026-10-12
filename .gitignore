@@ -2,6 +2,7 @@ data/
 logs/
 outputs/
 .env
+.vscode/
 __pycache__/
 *.pyc
 *.egg-info/
