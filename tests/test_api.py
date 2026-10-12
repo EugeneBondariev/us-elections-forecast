@@ -31,7 +31,7 @@ _MOCK_FORECAST = {
 
 @pytest.fixture()
 def client():
-    with patch("api.run_forecast", return_value=_MOCK_FORECAST):
+    with patch("api.load_latest_forecast", return_value=_MOCK_FORECAST):
         with TestClient(app) as c:
             yield c
 
