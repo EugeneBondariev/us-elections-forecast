@@ -138,7 +138,7 @@ GENERIC_BALLOT = {
     2020: 7,    # RCP D+6.8
     2022: -1,   # FiveThirtyEight final avg R+0.9
     2024: 0,    # RCP R+0.3
-    2026: 7,    # RCP avg Oct 2026
+    2026: 8.3,  # RCP avg Oct 2026
 }
 
 # Real GDP growth, Q3 year-over-year % (FRED series GDPC1).
@@ -173,7 +173,7 @@ ECON_GROWTH = {
     2020: -2.7,   # Trump; COVID crash (Q3 rebound but still below YoY)
     2022:  1.9,   # Biden; post-COVID, pre-recession fears
     2024:  2.8,   # Biden; resilient despite rate hikes
-    2026:  1.8,   # Trump; tariff drag, Q2 2026 advance estimate
+    2026:  2.2,   # Trump; Q3 2026 YoY (FRED GDPC1)
 }
 
 # October unemployment rate (FRED series UNRATE), % of labor force.
@@ -206,7 +206,7 @@ UNEMPLOYMENT = {
     2020:  6.9,   # Trump; COVID, falling from April peak
     2022:  3.7,   # Biden; historically tight labor market
     2024:  4.1,   # Biden; slight uptick
-    2026:  4.8,   # Trump; tariff-driven softening, Sep 2026 estimate
+    2026:  4.2,   # Trump; Sep 2026 (FRED UNRATE)
 }
 
 REDISTRICTING_YEARS = {1982, 1992, 2002, 2012, 2022}

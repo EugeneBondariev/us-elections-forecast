@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["load_fundraising", "fetch_and_cache"]
 
-FEC_BASE = "https://api.fec.gov/v1"
+FEC_BASE = "https://api.open.fec.gov/v1"
 DEFAULT_YEARS = [2014, 2016, 2018, 2020, 2022, 2024, 2026]
 
 
@@ -20,22 +20,29 @@ def _fetch_year(api_key: str, year: int) -> list[dict]:
     records = []
     page = 1
     while True:
-        try:
-            resp = requests.get(
-                f"{FEC_BASE}/candidates/totals/",
-                params={
-                    "api_key": api_key,
-                    "office": "H",
-                    "election_year": year,
-                    "page": page,
-                    "per_page": 100,
-                },
-                timeout=15,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as exc:
-            logger.error("FEC API error year=%d page=%d: %s", year, page, exc)
+        for attempt in range(3):
+            try:
+                resp = requests.get(
+                    f"{FEC_BASE}/candidates/totals/",
+                    params={
+                        "api_key": api_key,
+                        "office": "H",
+                        "election_year": year,
+                        "page": page,
+                        "per_page": 100,
+                    },
+                    timeout=30,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                break
+            except Exception as exc:
+                logger.warning("FEC API error year=%d page=%d attempt=%d: %s", year, page, attempt + 1, exc)
+                if attempt == 2:
+                    logger.error("Giving up on year=%d page=%d after 3 attempts", year, page)
+                    data = None
+                time.sleep(2 ** attempt)
+        if data is None:
             break
 
         results = data.get("results", [])
@@ -66,41 +73,51 @@ def _fetch_year(api_key: str, year: int) -> list[dict]:
     return records
 
 
+def _save(records: list[dict], cache_path: Path) -> None:
+    if not records:
+        return
+    df = pd.DataFrame(records)
+    df = df[df["state_po"].notna()]
+    dem = (
+        df[df["party"] == "DEM"]
+        .groupby(["year", "state_po", "district"])["receipts"]
+        .max().reset_index(name="dem_receipts")
+    )
+    rep = (
+        df[df["party"] == "REP"]
+        .groupby(["year", "state_po", "district"])["receipts"]
+        .max().reset_index(name="rep_receipts")
+    )
+    result = dem.merge(rep, on=["year", "state_po", "district"], how="outer").fillna(0)
+    total = result["dem_receipts"] + result["rep_receipts"]
+    result["fundraising_dem_share"] = (result["dem_receipts"] / total.clip(lower=1)).where(total > 0, 0.5)
+    result = result[["year", "state_po", "district", "fundraising_dem_share"]]
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    result.to_csv(cache_path, index=False)
+
+
 def fetch_and_cache(cache_path, api_key: str, years=None) -> pd.DataFrame:
     """Fetch House fundraising totals from FEC API and cache to CSV."""
     if years is None:
         years = DEFAULT_YEARS
     cache_path = Path(cache_path)
 
+    # Load existing cache before overwriting so other years are preserved.
+    existing = pd.read_csv(cache_path) if cache_path.exists() else pd.DataFrame()
+
     all_records = []
     for year in years:
         all_records.extend(_fetch_year(api_key, year))
+        _save(all_records, cache_path)
 
-    df = pd.DataFrame(all_records)
-    df = df[df["state_po"].notna()]
+    new = pd.read_csv(cache_path)
+    if not existing.empty:
+        other_years = existing[~existing["year"].isin(years)]
+        result = pd.concat([other_years, new], ignore_index=True).sort_values(["year", "state_po", "district"])
+        result.to_csv(cache_path, index=False)
+    else:
+        result = new
 
-    dem = (
-        df[df["party"] == "DEM"]
-        .groupby(["year", "state_po", "district"])["receipts"]
-        .max()
-        .reset_index(name="dem_receipts")
-    )
-    rep = (
-        df[df["party"] == "REP"]
-        .groupby(["year", "state_po", "district"])["receipts"]
-        .max()
-        .reset_index(name="rep_receipts")
-    )
-
-    result = dem.merge(rep, on=["year", "state_po", "district"], how="outer").fillna(0)
-    total = result["dem_receipts"] + result["rep_receipts"]
-    result["fundraising_dem_share"] = (result["dem_receipts"] / total.clip(lower=1)).where(
-        total > 0, 0.5
-    )
-    result = result[["year", "state_po", "district", "fundraising_dem_share"]]
-
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    result.to_csv(cache_path, index=False)
     logger.info("Cached %d district-year records to %s", len(result), cache_path)
     return result
 
