@@ -22,15 +22,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from src.features import (
-    add_incumbency_features,
-    build_dems_reps,
-    build_feature_matrix,
-    build_winners,
-    get_top_candidate_per_party,
-)
-from src.loaders import load_approval, load_clean_house_data
-from src.paths import DataFile, OUTPUTS_DIR
+from src.features import build_dataset
+from src.paths import OUTPUTS_DIR
 
 OUTPUT_PATH = OUTPUTS_DIR / "feature_significance.png"
 N_PERMUTATIONS = 1000
@@ -178,15 +171,9 @@ def save_significance_chart(
 
 
 def main() -> None:
-    # ── Load data (same pattern as conftest.py) ───────────────────────────────
+    # ── Load data ─────────────────────────────────────────────────────────────
     print("Loading data...")
-    df = load_clean_house_data(DataFile.HOUSE)
-    top_candidates = get_top_candidate_per_party(df)
-    dems_reps = build_dems_reps(top_candidates)
-    approval = load_approval(DataFile.APPROVAL)
-    winners = build_winners(top_candidates, dems_reps, approval)
-    winners = add_incumbency_features(winners, df)
-    X, y, _ = build_feature_matrix(winners)
+    X, y, _ = build_dataset()
 
     print(f"Feature matrix: {X.shape[0]} rows x {X.shape[1]} features")
     print(f"dem_won base rate: {y.mean():.3f}\n")

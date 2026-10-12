@@ -11,14 +11,7 @@ import optuna
 from lightgbm import LGBMClassifier
 from sklearn.preprocessing import StandardScaler
 
-from src.features import (
-    add_incumbency_features,
-    build_dems_reps,
-    build_feature_matrix,
-    build_winners,
-    get_top_candidate_per_party,
-)
-from src.loaders import load_approval, load_clean_house_data
+from src.features import build_dataset
 from src.model import WeightedPipeline, compute_sample_weights
 from src.paths import DataFile
 
@@ -28,13 +21,7 @@ VALIDATION_YEARS = list(range(2010, 2020, 2))  # 2010, 2012, 2014, 2016, 2018
 
 
 def load_data():
-    df = load_clean_house_data(DataFile.HOUSE)
-    top_candidates = get_top_candidate_per_party(df)
-    dems_reps = build_dems_reps(top_candidates)
-    approval = load_approval(DataFile.APPROVAL)
-    winners = build_winners(top_candidates, dems_reps, approval)
-    winners = add_incumbency_features(winners, df)
-    X, y, years = build_feature_matrix(winners)
+    X, y, years = build_dataset()
     return X, y, years
 
 

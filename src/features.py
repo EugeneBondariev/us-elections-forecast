@@ -27,6 +27,7 @@ __all__ = [
     "add_incumbency_features",
     "build_feature_matrix",
     "build_pred_2026",
+    "build_dataset",
 ]
 
 _DROP_COLS = [
@@ -215,6 +216,28 @@ def build_feature_matrix(winners: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series
     logger.info("Feature matrix: %d rows, %d features", len(X), len(X.columns))
     validate_feature_matrix(X)
     return X, y, years
+
+
+def build_dataset() -> tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
+    """Load data and build (X, y, winners) ready for modelling.
+
+    Centralises the 6-line pipeline that was duplicated across every script.
+    Returns:
+        X       — feature matrix
+        y       — dem_won labels
+        winners — full winners DataFrame (useful for inspection / SHAP)
+    """
+    from src.loaders import load_approval, load_clean_house_data
+    from src.paths import DataFile
+
+    df = load_clean_house_data(DataFile.HOUSE)
+    top_candidates = get_top_candidate_per_party(df)
+    dems_reps = build_dems_reps(top_candidates)
+    approval = load_approval(DataFile.APPROVAL)
+    winners = build_winners(top_candidates, dems_reps, approval)
+    winners = add_incumbency_features(winners, df)
+    X, y, _ = build_feature_matrix(winners)
+    return X, y, winners
 
 
 def build_pred_2026(

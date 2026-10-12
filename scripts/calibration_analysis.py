@@ -5,26 +5,13 @@ from sklearn.calibration import calibration_curve
 from sklearn.metrics import brier_score_loss
 from sklearn.model_selection import cross_val_predict
 
-from src.features import (
-    add_incumbency_features,
-    build_dems_reps,
-    build_feature_matrix,
-    build_winners,
-    get_top_candidate_per_party,
-)
-from src.loaders import load_approval, load_clean_house_data
+from src.features import build_dataset
 from src.model import build_calibrated_pipeline, build_pipeline
-from src.paths import DataFile, OUTPUTS_DIR
+from src.paths import OUTPUTS_DIR
 
 
 def main() -> None:
-    df = load_clean_house_data(DataFile.HOUSE)
-    top_candidates = get_top_candidate_per_party(df)
-    dems_reps = build_dems_reps(top_candidates)
-    approval = load_approval(DataFile.APPROVAL)
-    winners = build_winners(top_candidates, dems_reps, approval)
-    winners = add_incumbency_features(winners, df)
-    X, y, _ = build_feature_matrix(winners)
+    X, y, _ = build_dataset()
 
     print("Computing cross-validated probabilities (cv=5)...")
     proba_raw = cross_val_predict(build_pipeline(), X, y, cv=5, method="predict_proba")[:, 1]
