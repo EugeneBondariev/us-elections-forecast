@@ -71,10 +71,11 @@ Update `src/constants.py` manually if any values are flagged.
 
 ```bash
 pip install -r requirements.txt
-python scripts/predict.py  # CLI forecast + MLflow logging
-streamlit run app.py       # dashboard at localhost:8501
-uvicorn api:app --reload   # REST API at localhost:8000
-python -m pytest tests/ -q # test suite
+python scripts/predict.py       # CLI forecast + MLflow logging
+python scripts/run_analysis.py  # full diagnostic pipeline → outputs/
+streamlit run app.py            # dashboard at localhost:8501
+uvicorn api:app --reload        # REST API at localhost:8000
+python -m pytest tests/ -q      # test suite
 ```
 
 Set `ANTHROPIC_API_KEY` to enable LLM narrative generation and the agent CLI (`scripts/forecast_agent.py`).
@@ -88,6 +89,7 @@ Walk-forward CV (always train on years < test year) feeds a stacking ensemble �
 | Script | What it does |
 |---|---|
 | `predict.py` | CLI forecast: walk-forward validation, MLflow logging, LLM narrative |
+| `run_analysis.py` | Run all 6 diagnostic scripts in sequence, outputs land in `outputs/` |
 | `parse_cook.py` | Cook Political Report HTML → `data/cook.csv` |
 | `build_db.py` | Source CSVs → SQLite (`data/elections.db`) |
 | `tune.py` | Optuna hyperparameter search for LightGBM |
