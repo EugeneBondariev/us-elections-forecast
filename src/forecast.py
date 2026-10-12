@@ -1,11 +1,9 @@
 import os
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from src.constants import Col, OPEN_SEATS_2026, COOK_ALPHA
-from src.loaders import load_approval, load_clean_house_data, load_cook_ratings, load_pres_lean
+from src.constants import Col, COOK_ALPHA, OPEN_SEATS_2026
 from src.features import (
     add_incumbency_features,
     build_dems_reps,
@@ -15,12 +13,14 @@ from src.features import (
     get_top_candidate_per_party,
 )
 from src.fundraising import load_fundraising
+from src.loaders import load_approval, load_clean_house_data, load_cook_ratings, load_pres_lean
 from src.model import compute_sample_weights, explain_districts, simulate_election, train
+from src.paths import DataFile
 
 __all__ = ["run_forecast"]
 
 
-def run_forecast(data_dir: Path = Path("data")) -> dict:
+def run_forecast() -> dict:
     """Run the full 2026 House forecast pipeline.
 
     Returns a dict with:
@@ -28,17 +28,16 @@ def run_forecast(data_dir: Path = Path("data")) -> dict:
       n_districts – number of contested districts
       districts   – DataFrame with per-district probabilities and metadata
     """
-    data_dir = Path(data_dir)
-    df = load_clean_house_data(data_dir / "1976-2024-house.tab")
+    df = load_clean_house_data(DataFile.HOUSE)
     top_candidates = get_top_candidate_per_party(df)
     dems_reps = build_dems_reps(top_candidates)
-    approval = load_approval(data_dir / "Approval-Ratings-for-POTUS-raw.xls")
+    approval = load_approval(DataFile.APPROVAL)
     pres_lean = load_pres_lean(
-        data_dir / "president-2008-2020-by-district.csv",
-        data_dir / "president-2020-2024-by-district.csv",
+        DataFile.PRES_08_20,
+        DataFile.PRES_20_24,
     )
     fundraising = load_fundraising(
-        cache_path=data_dir / "fec_fundraising.csv",
+        cache_path=DataFile.FUNDRAISING,
         api_key=os.getenv("FEC_API_KEY"),
     )
     winners = build_winners(top_candidates, dems_reps, approval, pres_lean, fundraising)
@@ -55,7 +54,7 @@ def run_forecast(data_dir: Path = Path("data")) -> dict:
     districts = district_ids.copy()
     districts["proba_dem"] = proba
 
-    cook = load_cook_ratings(data_dir / "cook.csv")
+    cook = load_cook_ratings(DataFile.COOK)
     if not cook.empty:
         districts = districts.merge(
             cook[[Col.STATE, Col.DISTRICT, Col.COOK_PROB]],
@@ -69,9 +68,11 @@ def run_forecast(data_dir: Path = Path("data")) -> dict:
             + COOK_ALPHA * districts[Col.COOK_PROB].fillna(districts["proba_dem"]),
             districts["proba_dem"],
         )
-        districts["cook_rating"] = cook.set_index([Col.STATE, Col.DISTRICT])["rating"].reindex(
-            pd.MultiIndex.from_arrays([districts[Col.STATE], districts[Col.DISTRICT]])
-        ).values
+        districts["cook_rating"] = (
+            cook.set_index([Col.STATE, Col.DISTRICT])[Col.COOK_PROB]
+            .reindex(pd.MultiIndex.from_arrays([districts[Col.STATE], districts[Col.DISTRICT]]))
+            .values
+        )
 
     sim = simulate_election(districts["proba_dem"].values)
     districts["label"] = np.where(
@@ -82,9 +83,7 @@ def run_forecast(data_dir: Path = Path("data")) -> dict:
     incumbents_2024 = winners[winners[Col.YEAR] == 2024][
         [Col.STATE, Col.DISTRICT, Col.PARTY]
     ].rename(columns={Col.PARTY: "district_incumbent"})
-    districts = districts.merge(
-        incumbents_2024, on=[Col.STATE, Col.DISTRICT], how="left"
-    )
+    districts = districts.merge(incumbents_2024, on=[Col.STATE, Col.DISTRICT], how="left")
     districts["is_open"] = [
         (state, dist) in OPEN_SEATS_2026
         for state, dist in zip(districts[Col.STATE], districts[Col.DISTRICT])

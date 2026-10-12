@@ -4,7 +4,6 @@ All fixtures are synthetic hand-crafted DataFrames / arrays.
 """
 import numpy as np
 import pandas as pd
-import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -312,7 +311,6 @@ def test_build_feature_matrix_column_types():
 def test_build_feature_matrix_no_data_leakage():
     """district_incumbent must never be the same year's party (always lagged)."""
     from src.features import build_feature_matrix
-    from src.constants import Col, Val
 
     winners = _make_minimal_winners()
     X, y, years = build_feature_matrix(winners)

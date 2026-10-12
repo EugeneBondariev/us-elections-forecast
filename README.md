@@ -13,18 +13,59 @@ api.py         FastAPI endpoints (cached on startup, /health, /refresh)
 app.py         Streamlit dashboard
 ```
 
-## Data requirements
+## Getting the data
 
-Place these files in `data/` (not committed):
+`data/` is not committed. Follow these steps in order to reproduce it from scratch.
 
-| File | Source |
+### Step 1 — Required files (download manually)
+
+| File | Where to get it |
 |---|---|
-| `1976-2024-house.tab` | [MIT Election Lab — U.S. House 1976–2024](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/IG0UN2) |
-| `Approval-Ratings-for-POTUS-raw.xls` | [American Presidency Project](https://docs.google.com/spreadsheets/d/1iEl565M1mICTubTtoxXMdxzaHzAcPTnb3kpRndsrfyY) |
-| `president-2008-2020-by-district.csv` | [The Downballot 2008–2020](https://docs.google.com/spreadsheets/d/1XVzQpDSQZtN3jCx3IiZwR3wsm-7kGqKKGJ1Q-Q3aJSk) |
-| `president-2020-2024-by-district.csv` | [The Downballot 2020–2024](https://docs.google.com/spreadsheets/d/1kFr-fMiMlOe2SAfrJkEeHVCHBXS2dGN9PXKv5UW5Fco) |
+| `data/1976-2024-house.tab` | [MIT Election Lab — U.S. House 1976–2024](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/IG0UN2) → Download ZIP → extract the `.tab` file |
+| `data/Approval-Ratings-for-POTUS-raw.xls` | [American Presidency Project](https://docs.google.com/spreadsheets/d/1iEl565M1mICTubTtoxXMdxzaHzAcPTnb3kpRndsrfyY) → File → Download → Microsoft Excel |
+| `data/president-2008-2020-by-district.csv` | [The Downballot 2008–2020](https://docs.google.com/spreadsheets/d/1XVzQpDSQZtN3jCx3IiZwR3wsm-7kGqKKGJ1Q-Q3aJSk) → File → Download → CSV |
+| `data/president-2020-2024-by-district.csv` | [The Downballot 2020–2024](https://docs.google.com/spreadsheets/d/1kFr-fMiMlOe2SAfrJkEeHVCHBXS2dGN9PXKv5UW5Fco) → File → Download → CSV |
 
-Optional: `cook.html` (run `python scripts/parse_cook.py` after saving) and `fec_fundraising.csv`.
+### Step 2 — Fundraising data (FEC API)
+
+Requires a free API key from [fred.stlouisfed.org](https://api.data.gov/signup).
+
+```bash
+export FEC_API_KEY=your_key_here
+python -c "
+import os, logging
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+from src.fundraising import fetch_and_cache
+fetch_and_cache('data/fundraising.csv', os.environ['FEC_API_KEY'])
+"
+```
+
+This fetches 2014–2026 House fundraising totals and saves to `data/fundraising.csv`. Takes ~2 minutes.
+
+### Step 3 — Cook Political Report ratings (optional)
+
+Improves 2026 district probability estimates by blending in Cook ratings at 35% weight.
+
+1. Save the Cook Political Report House ratings page as `data/cook.html` (File → Save Page As in your browser)
+2. Run the parser:
+```bash
+python scripts/parse_cook.py
+```
+This produces `data/cook.csv`.
+
+### Step 4 — Verify live indicators
+
+Checks that `UNEMPLOYMENT[2026]`, `ECON_GROWTH[2026]` in `src/constants.py` match current FRED data.
+Requires a free API key from [fred.stlouisfed.org](https://fred.stlouisfed.org/docs/api/api_key.html).
+
+```bash
+export FRED_API_KEY=your_key_here
+python scripts/update_indicators.py
+```
+
+Update `src/constants.py` manually if any values are flagged.
+
+---
 
 ## Quickstart
 
@@ -33,7 +74,6 @@ pip install -r requirements.txt
 python scripts/predict.py  # CLI forecast + MLflow logging
 streamlit run app.py       # dashboard at localhost:8501
 uvicorn api:app --reload   # REST API at localhost:8000
-docker compose up          # both services via Docker
 python -m pytest tests/ -q # test suite
 ```
 
@@ -51,6 +91,7 @@ Walk-forward CV (always train on years < test year) feeds a stacking ensemble �
 | `parse_cook.py` | Cook Political Report HTML → `data/cook.csv` |
 | `build_db.py` | Source CSVs → SQLite (`data/elections.db`) |
 | `tune.py` | Optuna hyperparameter search for LightGBM |
+| `update_indicators.py` | Check live unemployment and GDP against hardcoded constants |
 | `pca_analysis.py` | PCA on feature matrix, plots loadings |
 | `feature_significance.py` | t-test, chi-square, permutation tests per feature |
 | `shap_analysis.py` | Per-district SHAP explanations |

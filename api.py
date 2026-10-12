@@ -1,12 +1,19 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Request
+
 import numpy as np
-from src.forecast import run_forecast
+from fastapi import FastAPI, HTTPException, Request
+
 from src.constants import Col, DEM_MAJORITY_SEATS
+from src.database import load_latest_forecast, save_forecast
+from src.forecast import run_forecast
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.forecast = run_forecast()
+    result = load_latest_forecast()
+    if result is None:
+        result = run_forecast()
+        save_forecast(result)
+    app.state.forecast = result
     yield
 
 app = FastAPI(title="US House Forecast 2026", lifespan=lifespan)
@@ -17,7 +24,9 @@ def health(request: Request):
 
 @app.get("/refresh")
 def refresh(request: Request):
-    request.app.state.forecast = run_forecast()
+    result = run_forecast()
+    save_forecast(result)
+    request.app.state.forecast = result
     return {"status": "refreshed"}
 
 @app.get("/forecast")

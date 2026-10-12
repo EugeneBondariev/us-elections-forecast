@@ -5,38 +5,35 @@ Run from project root:
 """
 
 import sqlite3
-from pathlib import Path
 
 import pandas as pd
 
-DATA_DIR = Path(__file__).parent.parent / "data"
-DB_PATH = DATA_DIR / "elections.db"
+from src.constants import Col
+from src.paths import DataFile
 
 
 def main() -> None:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DataFile.DB)
     try:
         # Table: house_results
-        house_path = DATA_DIR / "1976-2024-house.tab"
-        print(f"Loading {house_path} ...")
-        df_house = pd.read_csv(house_path, low_memory=False)
+        print(f"Loading {DataFile.HOUSE} ...")
+        df_house = pd.read_csv(DataFile.HOUSE, low_memory=False)
         df_house.to_sql("house_results", conn, if_exists="replace", index=False)
         print(f"  -> house_results: {len(df_house):,} rows")
 
         # Table: approval
-        approval_path = DATA_DIR / "Approval-Ratings-for-POTUS-raw.xls"
-        print(f"Loading {approval_path} ...")
+        print(f"Loading {DataFile.APPROVAL} ...")
         df_approval = pd.read_csv(
-            approval_path,
+            DataFile.APPROVAL,
             sep="\t",
             header=None,
-            names=["start", "end", "pres_approval", "pres_disapproval", "unsure"],
+            names=[Col.START, Col.END, Col.PRES_APPROVAL, Col.PRES_DISAPPROVAL, Col.UNSURE],
         )
         df_approval.to_sql("approval", conn, if_exists="replace", index=False)
         print(f"  -> approval: {len(df_approval):,} rows")
 
         conn.commit()
-        print(f"\nDatabase written to {DB_PATH}")
+        print(f"\nDatabase written to {DataFile.DB}")
     finally:
         conn.close()
 

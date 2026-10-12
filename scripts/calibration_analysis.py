@@ -1,7 +1,5 @@
 """Reliability diagram: compare raw LR vs isotonic-calibrated LR probabilities."""
 
-from pathlib import Path
-
 import matplotlib.pyplot as plt
 from sklearn.calibration import calibration_curve
 from sklearn.metrics import brier_score_loss
@@ -16,16 +14,14 @@ from src.features import (
 )
 from src.loaders import load_approval, load_clean_house_data
 from src.model import build_calibrated_pipeline, build_pipeline
-
-DATA_DIR = Path("data")
-OUTPUTS_DIR = Path("outputs")
+from src.paths import DataFile, OUTPUTS_DIR
 
 
 def main() -> None:
-    df = load_clean_house_data(DATA_DIR / "1976-2024-house.tab")
+    df = load_clean_house_data(DataFile.HOUSE)
     top_candidates = get_top_candidate_per_party(df)
     dems_reps = build_dems_reps(top_candidates)
-    approval = load_approval(DATA_DIR / "Approval-Ratings-for-POTUS-raw.xls")
+    approval = load_approval(DataFile.APPROVAL)
     winners = build_winners(top_candidates, dems_reps, approval)
     winners = add_incumbency_features(winners, df)
     X, y, _ = build_feature_matrix(winners)

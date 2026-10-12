@@ -1,3 +1,14 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "us-elections"
+version = "0.1.0"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

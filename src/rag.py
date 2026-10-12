@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
+
 import numpy as np
 import pandas as pd
+
+from src.paths import DataFile
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["build_index", "load_index", "retrieve", "rag_answer"]
-
-CHROMA_DIR = Path("data/chroma_db")
 
 
 def _district_to_text(row: dict | pd.Series) -> str:
@@ -37,7 +37,7 @@ def build_index(districts: pd.DataFrame, persist: bool = True) -> object:
     """Build a ChromaDB collection from district fact sheets. Returns the collection."""
     import chromadb
 
-    client = chromadb.PersistentClient(path=str(CHROMA_DIR)) if persist else chromadb.EphemeralClient()
+    client = chromadb.PersistentClient(path=str(DataFile.CHROMA)) if persist else chromadb.EphemeralClient()
 
     # Delete existing collection to allow rebuild
     try:
@@ -70,7 +70,7 @@ def build_index(districts: pd.DataFrame, persist: bool = True) -> object:
 def load_index() -> object:
     """Load persisted ChromaDB collection. Raises if not built yet."""
     import chromadb
-    client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+    client = chromadb.PersistentClient(path=str(DataFile.CHROMA))
     return client.get_collection("districts")
 
 
@@ -84,26 +84,31 @@ def retrieve(query: str, n_results: int = 5, collection=None) -> list[dict]:
     return [{"text": d, **m} for d, m in zip(docs, metas)]
 
 
-# anthropic imported lazily — optional dependency, only needed when ANTHROPIC_API_KEY is set
+# groq imported lazily — optional dependency, only needed when GROQ_API_KEY is set
 def rag_answer(query: str, collection=None, api_key: str | None = None) -> str:
-    """Retrieve relevant districts and generate an LLM answer. Requires ANTHROPIC_API_KEY."""
+    """Retrieve relevant districts and generate an LLM answer. Requires GROQ_API_KEY."""
     import os
-    api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+    api_key = api_key or os.getenv("GROQ_API_KEY")
     if not api_key:
-        return "ANTHROPIC_API_KEY not set."
+        return "GROQ_API_KEY not set."
 
     chunks = retrieve(query, n_results=5, collection=collection)
     context = "\n".join(f"- {c['text']}" for c in chunks)
 
-    import anthropic
-    client = anthropic.Anthropic(api_key=api_key)
-    message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+    from groq import Groq
+    client = Groq(api_key=api_key)
+    response = client.chat.completions.create(
+        model="qwen/qwen3.8-27b",
         max_tokens=300,
-        system="You are a nonpartisan election analyst. Answer questions about the 2026 US House forecast using only the provided district data. Be concise.",
-        messages=[{
-            "role": "user",
-            "content": f"Context (retrieved district data):\n{context}\n\nQuestion: {query}"
-        }],
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a nonpartisan election analyst. Answer questions about the 2026 US House forecast using only the provided district data. Be concise.",
+            },
+            {
+                "role": "user",
+                "content": f"Context (retrieved district data):\n{context}\n\nQuestion: {query}",
+            },
+        ],
     )
-    return message.content[0].text.strip()
+    return response.choices[0].message.content.strip()

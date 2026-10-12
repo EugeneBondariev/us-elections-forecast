@@ -136,7 +136,7 @@ def load_approval(path: str | Path) -> pd.DataFrame:
         path,
         sep="\t",
         header=None,
-        names=[Col.START, "end", Col.PRES_APPROVAL, Col.PRES_DISAPPROVAL, "unsure"],
+        names=[Col.START, Col.END, Col.PRES_APPROVAL, Col.PRES_DISAPPROVAL, Col.UNSURE],
     )
     approval[Col.YEAR] = pd.to_datetime(approval[Col.START]).dt.year
     approval = approval[[Col.YEAR, Col.PRES_APPROVAL, Col.PRES_DISAPPROVAL]]

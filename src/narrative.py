@@ -1,9 +1,11 @@
 """LLM-powered forecast narrative using carefully engineered prompts."""
 
-import os
 import logging
+import os
+
 import numpy as np
 import pandas as pd
+
 from src.constants import DEM_MAJORITY_SEATS
 
 logger = logging.getLogger(__name__)

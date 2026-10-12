@@ -1,21 +1,44 @@
 import os
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.forecast import run_forecast
 from src.constants import COMPETITIVE_MARGIN, DEM_MAJORITY_SEATS
+from src.database import load_latest_forecast, save_forecast
+from src.forecast import run_forecast
 from src.narrative import generate_narrative
+from src.paths import DataFile
+from src.rag import build_index, load_index, rag_answer
 
 st.set_page_config(page_title="2026 US House Forecast", layout="wide")
 st.title("2026 US House Election Forecast")
 
 
+_REQUIRED_COLS = {"label", "proba_dem", "district_incumbent", "is_open", "dem_lean", "state_po"}
+
+
 @st.cache_data
 def load():
-    return run_forecast()
+    cached = load_latest_forecast(DataFile.DB)
+    if cached is not None and _REQUIRED_COLS.issubset(cached["districts"].columns):
+        return cached
+    result = run_forecast()
+    save_forecast(result, DataFile.DB)
+    return result
+
+
+@st.cache_resource
+def get_rag_collection(_districts):
+    try:
+        return load_index()
+    except Exception:
+        return build_index(_districts)
 
 
 data = load()
@@ -29,7 +52,7 @@ ci_68_lo = int(np.percentile(sim, 16))
 ci_68_hi = int(np.percentile(sim, 84))
 n_competitive = int(((districts["proba_dem"] - 0.5).abs() < COMPETITIVE_MARGIN).sum())
 
-tab_overview, tab_districts, tab_map = st.tabs(["Overview", "Districts", "Map"])
+tab_overview, tab_districts, tab_map, tab_ask = st.tabs(["Overview", "Districts", "Map", "Ask"])
 
 with tab_overview:
     c1, c2, c3, c4 = st.columns(4)
@@ -201,3 +224,39 @@ with tab_map:
         use_container_width=False,
         hide_index=True,
     )
+
+with tab_ask:
+    st.subheader("Ask about the forecast")
+    if not os.getenv("GROQ_API_KEY"):
+        st.info("Set GROQ_API_KEY to enable natural language Q&A.")
+    else:
+        with st.expander("What can I ask?", expanded=False):
+            st.markdown(
+                """
+The assistant answers questions based on the **current model forecast** for each district.
+Each district has: win probability, incumbent party, open seat flag, historical Dem lean,
+presidential lean, and Cook Political Report rating (where available).
+
+**Good questions:**
+- *Which districts in Pennsylvania are competitive?*
+- *Which open seats does the model favor Republicans in?*
+- *What are the closest toss-up races in Florida?*
+- *Which Democratic-held districts have a win probability below 50%?*
+- *How does the model rate swing districts in the Midwest?*
+
+**Won't work well:**
+- Questions about specific candidate names (not in the data)
+- Historical questions about past elections
+- Questions about polling, fundraising totals, or news events
+- National-level questions like "who will control the House?" — use the Overview tab for that
+                """
+            )
+
+        query = st.text_input(
+            "Ask a question about the 2026 House forecast",
+            placeholder="e.g. Which Pennsylvania districts are competitive?",
+        )
+        if query:
+            with st.spinner("Searching..."):
+                answer = rag_answer(query, collection=get_rag_collection(districts))
+            st.write(answer)

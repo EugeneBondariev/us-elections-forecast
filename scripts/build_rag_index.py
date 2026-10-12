@@ -1,6 +1,6 @@
 """Build the ChromaDB RAG index from the current forecast."""
 
-from pathlib import Path
+
 from src.forecast import run_forecast
 from src.rag import build_index
 

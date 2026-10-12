@@ -1,19 +1,15 @@
 """SHAP analysis: compute and save per-district feature explanations."""
 
-from pathlib import Path
-
 import matplotlib.pyplot as plt
 import pandas as pd
 
 from src.forecast import run_forecast
-
-DATA_DIR = Path("data")
-OUTPUTS_DIR = Path("outputs")
+from src.paths import DATA_DIR, OUTPUTS_DIR
 
 
 def main() -> None:
     print("Running forecast pipeline...")
-    result = run_forecast(DATA_DIR)
+    result = run_forecast()
     shap_df: pd.DataFrame = result["shap_values"]
     districts: pd.DataFrame = result["districts"]
 

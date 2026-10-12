@@ -12,8 +12,6 @@ from __future__ import annotations
 
 import logging
 import os
-import sys
-from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
@@ -21,8 +19,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.features import (
     add_incumbency_features,
@@ -33,6 +29,7 @@ from src.features import (
 )
 from src.loaders import load_approval, load_clean_house_data, load_pres_lean
 from src.fundraising import load_fundraising
+from src.paths import DataFile
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -67,15 +64,15 @@ FEATURE_LABELS = {
 }
 
 
-def _load_data(data_dir: Path) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
-    df = load_clean_house_data(data_dir / "1976-2024-house.tab")
-    approval = load_approval(data_dir / "Approval-Ratings-for-POTUS-raw.xls")
+def _load_data() -> tuple[pd.DataFrame, pd.Series, pd.Series]:
+    df = load_clean_house_data(DataFile.HOUSE)
+    approval = load_approval(DataFile.APPROVAL)
     pres_lean = load_pres_lean(
-        data_dir / "president-2008-2020-by-district.csv",
-        data_dir / "president-2020-2024-by-district.csv",
+        DataFile.PRES_08_20,
+        DataFile.PRES_20_24,
     )
     fundraising = load_fundraising(
-        cache_path=data_dir / "fec_fundraising.csv",
+        cache_path=DataFile.FUNDRAISING,
         api_key=os.getenv("FEC_API_KEY"),
     )
     top = get_top_candidate_per_party(df)
@@ -87,10 +84,9 @@ def _load_data(data_dir: Path) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
 
 
 def main() -> None:
-    data_dir = Path("data")
-    outputs_dir = Path("outputs")
+    from src.paths import OUTPUTS_DIR as outputs_dir
     log.info("Loading data...")
-    X_full, y, years = _load_data(data_dir)
+    X_full, y, years = _load_data()
 
     # Restrict to structural features only for interpretable econometric analysis
     available = [f for f in STRUCTURAL_FEATURES if f in X_full.columns]

@@ -1,8 +1,9 @@
 """Parse Cook Political Report HTML ratings page → data/cook.csv."""
 
-import re
 import csv
-from pathlib import Path
+import re
+
+from src.paths import DataFile
 
 COOK_PROB = {
     "solid-d":  0.97,
@@ -51,9 +52,8 @@ def parse(html: str) -> list[dict]:
 
 
 def main() -> None:
-    root = Path(__file__).parent.parent
-    html_path = root / "data" / "cook.html"
-    csv_path = root / "data" / "cook.csv"
+    html_path = DataFile.COOK.with_suffix(".html")
+    csv_path = DataFile.COOK
 
     html = html_path.read_text(encoding="utf-8")
     rows = parse(html)

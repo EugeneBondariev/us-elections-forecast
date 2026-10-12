@@ -1,27 +1,23 @@
 import logging
 import os
-import sys
 import tempfile
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import mlflow
 import mlflow.sklearn
 import numpy as np
 
 from src.constants import DEM_MAJORITY_SEATS
-from src.logging_config import setup_logging
-from src.fundraising import load_fundraising
-from src.loaders import load_approval, load_clean_house_data, load_pres_lean
 from src.features import (
     add_incumbency_features,
     build_dems_reps,
     build_feature_matrix,
-    get_top_candidate_per_party,
     build_pred_2026,
     build_winners,
+    get_top_candidate_per_party,
 )
+from src.fundraising import load_fundraising
+from src.loaders import load_approval, load_clean_house_data, load_pres_lean
+from src.logging_config import setup_logging
 from src.model import (
     bootstrap_ci,
     compute_sample_weights,
@@ -32,8 +28,8 @@ from src.model import (
     walk_forward_cv,
     walk_forward_feature_importance,
 )
+from src.paths import DataFile
 
-DATA_DIR = Path("data")
 logger = logging.getLogger(__name__)
 
 
@@ -98,23 +94,23 @@ def main() -> None:
     log_path = setup_logging()
     logger.info("Run log: %s", log_path)
 
-    df = load_clean_house_data(DATA_DIR / "1976-2024-house.tab")
+    df = load_clean_house_data(DataFile.HOUSE)
     top_candidates = get_top_candidate_per_party(df)
     dems_reps = build_dems_reps(top_candidates)
-    approval = load_approval(DATA_DIR / "Approval-Ratings-for-POTUS-raw.xls")
+    approval = load_approval(DataFile.APPROVAL)
     pres_lean = load_pres_lean(
-        DATA_DIR / "president-2008-2020-by-district.csv",
-        DATA_DIR / "president-2020-2024-by-district.csv",
+        DataFile.PRES_08_20,
+        DataFile.PRES_20_24,
     )
     fundraising = load_fundraising(
-        cache_path=DATA_DIR / "fec_fundraising.csv",
+        cache_path=DataFile.FUNDRAISING,
         api_key=os.getenv("FEC_API_KEY"),
     )
     winners = build_winners(top_candidates, dems_reps, approval, pres_lean, fundraising)
     winners = add_incumbency_features(winners, df)
     X, y, years = build_feature_matrix(winners)
 
-    cook_alpha = 0.35 if (DATA_DIR / "cook.csv").exists() else 0.0
+    cook_alpha = 0.35 if DataFile.COOK.exists() else 0.0
 
     mlflow.set_experiment("us-house-forecast")
     with mlflow.start_run():

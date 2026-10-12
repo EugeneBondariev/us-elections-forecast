@@ -1,7 +1,5 @@
 """Learning curves: accuracy vs. training set size for LR and LightGBM."""
 
-from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import learning_curve
@@ -15,9 +13,7 @@ from src.features import (
 )
 from src.loaders import load_approval, load_clean_house_data
 from src.model import build_gbm_pipeline, build_pipeline
-
-DATA_DIR = Path("data")
-OUTPUTS_DIR = Path("outputs")
+from src.paths import DataFile, OUTPUTS_DIR
 
 
 def _plot_curve(ax, train_sizes, train_scores, cv_scores, title):
@@ -40,10 +36,10 @@ def _plot_curve(ax, train_sizes, train_scores, cv_scores, title):
 
 
 def main() -> None:
-    df = load_clean_house_data(DATA_DIR / "1976-2024-house.tab")
+    df = load_clean_house_data(DataFile.HOUSE)
     top_candidates = get_top_candidate_per_party(df)
     dems_reps = build_dems_reps(top_candidates)
-    approval = load_approval(DATA_DIR / "Approval-Ratings-for-POTUS-raw.xls")
+    approval = load_approval(DataFile.APPROVAL)
     winners = build_winners(top_candidates, dems_reps, approval)
     winners = add_incumbency_features(winners, df)
     X, y, _ = build_feature_matrix(winners)

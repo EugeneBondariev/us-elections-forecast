@@ -31,6 +31,8 @@ class Col(StrEnum):
     VERSION = "version"
     # approval source columns
     START = "start"
+    END = "end"
+    UNSURE = "unsure"
     # engineered columns
     DEM_VOTES = "dem_votes"
     REP_VOTES = "rep_votes"

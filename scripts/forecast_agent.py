@@ -1,8 +1,10 @@
 """Interactive agentic forecast assistant using Claude tool use."""
 
-import os
 import json
+import os
+
 import numpy as np
+
 from src.constants import DEM_MAJORITY_SEATS
 
 TOOLS = [

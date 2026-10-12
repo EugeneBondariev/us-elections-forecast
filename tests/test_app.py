@@ -20,7 +20,7 @@ _mock_event.selection.rows = []
 _st_mock.dataframe.return_value = _mock_event
 sys.modules["streamlit"] = _st_mock
 
-from src.constants import Col, COMPETITIVE_MARGIN, DEM_MAJORITY_SEATS  # noqa: E402
+from src.constants import Col, DEM_MAJORITY_SEATS  # noqa: E402
 
 _DISTRICTS = pd.DataFrame([
     {"label": "PA-7", Col.STATE: "PA", Col.DISTRICT: 7, "proba_dem": 0.60,

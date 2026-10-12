@@ -15,18 +15,13 @@ Usage:
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-# Allow imports from project root when run as a script.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import stats
-import matplotlib.pyplot as plt
 
-from src.loaders import load_approval, load_clean_house_data
 from src.features import (
     add_incumbency_features,
     build_dems_reps,
@@ -34,9 +29,9 @@ from src.features import (
     build_winners,
     get_top_candidate_per_party,
 )
+from src.loaders import load_approval, load_clean_house_data
+from src.paths import DataFile, OUTPUTS_DIR
 
-DATA_DIR = Path(__file__).resolve().parents[1] / "data"
-OUTPUTS_DIR = Path(__file__).resolve().parents[1] / "outputs"
 OUTPUT_PATH = OUTPUTS_DIR / "feature_significance.png"
 N_PERMUTATIONS = 1000
 TOP_N_PERMUTATION = 5
@@ -46,11 +41,13 @@ ALPHA = 0.05
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
+
 def _sig(p: float) -> str:
     return "YES" if p < ALPHA else "no"
 
 
 # ── 1. Continuous features: correlation + t-test ─────────────────────────────
+
 
 def test_continuous(X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
     rows = []
@@ -73,6 +70,7 @@ def test_continuous(X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
 
 
 # ── 2. Permutation test on top-N continuous features ─────────────────────────
+
 
 def permutation_test(
     X: pd.DataFrame, y: pd.Series, features: list, n_perm: int = N_PERMUTATIONS
@@ -103,6 +101,7 @@ def permutation_test(
 
 # ── 3. Binary features: chi-square test ──────────────────────────────────────
 
+
 def test_binary(X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
     rows = []
     for col in X.columns:
@@ -123,6 +122,7 @@ def test_binary(X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
 
 
 # ── plotting ─────────────────────────────────────────────────────────────────
+
 
 def save_significance_chart(
     continuous_df: pd.DataFrame,
@@ -150,15 +150,21 @@ def save_significance_chart(
 
     fig, ax = plt.subplots(figsize=(10, max(5, top_n * 0.35)))
     colors = [
-        "#3366cc" if v >= significance_threshold else "#aaaaaa"
-        for v in combined["neg_log10_p"]
+        "#3366cc" if v >= significance_threshold else "#aaaaaa" for v in combined["neg_log10_p"]
     ]
     ax.barh(combined["feature"], combined["neg_log10_p"], color=colors, height=0.7)
-    ax.axvline(significance_threshold, color="#cc3333", linestyle="--", linewidth=1.2,
-               label=f"p = {ALPHA} threshold")
+    ax.axvline(
+        significance_threshold,
+        color="#cc3333",
+        linestyle="--",
+        linewidth=1.2,
+        label=f"p = {ALPHA} threshold",
+    )
     ax.set_xlabel("-log10(p-value)")
-    ax.set_title(f"Feature significance: top {top_n} features\n"
-                 "(blue = significant at p<0.05, grey = not significant)")
+    ax.set_title(
+        f"Feature significance: top {top_n} features\n"
+        "(blue = significant at p<0.05, grey = not significant)"
+    )
     ax.legend(fontsize=9)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -170,13 +176,14 @@ def save_significance_chart(
 
 # ── main ─────────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     # ── Load data (same pattern as conftest.py) ───────────────────────────────
     print("Loading data...")
-    df = load_clean_house_data(DATA_DIR / "1976-2024-house.tab")
+    df = load_clean_house_data(DataFile.HOUSE)
     top_candidates = get_top_candidate_per_party(df)
     dems_reps = build_dems_reps(top_candidates)
-    approval = load_approval(DATA_DIR / "Approval-Ratings-for-POTUS-raw.xls")
+    approval = load_approval(DataFile.APPROVAL)
     winners = build_winners(top_candidates, dems_reps, approval)
     winners = add_incumbency_features(winners, df)
     X, y, _ = build_feature_matrix(winners)
@@ -185,7 +192,9 @@ def main() -> None:
     print(f"dem_won base rate: {y.mean():.3f}\n")
 
     # ── Identify binary vs continuous features ────────────────────────────────
-    binary_features = [c for c in X.columns if set(X[c].dropna().unique()).issubset({0, 1, 0.0, 1.0})]
+    binary_features = [
+        c for c in X.columns if set(X[c].dropna().unique()).issubset({0, 1, 0.0, 1.0})
+    ]
     continuous_features = [c for c in X.columns if c not in binary_features]
 
     print(f"Continuous features : {len(continuous_features)}")
@@ -201,8 +210,10 @@ def main() -> None:
     # ── 2. Permutation test on top-5 continuous features ─────────────────────
     top5 = cont_results.head(TOP_N_PERMUTATION)["feature"].tolist()
     print(f"\n{'=' * 70}")
-    print(f"2. PERMUTATION TEST (top {TOP_N_PERMUTATION} features by |correlation|, "
-          f"n_permutations={N_PERMUTATIONS})")
+    print(
+        f"2. PERMUTATION TEST (top {TOP_N_PERMUTATION} features by |correlation|, "
+        f"n_permutations={N_PERMUTATIONS})"
+    )
     print("=" * 70)
     # Re-sort by absolute correlation to pick the genuinely strongest features.
     top5_abs = (
@@ -223,14 +234,15 @@ def main() -> None:
 
     # ── Summary counts ────────────────────────────────────────────────────────
     n_sig_cont = (cont_results["p_value"] < ALPHA).sum()
-    n_sig_bin  = (bin_results["p_value"] < ALPHA).sum()
+    n_sig_bin = (bin_results["p_value"] < ALPHA).sum()
     print(f"\n{'=' * 70}")
     print("SUMMARY")
     print("=" * 70)
-    print(f"  Significant continuous features (p<{ALPHA}): "
-          f"{n_sig_cont}/{len(continuous_features)}")
-    print(f"  Significant binary features     (p<{ALPHA}): "
-          f"{n_sig_bin}/{len(binary_features)}")
+    print(
+        f"  Significant continuous features (p<{ALPHA}): "
+        f"{n_sig_cont}/{len(continuous_features)}"
+    )
+    print(f"  Significant binary features     (p<{ALPHA}): " f"{n_sig_bin}/{len(binary_features)}")
 
     # ── Save chart ────────────────────────────────────────────────────────────
     save_significance_chart(cont_results, bin_results, OUTPUT_PATH)

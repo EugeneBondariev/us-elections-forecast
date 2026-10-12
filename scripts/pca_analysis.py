@@ -6,11 +6,6 @@ Usage:
 from __future__ import annotations
 
 import os
-import sys
-from pathlib import Path
-
-# Allow imports from the project root when run as a script.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,9 +21,7 @@ from src.features import (
 )
 from src.fundraising import load_fundraising
 from src.loaders import load_approval, load_clean_house_data, load_pres_lean
-
-DATA_DIR = Path(__file__).resolve().parents[1] / "data"
-OUTPUTS_DIR = Path(__file__).resolve().parents[1] / "outputs"
+from src.paths import DataFile, OUTPUTS_DIR
 OUTPUT_PATH = OUTPUTS_DIR / "pca_plot.png"
 N_COMPONENTS = 10
 TOP_N_FEATURES = 5
@@ -36,16 +29,16 @@ TOP_N_FEATURES = 5
 
 def main() -> None:
     # ── Load data via the project pipeline ──────────────────────────────────
-    df = load_clean_house_data(DATA_DIR / "1976-2024-house.tab")
+    df = load_clean_house_data(DataFile.HOUSE)
     top_candidates = get_top_candidate_per_party(df)
     dems_reps = build_dems_reps(top_candidates)
-    approval = load_approval(DATA_DIR / "Approval-Ratings-for-POTUS-raw.xls")
+    approval = load_approval(DataFile.APPROVAL)
     pres_lean = load_pres_lean(
-        DATA_DIR / "president-2008-2020-by-district.csv",
-        DATA_DIR / "president-2020-2024-by-district.csv",
+        DataFile.PRES_08_20,
+        DataFile.PRES_20_24,
     )
     fundraising = load_fundraising(
-        cache_path=DATA_DIR / "fec_fundraising.csv",
+        cache_path=DataFile.FUNDRAISING,
         api_key=os.getenv("FEC_API_KEY"),
     )
     winners = build_winners(top_candidates, dems_reps, approval, pres_lean, fundraising)
