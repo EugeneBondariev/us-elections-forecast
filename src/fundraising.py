@@ -123,10 +123,6 @@ def _aggregate(records: list[dict]) -> pd.DataFrame:
         return (result[dem_col] / total.clip(lower=1)).where(total > 0, 0.5)
 
     result["fundraising_dem_share"] = _share("dem_receipts", "rep_receipts")
-    result["small_donor_dem_share"] = _share(
-        "dem_individual_unitemized_contributions",
-        "rep_individual_unitemized_contributions",
-    )
     result["large_donor_dem_share"] = _share(
         "dem_individual_itemized_contributions",
         "rep_individual_itemized_contributions",
@@ -135,11 +131,22 @@ def _aggregate(records: list[dict]) -> pd.DataFrame:
         "dem_other_political_committee_contributions",
         "rep_other_political_committee_contributions",
     )
+    result["spending_dem_share"] = _share("dem_disbursements", "rep_disbursements")
+
+    # Surplus = receipts - disbursements; share of combined surplus (clipped to avoid
+    # division by zero when both candidates spent more than they raised)
+    result["dem_surplus"] = result["dem_receipts"] - result["dem_disbursements"]
+    result["rep_surplus"] = result["rep_receipts"] - result["rep_disbursements"]
+    total_surplus = result["dem_surplus"] + result["rep_surplus"]
+    result["surplus_dem_share"] = (
+        (result["dem_surplus"] / total_surplus.clip(lower=1))
+        .where(total_surplus.abs() > 0, 0.5)
+    )
 
     return result[[
         "year", "state_po", "district",
-        "fundraising_dem_share", "small_donor_dem_share",
-        "large_donor_dem_share", "pac_dem_share",
+        "fundraising_dem_share", "large_donor_dem_share",
+        "pac_dem_share", "spending_dem_share", "surplus_dem_share",
     ]]
 
 
