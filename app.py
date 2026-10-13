@@ -1,6 +1,10 @@
 import os
+import subprocess
+from datetime import datetime
 
 from dotenv import load_dotenv
+
+load_dotenv()
 
 load_dotenv()
 
@@ -52,7 +56,7 @@ ci_68_lo = int(np.percentile(sim, 16))
 ci_68_hi = int(np.percentile(sim, 84))
 n_competitive = int(((districts["proba_dem"] - 0.5).abs() < COMPETITIVE_MARGIN).sum())
 
-tab_overview, tab_districts, tab_map, tab_ask = st.tabs(["Overview", "Districts", "Map", "Ask"])
+tab_overview, tab_districts, tab_map, tab_ask, tab_tools = st.tabs(["Overview", "Districts", "Map", "Ask", "Tools"])
 
 with tab_overview:
     c1, c2, c3, c4 = st.columns(4)
@@ -260,3 +264,36 @@ presidential lean, and Cook Political Report rating (where available).
             with st.spinner("Searching..."):
                 answer = rag_answer(query, collection=get_rag_collection(districts))
             st.write(answer)
+
+with tab_tools:
+    st.subheader("Pipeline tools")
+
+    _SCRIPTS = {
+        "Run full analysis":       ("scripts/run_analysis.py",       "Runs all 6 diagnostic scripts. Logs saved to logs/analysis/."),
+        "Train & predict (MLflow)":("scripts/predict.py",            "Full training run with walk-forward CV, bootstrap CI, and 2026 forecast. Logged to MLflow."),
+        "Hyperparameter tuning":   ("scripts/tune.py",               "Optuna tuning for LightGBM (500 trials). Saves best params to data/best_params_lgbm.json."),
+        "Rebuild RAG index":       ("scripts/build_rag_index.py",    "Rebuilds the ChromaDB vector index from the current forecast."),
+        "Fetch economic indicators":("scripts/update_indicators.py", "Downloads latest approval ratings and economic data."),
+        "Parse Cook ratings":      ("scripts/parse_cook.py",         "Parses Cook Political Report CSV into data/cook.csv."),
+    }
+
+    for label, (script, description) in _SCRIPTS.items():
+        with st.expander(label):
+            st.caption(description)
+            if st.button(f"Run — {label}", key=label):
+                with st.spinner(f"Running {script}..."):
+                    result = subprocess.run(
+                        ["python", script],
+                        capture_output=True,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                    )
+                if result.returncode == 0:
+                    st.success(f"Finished at {datetime.now().strftime('%H:%M:%S')}")
+                else:
+                    st.error("Script failed — see output below")
+                if result.stdout:
+                    st.code(result.stdout[-3000:], language="text")
+                if result.stderr:
+                    st.code(result.stderr[-1000:], language="text")

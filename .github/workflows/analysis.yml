@@ -1,0 +1,48 @@
+name: Analysis
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"  # every Monday 06:00 UTC
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check for required data files
+        id: check_data
+        run: |
+          if [ -f "data/1976-2024-house.tab" ] && [ -f "data/Approval-Ratings-for-POTUS-raw.xls" ]; then
+            echo "present=true" >> $GITHUB_OUTPUT
+          else
+            echo "present=false" >> $GITHUB_OUTPUT
+            echo "::warning::Data files not found — skipping analysis. Add data files to run."
+          fi
+
+      - name: Run analysis
+        if: steps.check_data.outputs.present == 'true'
+        env:
+          FEC_API_KEY: ${{ secrets.FEC_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: make analyze
+
+      - name: Upload outputs
+        if: steps.check_data.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-outputs-${{ github.run_id }}
+          path: |
+            outputs/
+            logs/analysis/
+          retention-days: 30
