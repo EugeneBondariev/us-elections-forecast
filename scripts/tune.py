@@ -65,7 +65,7 @@ def main() -> None:
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-    sampler = optuna.samplers.TPESampler(seed=42)
+    sampler = optuna.samplers.TPESampler(seed=42, n_startup_trials=50)
     study = optuna.create_study(direction="maximize", sampler=sampler)
     study.optimize(lambda trial: objective(trial, X, y, years), n_trials=200)
 
