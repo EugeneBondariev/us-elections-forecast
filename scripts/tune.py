@@ -29,11 +29,11 @@ def objective(trial, X, y, years):
     params = {
         "n_estimators": trial.suggest_int("n_estimators", 100, 500),
         "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
-        "max_depth": trial.suggest_int("max_depth", 3, 6),
-        "num_leaves": trial.suggest_int("num_leaves", 8, 31),
+        "max_depth": trial.suggest_int("max_depth", 2, 6),
+        "num_leaves": trial.suggest_int("num_leaves", 4, 31),
         "min_child_samples": trial.suggest_int("min_child_samples", 10, 50),
         "subsample": trial.suggest_float("subsample", 0.6, 1.0),
-        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.3, 1.0),
         "verbose": -1,
     }
 
