@@ -153,12 +153,18 @@ def build_winners(
         ).drop(columns=["_pres_year"])
         winners[Col.PRES_LEAN] = winners[Col.PRES_LEAN].fillna(0.5)
     if fundraising is not None:
+        _fund_cols = [
+            Col.FUNDRAISING_DEM_SHARE, Col.LARGE_DONOR_DEM_SHARE,
+            Col.PAC_DEM_SHARE, Col.SPENDING_DEM_SHARE, Col.SURPLUS_DEM_SHARE,
+        ]
+        available = [c for c in _fund_cols if c in fundraising.columns]
         winners = winners.merge(
-            fundraising[[Col.YEAR, Col.STATE, Col.DISTRICT, Col.FUNDRAISING_DEM_SHARE]],
+            fundraising[[Col.YEAR, Col.STATE, Col.DISTRICT] + available],
             on=[Col.YEAR, Col.STATE, Col.DISTRICT],
             how="left",
         )
-        winners[Col.FUNDRAISING_DEM_SHARE] = winners[Col.FUNDRAISING_DEM_SHARE].fillna(0.5)
+        for c in available:
+            winners[c] = winners[c].fillna(0.5)
     return winners
 
 
@@ -335,12 +341,19 @@ def build_pred_2026(
         )
         pred = pred.merge(lean_2026, on=[Col.STATE, Col.DISTRICT], how="left")
         pred[Col.PRES_LEAN] = pred[Col.PRES_LEAN].fillna(0.5)
-    if fundraising is not None and Col.FUNDRAISING_DEM_SHARE in list(feature_columns):
-        fund_2026 = fundraising[fundraising[Col.YEAR] == 2026][
-            [Col.STATE, Col.DISTRICT, Col.FUNDRAISING_DEM_SHARE]
+    if fundraising is not None:
+        _fund_cols = [
+            Col.FUNDRAISING_DEM_SHARE, Col.LARGE_DONOR_DEM_SHARE,
+            Col.PAC_DEM_SHARE, Col.SPENDING_DEM_SHARE, Col.SURPLUS_DEM_SHARE,
         ]
-        pred = pred.merge(fund_2026, on=[Col.STATE, Col.DISTRICT], how="left")
-        pred[Col.FUNDRAISING_DEM_SHARE] = pred[Col.FUNDRAISING_DEM_SHARE].fillna(0.5)
+        available = [c for c in _fund_cols if c in fundraising.columns and c in list(feature_columns)]
+        if available:
+            fund_2026 = fundraising[fundraising[Col.YEAR] == 2026][
+                [Col.STATE, Col.DISTRICT] + available
+            ]
+            pred = pred.merge(fund_2026, on=[Col.STATE, Col.DISTRICT], how="left")
+            for c in available:
+                pred[c] = pred[c].fillna(0.5)
 
     pred = pd.get_dummies(
         pred,
