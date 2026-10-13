@@ -1,13 +1,17 @@
 """Pandera schemas for pipeline DataFrame boundaries."""
 
+import logging
+
 import pandera.pandas as pa
 from pandera.typing import Series
 
 from src.constants import Col
 
 __all__ = [
-    "HouseDataSchema", "FeatureMatrixSchema",
-    "validate_house_data", "validate_feature_matrix",
+    "HouseDataSchema",
+    "FeatureMatrixSchema",
+    "validate_house_data",
+    "validate_feature_matrix",
 ]
 
 
@@ -17,7 +21,7 @@ class HouseDataSchema(pa.DataFrameModel):
     district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
     party: Series[str] = pa.Field(alias=Col.PARTY)
     candidatevotes: Series[float] = pa.Field(ge=0, alias=Col.CANDIDATE_VOTES)
-    totalvotes: Series[float] = pa.Field(ge=0, alias=Col.TOTAL_VOTES)
+    totalvotes: Series[float] = pa.Field(gt=0, alias=Col.TOTAL_VOTES)
 
     class Config:
         coerce = True
@@ -26,8 +30,11 @@ class HouseDataSchema(pa.DataFrameModel):
 
 class FeatureMatrixSchema(pa.DataFrameModel):
     """Schema for the feature matrix X before model training."""
+
     dem_lean: Series[float] = pa.Field(nullable=True, alias=Col.DEM_LEAN)
-    prev_dem_vote_share: Series[float] = pa.Field(ge=0, le=1, nullable=True, alias=Col.PREV_DEM_SHARE)
+    prev_dem_vote_share: Series[float] = pa.Field(
+        ge=0, le=1, nullable=True, alias=Col.PREV_DEM_SHARE
+    )
     pres_approval: Series[float] = pa.Field(alias=Col.PRES_APPROVAL)
 
     class Config:
@@ -37,20 +44,21 @@ class FeatureMatrixSchema(pa.DataFrameModel):
 
 def validate_house_data(df):
     """Validate raw house data. Logs warnings on failure, does not raise."""
-    import logging
     logger = logging.getLogger(__name__)
     try:
         HouseDataSchema.validate(df, lazy=True)
         logger.info("House data validation passed (%d rows)", len(df))
     except pa.errors.SchemaErrors as e:
-        logger.warning("House data validation warnings: %d issues\n%s",
-                       len(e.failure_cases), e.failure_cases.head(5).to_string())
+        logger.warning(
+            "House data validation warnings: %d issues\n%s",
+            len(e.failure_cases),
+            e.failure_cases.head(5).to_string(),
+        )
     return df
 
 
 def validate_feature_matrix(X):
     """Validate feature matrix before training. Logs warnings, does not raise."""
-    import logging
     logger = logging.getLogger(__name__)
     try:
         FeatureMatrixSchema.validate(X, lazy=True)

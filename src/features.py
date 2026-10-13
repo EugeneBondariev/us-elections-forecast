@@ -5,7 +5,6 @@ import logging
 import numpy as np
 import pandas as pd
 
-from src.validators import validate_feature_matrix
 from src.constants import (
     Col,
     Val,
@@ -17,6 +16,9 @@ from src.constants import (
     OPEN_SEATS_2026,
     UNEMPLOYMENT,
 )
+from src.loaders import load_approval, load_clean_house_data
+from src.paths import DataFile
+from src.validators import validate_feature_matrix
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +48,7 @@ def get_top_candidate_per_party(df: pd.DataFrame) -> pd.DataFrame:
     """Return the highest-vote candidate per party-district-year."""
     return (
         df.loc[
-            df.groupby([Col.YEAR, Col.STATE, Col.DISTRICT, Col.PARTY])[
-                Col.CANDIDATE_VOTES
-            ].idxmax()
+            df.groupby([Col.YEAR, Col.STATE, Col.DISTRICT, Col.PARTY])[Col.CANDIDATE_VOTES].idxmax()
         ]
         .drop(columns=[Col.CANDIDATE])
         .reset_index(drop=True)
@@ -83,9 +83,7 @@ def build_dems_reps(top_candidates: pd.DataFrame, dem_lean_window: int = 4) -> p
         .rolling(dem_lean_window)
         .apply(
             lambda v: (
-                np.polyfit(range(dem_lean_window), v, 1)[0]
-                if not np.any(np.isnan(v))
-                else np.nan
+                np.polyfit(range(dem_lean_window), v, 1)[0] if not np.any(np.isnan(v)) else np.nan
             ),
             raw=True,
         )
@@ -106,13 +104,20 @@ def build_winners(
     """Build winners table by merging top candidates with structural and economic features."""
     logger.info("Building winners table")
     winners = top_candidates.loc[
-        top_candidates.groupby([Col.YEAR, Col.STATE, Col.DISTRICT])[
-            Col.CANDIDATE_VOTES
-        ].idxmax()
+        top_candidates.groupby([Col.YEAR, Col.STATE, Col.DISTRICT])[Col.CANDIDATE_VOTES].idxmax()
     ].reset_index(drop=True)
     winners[Col.VOTE_SHARE] = winners[Col.CANDIDATE_VOTES] / winners[Col.TOTAL_VOTES]
     winners = winners.merge(
-        dems_reps[[Col.YEAR, Col.STATE, Col.DISTRICT, Col.DEM_LEAN, Col.DEM_LEAN_TREND, Col.PREV_DEM_SHARE]],
+        dems_reps[
+            [
+                Col.YEAR,
+                Col.STATE,
+                Col.DISTRICT,
+                Col.DEM_LEAN,
+                Col.DEM_LEAN_TREND,
+                Col.PREV_DEM_SHARE,
+            ]
+        ],
         on=[Col.YEAR, Col.STATE, Col.DISTRICT],
         how="left",
     )
@@ -147,9 +152,9 @@ def add_incumbency_features(winners: pd.DataFrame, df: pd.DataFrame) -> pd.DataF
     """Add is_incumbent, prev_winner, and redistricting flag to the winners table."""
     logger.info("Adding incumbency features")
     winner_names = (
-        df.loc[
-            df.groupby([Col.YEAR, Col.STATE, Col.DISTRICT])[Col.CANDIDATE_VOTES].idxmax()
-        ][[Col.YEAR, Col.STATE, Col.DISTRICT, Col.CANDIDATE]]
+        df.loc[df.groupby([Col.YEAR, Col.STATE, Col.DISTRICT])[Col.CANDIDATE_VOTES].idxmax()][
+            [Col.YEAR, Col.STATE, Col.DISTRICT, Col.CANDIDATE]
+        ]
         .sort_values([Col.STATE, Col.DISTRICT, Col.YEAR])
         .reset_index(drop=True)
     )
@@ -184,9 +189,7 @@ def build_feature_matrix(winners: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series
     """Returns (X, y, years) — years is a Series aligned with X for walk-forward splitting."""
     logger.info("Building feature matrix")
     seats_per_year = (
-        winners.groupby([Col.YEAR, Col.PARTY])[Col.DISTRICT]
-        .count()
-        .unstack(fill_value=0)
+        winners.groupby([Col.YEAR, Col.PARTY])[Col.DISTRICT].count().unstack(fill_value=0)
     )
     seats_per_year = seats_per_year[[Val.DEMOCRAT, Val.REPUBLICAN]]
     seats_per_year["Majority"] = np.where(
@@ -210,7 +213,9 @@ def build_feature_matrix(winners: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series
     )
 
     X = w.drop(columns=_DROP_COLS, errors="ignore").dropna()
-    X.columns = pd.Index([str(c) for c in X.columns])  # StrEnum → plain str for sklearn compatibility
+    X.columns = pd.Index(
+        [str(c) for c in X.columns]
+    )  # StrEnum → plain str for sklearn compatibility
     y = w[Col.DEM_WON][X.index]
     years = w[Col.YEAR][X.index]
     logger.info("Feature matrix: %d rows, %d features", len(X), len(X.columns))
@@ -221,15 +226,11 @@ def build_feature_matrix(winners: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series
 def build_dataset() -> tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
     """Load data and build (X, y, winners) ready for modelling.
 
-    Centralises the 6-line pipeline that was duplicated across every script.
     Returns:
         X       — feature matrix
         y       — dem_won labels
         winners — full winners DataFrame (useful for inspection / SHAP)
     """
-    from src.loaders import load_approval, load_clean_house_data
-    from src.paths import DataFile
-
     df = load_clean_house_data(DataFile.HOUSE)
     top_candidates = get_top_candidate_per_party(df)
     dems_reps = build_dems_reps(top_candidates)
@@ -250,7 +251,9 @@ def build_pred_2026(
     pres_lean: pd.DataFrame | None = None,
     fundraising: pd.DataFrame | None = None,
     econ_growth_2026: float = -ECON_GROWTH[2026],  # negative: Rep president, weak economy
-    unemployment_2026: float = UNEMPLOYMENT[2026],  # positive: Rep president, high unemp = Dem-favorable
+    unemployment_2026: float = UNEMPLOYMENT[
+        2026
+    ],  # positive: Rep president, high unemp = Dem-favorable
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Returns (pred_features, district_ids) where district_ids labels each row."""
     logger.info("Building 2026 prediction features")
@@ -296,11 +299,9 @@ def build_pred_2026(
         lambda r: 0 if (r[Col.STATE], r[Col.DISTRICT]) in open_seats else 1, axis=1
     )
     pred[Col.REDISTRICTING] = 0
-    prev_share_2026 = (
-        dems_reps[dems_reps[Col.YEAR] == 2024]
-        [[Col.STATE, Col.DISTRICT, Col.DEM_VOTE_SHARE]]
-        .rename(columns={Col.DEM_VOTE_SHARE: Col.PREV_DEM_SHARE})
-    )
+    prev_share_2026 = dems_reps[dems_reps[Col.YEAR] == 2024][
+        [Col.STATE, Col.DISTRICT, Col.DEM_VOTE_SHARE]
+    ].rename(columns={Col.DEM_VOTE_SHARE: Col.PREV_DEM_SHARE})
     pred = pred.merge(prev_share_2026, on=[Col.STATE, Col.DISTRICT], how="left")
     pred[Col.PREV_DEM_SHARE] = pred[Col.PREV_DEM_SHARE].fillna(pred[Col.PREV_DEM_SHARE].median())
     pred[Col.INC_X_BALLOT] = pred[Col.IS_INCUMBENT] * pred[Col.GENERIC_BALLOT]

@@ -4,6 +4,7 @@ import logging
 
 import numpy as np
 import pandas as pd
+import shap
 from lightgbm import LGBMClassifier
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier, StackingClassifier, VotingClassifier
@@ -18,16 +19,31 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "WeightedPipeline",
-    "build_pipeline", "build_gbm_pipeline", "build_rf_pipeline",
-    "build_ensemble", "build_stacking_ensemble", "build_calibrated_pipeline",
-    "compute_sample_weights", "train", "cross_validate",
-    "feature_weights", "walk_forward_cv", "walk_forward_feature_importance",
-    "explain_districts", "simulate_election", "bayesian_simulate", "bootstrap_ci",
+    "build_pipeline",
+    "build_gbm_pipeline",
+    "build_rf_pipeline",
+    "build_ensemble",
+    "build_stacking_ensemble",
+    "build_calibrated_pipeline",
+    "compute_sample_weights",
+    "train",
+    "cross_validate",
+    "feature_weights",
+    "walk_forward_cv",
+    "walk_forward_feature_importance",
+    "explain_districts",
+    "simulate_election",
+    "bayesian_simulate",
+    "bootstrap_ci",
 ]
+
 
 class WeightedPipeline(Pipeline):
     """Pipeline that accepts sample_weight and routes it to the model step."""
-    def fit(self, X, y, sample_weight=None, **params):
+
+    def fit(
+        self, X: pd.DataFrame, y: pd.Series, sample_weight: np.ndarray | None = None, **params
+    ) -> WeightedPipeline:
         if sample_weight is not None:
             params["model__sample_weight"] = sample_weight
         return super().fit(X, y, **params)
@@ -35,41 +51,53 @@ class WeightedPipeline(Pipeline):
 
 def build_pipeline() -> WeightedPipeline:
     """Logistic Regression pipeline with StandardScaler."""
-    return WeightedPipeline([
-        ("scaler", StandardScaler()),
-        ("model", LogisticRegression(max_iter=1000)),
-    ])
+    return WeightedPipeline(
+        [
+            ("scaler", StandardScaler()),
+            ("model", LogisticRegression(max_iter=1000)),
+        ]
+    )
 
 
 def build_gbm_pipeline() -> WeightedPipeline:
     """LightGBM pipeline with StandardScaler."""
-    return WeightedPipeline([
-        ("scaler", StandardScaler()),
-        ("model", LGBMClassifier(
-            n_estimators=300,
-            learning_rate=0.05,
-            max_depth=4,
-            num_leaves=15,
-            min_child_samples=20,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            verbose=-1,
-        )),
-    ])
+    return WeightedPipeline(
+        [
+            ("scaler", StandardScaler()),
+            (
+                "model",
+                LGBMClassifier(
+                    n_estimators=300,
+                    learning_rate=0.05,
+                    max_depth=4,
+                    num_leaves=15,
+                    min_child_samples=20,
+                    subsample=0.8,
+                    colsample_bytree=0.8,
+                    verbose=-1,
+                ),
+            ),
+        ]
+    )
 
 
 def build_rf_pipeline() -> WeightedPipeline:
     """Random Forest pipeline with StandardScaler."""
-    return WeightedPipeline([
-        ("scaler", StandardScaler()),
-        ("model", RandomForestClassifier(
-            n_estimators=300,
-            max_depth=6,
-            min_samples_leaf=15,
-            max_features="sqrt",
-            n_jobs=-1,
-        )),
-    ])
+    return WeightedPipeline(
+        [
+            ("scaler", StandardScaler()),
+            (
+                "model",
+                RandomForestClassifier(
+                    n_estimators=300,
+                    max_depth=6,
+                    min_samples_leaf=15,
+                    max_features="sqrt",
+                    n_jobs=-1,
+                ),
+            ),
+        ]
+    )
 
 
 def build_ensemble() -> VotingClassifier:
@@ -109,7 +137,9 @@ def compute_sample_weights(years: pd.Series, half_life: int = 4) -> np.ndarray:
     return np.exp(-np.log(2) / half_life * elections_ago).values
 
 
-def train(X: pd.DataFrame, y: pd.Series, sample_weight: np.ndarray | None = None) -> StackingClassifier:
+def train(
+    X: pd.DataFrame, y: pd.Series, sample_weight: np.ndarray | None = None
+) -> StackingClassifier:
     """Fit stacking ensemble on X, y and return the trained model."""
     logger.info("Training stacking ensemble on %d samples, %d features", len(X), X.shape[1])
     model = build_stacking_ensemble()
@@ -157,13 +187,15 @@ def walk_forward_cv(
         pipeline.fit(X.loc[train_idx], y.loc[train_idx], sample_weight=w)
         preds = pipeline.predict(X.loc[test_idx])
         y_test = y.loc[test_idx]
-        results.append({
-            "year": test_year,
-            "actual_dem": int(y_test.sum()),
-            "predicted_dem": int(preds.sum()),
-            "seat_error": int(preds.sum()) - int(y_test.sum()),
-            "district_accuracy": round(float((preds == y_test.values).mean()), 4),
-        })
+        results.append(
+            {
+                "year": test_year,
+                "actual_dem": int(y_test.sum()),
+                "predicted_dem": int(preds.sum()),
+                "seat_error": int(preds.sum()) - int(y_test.sum()),
+                "district_accuracy": round(float((preds == y_test.values).mean()), 4),
+            }
+        )
     return pd.DataFrame(results)
 
 
@@ -191,7 +223,6 @@ def explain_districts(model: StackingClassifier, X_pred: pd.DataFrame) -> pd.Dat
     Uses the LightGBM sub-model (faster and more meaningful than LR for SHAP).
     Returns DataFrame: rows=districts (same index as X_pred), columns=features.
     """
-    import shap
     lgbm_pipe = model.named_estimators_["gbm"]
     lgbm_model = lgbm_pipe.named_steps["model"]
     scaler = lgbm_pipe.named_steps["scaler"]
@@ -246,8 +277,12 @@ def bayesian_simulate(
     result = wins.sum(axis=1)
     median_seats = int(np.median(result))
     p_majority = float((result >= DEM_MAJORITY_SEATS).mean())
-    logger.info("Bayesian simulation results: median=%d seats, P(majority>=%d)=%.1f%%",
-                median_seats, DEM_MAJORITY_SEATS, p_majority * 100)
+    logger.info(
+        "Bayesian simulation results: median=%d seats, P(majority>=%d)=%.1f%%",
+        median_seats,
+        DEM_MAJORITY_SEATS,
+        p_majority * 100,
+    )
     return result
 
 

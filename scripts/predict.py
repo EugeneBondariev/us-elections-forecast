@@ -28,6 +28,7 @@ from src.model import (
     walk_forward_cv,
     walk_forward_feature_importance,
 )
+from src.narrative import generate_narrative
 from src.paths import DataFile
 
 logger = logging.getLogger(__name__)
@@ -154,7 +155,6 @@ def main() -> None:
 
         sim = simulate_election(proba)
         _log_simulation(sim, len(proba))
-        from src.narrative import generate_narrative
         narrative = generate_narrative(sim, district_ids, len(proba))
         if narrative:
             logger.info("Forecast narrative:\n%s", narrative)

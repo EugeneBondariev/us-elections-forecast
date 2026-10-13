@@ -9,6 +9,7 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import Patch
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
@@ -81,7 +82,6 @@ def main() -> None:
     ax.spines["right"].set_visible(False)
 
     # Legend patches
-    from matplotlib.patches import Patch
     ax.legend(
         handles=[
             Patch(color="#3366cc", label="Dem win"),

@@ -3,9 +3,11 @@
 import json
 import os
 
+import anthropic
 import numpy as np
 
-from src.constants import DEM_MAJORITY_SEATS
+from src.constants import Col, DEM_MAJORITY_SEATS
+from src.forecast import run_forecast
 
 TOOLS = [
     {
@@ -94,7 +96,6 @@ def _run_tool(name: str, inputs: dict, forecast: dict) -> str:
     if name == "get_district_detail":
         state = inputs["state"].upper()
         district = inputs["district"]
-        from src.constants import Col
         row = districts[(districts[Col.STATE] == state) & (districts[Col.DISTRICT] == district)]
         if row.empty:
             return json.dumps({"error": f"District {state}-{district} not found"})
@@ -114,7 +115,6 @@ def _run_tool(name: str, inputs: dict, forecast: dict) -> str:
 
     if name == "get_state_summary":
         state = inputs["state"].upper()
-        from src.constants import Col
         state_df = districts[districts[Col.STATE] == state].sort_values("proba_dem", ascending=False)
         if state_df.empty:
             return json.dumps({"error": f"No districts found for state {state}"})
@@ -132,7 +132,6 @@ def _run_tool(name: str, inputs: dict, forecast: dict) -> str:
 
 def run_agent(user_question: str, forecast: dict, api_key: str) -> str:
     """Run one agentic turn: Claude decides which tools to call, calls them, returns final answer."""
-    import anthropic
     client = anthropic.Anthropic(api_key=api_key)
     messages = [{"role": "user", "content": user_question}]
 
@@ -180,7 +179,6 @@ def main() -> None:
         return
 
     print("Loading forecast data...")
-    from src.forecast import run_forecast
     forecast = run_forecast()
     print(f"Loaded {forecast['n_districts']} districts.\n")
     print("2026 House Forecast Agent — type 'quit' to exit\n" + "-" * 50)

@@ -2,6 +2,7 @@
 
 import csv
 import re
+from collections import Counter
 
 from src.paths import DataFile
 
@@ -74,7 +75,6 @@ def main() -> None:
 
     print(f"Wrote {len(unique)} districts to {csv_path}")
     # quick sanity check
-    from collections import Counter
     counts = Counter(r["rating"] for r in unique)
     for rating in ["solid-d", "likely-d", "lean-d", "tossup", "lean-r", "likely-r", "solid-r"]:
         if counts[rating]:

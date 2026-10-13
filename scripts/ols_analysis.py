@@ -29,7 +29,7 @@ from src.features import (
 )
 from src.loaders import load_approval, load_clean_house_data, load_pres_lean
 from src.fundraising import load_fundraising
-from src.paths import DataFile
+from src.paths import DataFile, OUTPUTS_DIR
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -84,7 +84,7 @@ def _load_data() -> tuple[pd.DataFrame, pd.Series, pd.Series]:
 
 
 def main() -> None:
-    from src.paths import OUTPUTS_DIR as outputs_dir
+    outputs_dir = OUTPUTS_DIR
     log.info("Loading data...")
     X_full, y, _ = _load_data()
 

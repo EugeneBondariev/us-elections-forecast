@@ -2,7 +2,7 @@
 
 
 from src.forecast import run_forecast
-from src.rag import build_index
+from src.rag import build_index, retrieve
 
 def main() -> None:
     print("Running forecast to get districts...")
@@ -13,7 +13,6 @@ def main() -> None:
     print(f"Index built. Stored at data/chroma_db/")
 
     # Quick smoke test
-    from src.rag import retrieve
     hits = retrieve("competitive swing district Pennsylvania", n_results=3, collection=collection)
     print("\nSample retrieval — 'competitive swing district Pennsylvania':")
     for h in hits:

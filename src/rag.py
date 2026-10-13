@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 
 import numpy as np
 import pandas as pd
@@ -87,7 +88,6 @@ def retrieve(query: str, n_results: int = 5, collection=None) -> list[dict]:
 # groq imported lazily — optional dependency, only needed when GROQ_API_KEY is set
 def rag_answer(query: str, collection=None, api_key: str | None = None) -> str:
     """Retrieve relevant districts and generate an LLM answer. Requires GROQ_API_KEY."""
-    import os
     api_key = api_key or os.getenv("GROQ_API_KEY")
     if not api_key:
         return "GROQ_API_KEY not set."
