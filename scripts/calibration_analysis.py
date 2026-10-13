@@ -11,7 +11,8 @@ from src.paths import OUTPUTS_DIR
 
 
 def main() -> None:
-    X, y, _ = build_dataset()
+    ds = build_dataset()
+    X, y = ds.X, ds.y
 
     print("Computing cross-validated probabilities (cv=5)...")
     proba_raw = cross_val_predict(build_pipeline(), X, y, cv=5, method="predict_proba")[:, 1]

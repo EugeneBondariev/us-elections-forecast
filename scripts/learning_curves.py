@@ -29,7 +29,8 @@ def _plot_curve(ax, train_sizes, train_scores, cv_scores, title):
 
 
 def main() -> None:
-    X, y, _ = build_dataset()
+    ds = build_dataset()
+    X, y = ds.X, ds.y
 
     train_sizes_frac = np.linspace(0.1, 1.0, 10)
 

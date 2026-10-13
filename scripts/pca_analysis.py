@@ -5,46 +5,22 @@ Usage:
 """
 from __future__ import annotations
 
-import os
-
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Patch
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-from src.features import (
-    add_incumbency_features,
-    build_dems_reps,
-    build_feature_matrix,
-    build_winners,
-    get_top_candidate_per_party,
-)
-from src.fundraising import load_fundraising
-from src.loaders import load_approval, load_clean_house_data, load_pres_lean
-from src.paths import DataFile, OUTPUTS_DIR
+from src.features import build_dataset
+from src.paths import OUTPUTS_DIR
 OUTPUT_PATH = OUTPUTS_DIR / "pca_plot.png"
 N_COMPONENTS = 10
 TOP_N_FEATURES = 5
 
 
 def main() -> None:
-    # ── Load data via the project pipeline ──────────────────────────────────
-    df = load_clean_house_data(DataFile.HOUSE)
-    top_candidates = get_top_candidate_per_party(df)
-    dems_reps = build_dems_reps(top_candidates)
-    approval = load_approval(DataFile.APPROVAL)
-    pres_lean = load_pres_lean(
-        DataFile.PRES_08_20,
-        DataFile.PRES_20_24,
-    )
-    fundraising = load_fundraising(
-        cache_path=DataFile.FUNDRAISING,
-        api_key=os.getenv("FEC_API_KEY"),
-    )
-    winners = build_winners(top_candidates, dems_reps, approval, pres_lean, fundraising)
-    winners = add_incumbency_features(winners, df)
-    X, y, _ = build_feature_matrix(winners)
+    ds = build_dataset()
+    X, y = ds.X, ds.y
 
     feature_names = list(X.columns)
     print(f"\nFeature matrix: {X.shape[0]} rows x {X.shape[1]} features")

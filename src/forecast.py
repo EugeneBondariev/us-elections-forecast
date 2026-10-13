@@ -1,19 +1,9 @@
-import os
-
 import numpy as np
 import pandas as pd
 
 from src.constants import Col, COOK_ALPHA, OPEN_SEATS_2026
-from src.features import (
-    add_incumbency_features,
-    build_dems_reps,
-    build_feature_matrix,
-    build_pred_2026,
-    build_winners,
-    get_top_candidate_per_party,
-)
-from src.fundraising import load_fundraising
-from src.loaders import load_approval, load_clean_house_data, load_cook_ratings, load_pres_lean
+from src.features import build_dataset, build_pred_2026
+from src.loaders import load_cook_ratings
 from src.model import compute_sample_weights, explain_districts, simulate_election, train
 from src.paths import DataFile
 
@@ -28,21 +18,9 @@ def run_forecast() -> dict:
       n_districts – number of contested districts
       districts   – DataFrame with per-district probabilities and metadata
     """
-    df = load_clean_house_data(DataFile.HOUSE)
-    top_candidates = get_top_candidate_per_party(df)
-    dems_reps = build_dems_reps(top_candidates)
-    approval = load_approval(DataFile.APPROVAL)
-    pres_lean = load_pres_lean(
-        DataFile.PRES_08_20,
-        DataFile.PRES_20_24,
-    )
-    fundraising = load_fundraising(
-        cache_path=DataFile.FUNDRAISING,
-        api_key=os.getenv("FEC_API_KEY"),
-    )
-    winners = build_winners(top_candidates, dems_reps, approval, pres_lean, fundraising)
-    winners = add_incumbency_features(winners, df)
-    X, y, years = build_feature_matrix(winners)
+    ds = build_dataset()
+    X, y, years, winners = ds.X, ds.y, ds.years, ds.winners
+    pres_lean, fundraising, dems_reps = ds.pres_lean, ds.fundraising, ds.dems_reps
 
     pipeline = train(X, y, sample_weight=compute_sample_weights(years))
     pred_2026, district_ids = build_pred_2026(

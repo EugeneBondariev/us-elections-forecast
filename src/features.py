@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -16,13 +18,15 @@ from src.constants import (
     OPEN_SEATS_2026,
     UNEMPLOYMENT,
 )
-from src.loaders import load_approval, load_clean_house_data
+from src.fundraising import load_fundraising
+from src.loaders import load_approval, load_clean_house_data, load_pres_lean
 from src.paths import DataFile
 from src.validators import validate_feature_matrix
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "DatasetResult",
     "get_top_candidate_per_party",
     "build_dems_reps",
     "build_winners",
@@ -31,6 +35,16 @@ __all__ = [
     "build_pred_2026",
     "build_dataset",
 ]
+
+
+class DatasetResult(NamedTuple):
+    X: pd.DataFrame
+    y: pd.Series
+    winners: pd.DataFrame
+    years: pd.Series
+    dems_reps: pd.DataFrame
+    pres_lean: pd.DataFrame | None
+    fundraising: pd.DataFrame | None
 
 _DROP_COLS = [
     Col.YEAR,
@@ -223,22 +237,29 @@ def build_feature_matrix(winners: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series
     return X, y, years
 
 
-def build_dataset() -> tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
-    """Load data and build (X, y, winners) ready for modelling.
+def build_dataset() -> DatasetResult:
+    """Load all pipeline inputs and return a DatasetResult with every component.
 
-    Returns:
-        X       — feature matrix
-        y       — dem_won labels
-        winners — full winners DataFrame (useful for inspection / SHAP)
+    All callers can destructure only what they need:
+        ds = build_dataset()
+        X, y = ds.X, ds.y                          # simple analysis scripts
+        X, y, years = ds.X, ds.y, ds.years         # walk-forward / CV
+        # ds.dems_reps / ds.pres_lean / ds.fundraising  for build_pred_2026
     """
     df = load_clean_house_data(DataFile.HOUSE)
     top_candidates = get_top_candidate_per_party(df)
     dems_reps = build_dems_reps(top_candidates)
     approval = load_approval(DataFile.APPROVAL)
-    winners = build_winners(top_candidates, dems_reps, approval)
+    pres_lean = load_pres_lean(DataFile.PRES_08_20, DataFile.PRES_20_24)
+    fundraising = load_fundraising(
+        cache_path=DataFile.FUNDRAISING,
+        api_key=os.getenv("FEC_API_KEY"),
+    )
+    winners = build_winners(top_candidates, dems_reps, approval, pres_lean, fundraising)
     winners = add_incumbency_features(winners, df)
-    X, y, _ = build_feature_matrix(winners)
-    return X, y, winners
+    X, y, years = build_feature_matrix(winners)
+    return DatasetResult(X=X, y=y, winners=winners, years=years,
+                         dems_reps=dems_reps, pres_lean=pres_lean, fundraising=fundraising)
 
 
 def build_pred_2026(

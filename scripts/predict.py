@@ -7,16 +7,7 @@ import mlflow.sklearn
 import numpy as np
 
 from src.constants import DEM_MAJORITY_SEATS
-from src.features import (
-    add_incumbency_features,
-    build_dems_reps,
-    build_feature_matrix,
-    build_pred_2026,
-    build_winners,
-    get_top_candidate_per_party,
-)
-from src.fundraising import load_fundraising
-from src.loaders import load_approval, load_clean_house_data, load_pres_lean
+from src.features import build_dataset, build_pred_2026
 from src.logging_config import setup_logging
 from src.model import (
     bootstrap_ci,
@@ -95,21 +86,9 @@ def main() -> None:
     log_path = setup_logging()
     logger.info("Run log: %s", log_path)
 
-    df = load_clean_house_data(DataFile.HOUSE)
-    top_candidates = get_top_candidate_per_party(df)
-    dems_reps = build_dems_reps(top_candidates)
-    approval = load_approval(DataFile.APPROVAL)
-    pres_lean = load_pres_lean(
-        DataFile.PRES_08_20,
-        DataFile.PRES_20_24,
-    )
-    fundraising = load_fundraising(
-        cache_path=DataFile.FUNDRAISING,
-        api_key=os.getenv("FEC_API_KEY"),
-    )
-    winners = build_winners(top_candidates, dems_reps, approval, pres_lean, fundraising)
-    winners = add_incumbency_features(winners, df)
-    X, y, years = build_feature_matrix(winners)
+    ds = build_dataset()
+    X, y, years, winners = ds.X, ds.y, ds.years, ds.winners
+    pres_lean, fundraising, dems_reps = ds.pres_lean, ds.fundraising, ds.dems_reps
 
     cook_alpha = 0.35 if DataFile.COOK.exists() else 0.0
 

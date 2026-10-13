@@ -173,7 +173,8 @@ def save_significance_chart(
 def main() -> None:
     # ── Load data ─────────────────────────────────────────────────────────────
     print("Loading data...")
-    X, y, _ = build_dataset()
+    ds = build_dataset()
+    X, y = ds.X, ds.y
 
     print(f"Feature matrix: {X.shape[0]} rows x {X.shape[1]} features")
     print(f"dem_won base rate: {y.mean():.3f}\n")

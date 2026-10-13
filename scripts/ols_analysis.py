@@ -11,7 +11,6 @@ Saves: data/ols_summary.txt, data/ols_coef_comparison.png
 from __future__ import annotations
 
 import logging
-import os
 
 import matplotlib
 matplotlib.use("Agg")
@@ -20,16 +19,8 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
-from src.features import (
-    add_incumbency_features,
-    build_dems_reps,
-    build_feature_matrix,
-    build_winners,
-    get_top_candidate_per_party,
-)
-from src.loaders import load_approval, load_clean_house_data, load_pres_lean
-from src.fundraising import load_fundraising
-from src.paths import DataFile, OUTPUTS_DIR
+from src.features import build_dataset
+from src.paths import OUTPUTS_DIR
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -65,22 +56,8 @@ FEATURE_LABELS = {
 
 
 def _load_data() -> tuple[pd.DataFrame, pd.Series, pd.Series]:
-    df = load_clean_house_data(DataFile.HOUSE)
-    approval = load_approval(DataFile.APPROVAL)
-    pres_lean = load_pres_lean(
-        DataFile.PRES_08_20,
-        DataFile.PRES_20_24,
-    )
-    fundraising = load_fundraising(
-        cache_path=DataFile.FUNDRAISING,
-        api_key=os.getenv("FEC_API_KEY"),
-    )
-    top = get_top_candidate_per_party(df)
-    dems_reps = build_dems_reps(top)
-    winners = build_winners(top, dems_reps, approval, pres_lean, fundraising)
-    winners = add_incumbency_features(winners, df)
-    X, y, years = build_feature_matrix(winners)
-    return X, y, years
+    ds = build_dataset()
+    return ds.X, ds.y, ds.years
 
 
 def main() -> None:
