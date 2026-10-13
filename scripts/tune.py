@@ -31,7 +31,7 @@ def objective(trial, X, y, years):
         "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.4, log=True),
         "max_depth": -1,
         "num_leaves": trial.suggest_int("num_leaves", 2, 64),
-        "min_child_samples": trial.suggest_int("min_child_samples", 10, 100),
+        "min_child_samples": trial.suggest_int("min_child_samples", 10, 200),
         "subsample": trial.suggest_float("subsample", 0.6, 1.0),
         "colsample_bytree": trial.suggest_float("colsample_bytree", 0.1, 1.0),
         "verbose": -1,
