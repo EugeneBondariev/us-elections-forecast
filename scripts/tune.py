@@ -21,8 +21,8 @@ VALIDATION_YEARS = list(range(2010, 2020, 2))  # 2010, 2012, 2014, 2016, 2018
 
 
 def load_data():
-    X, y, years = build_dataset()
-    return X, y, years
+    ds = build_dataset()
+    return ds.X, ds.y, ds.years
 
 
 def objective(trial, X, y, years):

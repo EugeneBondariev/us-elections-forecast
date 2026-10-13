@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 
 import numpy as np
@@ -59,24 +60,36 @@ def build_pipeline() -> WeightedPipeline:
     )
 
 
+_GBM_DEFAULTS = {
+    "n_estimators": 300,
+    "learning_rate": 0.05,
+    "max_depth": 4,
+    "num_leaves": 15,
+    "min_child_samples": 20,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "verbose": -1,
+}
+
+
+def _gbm_params() -> dict:
+    """Return tuned params from disk if available, else hardcoded defaults."""
+    from src.paths import DataFile
+    if DataFile.BEST_PARAMS.exists():
+        with open(DataFile.BEST_PARAMS) as f:
+            params = json.load(f)
+        params.setdefault("verbose", -1)
+        logger.info("LightGBM: loaded tuned params from %s", DataFile.BEST_PARAMS)
+        return params
+    return _GBM_DEFAULTS
+
+
 def build_gbm_pipeline() -> WeightedPipeline:
-    """LightGBM pipeline with StandardScaler."""
+    """LightGBM pipeline with StandardScaler. Uses tuned params if available."""
     return WeightedPipeline(
         [
             ("scaler", StandardScaler()),
-            (
-                "model",
-                LGBMClassifier(
-                    n_estimators=300,
-                    learning_rate=0.05,
-                    max_depth=4,
-                    num_leaves=15,
-                    min_child_samples=20,
-                    subsample=0.8,
-                    colsample_bytree=0.8,
-                    verbose=-1,
-                ),
-            ),
+            ("model", LGBMClassifier(**_gbm_params())),
         ]
     )
 
