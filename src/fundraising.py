@@ -1,3 +1,23 @@
+"""FEC campaign finance data loader and feature builder.
+
+Raw fields fetched from /v1/candidates/totals/ (per candidate per cycle):
+  receipts                              – Grand total of all money received
+  individual_receipts                   – Total from individuals (itemized + unitemized)
+  individual_itemized_contributions     – Donations >=200 (reported by name); large/bundled donors
+  individual_unitemized_contributions   – Donations <200 (lump sum only); small/grassroots donors
+                                          NOTE: always 0 from this endpoint; use /schedules/schedule_a/ instead
+  other_political_committee_contributions – PAC, Super PAC, and party committee money
+  candidate_contribution                – Candidate's own money (loans or direct contribution)
+  disbursements                         – Total spending; not income but useful as activity proxy
+
+Derived features saved to fundraising.csv (all expressed as Dem share of Dem+Rep combined):
+  fundraising_dem_share   – Share of total receipts; overall money advantage (1980+)
+  large_donor_dem_share   – Share of itemized contributions; big-donor/bundler support (2002+)
+  pac_dem_share           – Share of PAC money; institutional/establishment backing (1986+)
+  spending_dem_share      – Share of total disbursements; who is running the more active campaign
+  surplus_dem_share       – Share of (receipts - disbursements); negative means Dem spent more than raised
+                            relative to Republican; large positive = incumbent war chest dominance
+"""
 from __future__ import annotations
 
 import logging
