@@ -130,7 +130,7 @@ def main() -> None:
 
     fig, axes = plt.subplots(1, 2, figsize=(14, max(5, n * 0.55 + 1)))
 
-    def _barh(ax, vals, ci_lo, ci_hi, title, xlabel):
+    def _barh(ax: plt.Axes, vals: np.ndarray, ci_lo: np.ndarray, ci_hi: np.ndarray, title: str, xlabel: str) -> None:
         colors = ["steelblue" if v > 0 else "tomato" for v in vals]
         err_lo = np.maximum(vals - ci_lo, 0)
         err_hi = np.maximum(ci_hi - vals, 0)

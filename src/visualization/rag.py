@@ -78,7 +78,7 @@ def load_index() -> object:
     return client.get_collection("districts")
 
 
-def retrieve(query: str, n_results: int = 5, collection=None) -> list[dict]:
+def retrieve(query: str, n_results: int = 5, collection: object | None = None) -> list[dict]:
     """Retrieve the n most relevant district documents for a query."""
     if collection is None:
         collection = load_index()
@@ -89,7 +89,7 @@ def retrieve(query: str, n_results: int = 5, collection=None) -> list[dict]:
 
 
 # groq imported lazily — optional dependency, only needed when GROQ_API_KEY is set
-def rag_answer(query: str, collection=None, api_key: str | None = None) -> str:
+def rag_answer(query: str, collection: object | None = None, api_key: str | None = None) -> str:
     """Retrieve relevant districts and generate an LLM answer. Requires GROQ_API_KEY."""
     api_key = api_key or os.getenv("GROQ_API_KEY")
     if not api_key:

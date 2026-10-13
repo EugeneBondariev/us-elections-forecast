@@ -66,7 +66,7 @@ def test_continuous(X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
 
 
 def permutation_test(
-    X: pd.DataFrame, y: pd.Series, features: list, n_perm: int = N_PERMUTATIONS
+    X: pd.DataFrame, y: pd.Series, features: list[str], n_perm: int = N_PERMUTATIONS
 ) -> pd.DataFrame:
     rng = np.random.default_rng(42)
     y_arr = y.values

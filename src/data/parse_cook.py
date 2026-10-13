@@ -1,4 +1,5 @@
 """Parse Cook Political Report HTML ratings page → data/cook.csv."""
+from __future__ import annotations
 
 import csv
 import re
@@ -20,7 +21,7 @@ COOK_PROB = {
 DISTRICT_RE = re.compile(r'<span[^>]+class="race-district"[^>]*>\s*([^<]+?)\s*</span>')
 
 
-def parse_district(raw: str):
+def parse_district(raw: str) -> tuple[str, int] | None:
     m = re.match(r'^([A-Z]{2})-(\d+|AL)$', raw.strip())
     if not m:
         return None

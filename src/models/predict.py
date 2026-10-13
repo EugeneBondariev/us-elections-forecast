@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import tempfile
@@ -5,6 +7,7 @@ import tempfile
 import mlflow
 import mlflow.sklearn
 import numpy as np
+import pandas as pd
 
 from src.constants import DEM_MAJORITY_SEATS
 from src.features.features import build_dataset, build_pred_2026
@@ -31,7 +34,7 @@ def _label(state_po: str, district: int) -> str:
     return f"{state_po}-{'AL' if district == 0 else district}"
 
 
-def _log_walk_forward(wf) -> None:
+def _log_walk_forward(wf: pd.DataFrame) -> None:
     logger.info("Walk-forward validation (2000-2024):")
     logger.info("  %4s  %6s  %6s  %6s  %8s", "year", "actual", "pred", "error", "accuracy")
     for row in wf.itertuples(index=False):
@@ -41,12 +44,12 @@ def _log_walk_forward(wf) -> None:
     logger.info("  Mean absolute seat error: %.1f", wf["seat_error"].abs().mean())
 
 
-def _log_cv_summary(wf, cv_accuracy: float) -> None:
+def _log_cv_summary(wf: pd.DataFrame, cv_accuracy: float) -> None:
     logger.info("Random CV accuracy:       %.4f", cv_accuracy)
     logger.info("Walk-forward accuracy:    %.4f", wf["district_accuracy"].mean())
 
 
-def _log_simulation(sim, n_districts: int) -> None:
+def _log_simulation(sim: np.ndarray, n_districts: int) -> None:
     logger.info("2026 seat projection (10,000 simulations):")
     logger.info("  Median:           %d Dem / %d Rep",
                 int(np.median(sim)), n_districts - int(np.median(sim)))
@@ -57,7 +60,7 @@ def _log_simulation(sim, n_districts: int) -> None:
     logger.info("  P(Dem majority):  %.1f%%", (sim >= DEM_MAJORITY_SEATS).mean() * 100)
 
 
-def _log_competitive_districts(district_ids) -> None:
+def _log_competitive_districts(district_ids: pd.DataFrame) -> None:
     competitive = (
         district_ids
         .assign(closeness=lambda df: (df["proba_dem"] - 0.5).abs())
@@ -70,13 +73,13 @@ def _log_competitive_districts(district_ids) -> None:
         logger.info("  %-8s  %.1f%% %s", row.label, row.proba_dem * 100, lean)
 
 
-def _log_feature_weights(pipeline, X_columns) -> None:
+def _log_feature_weights(pipeline: object, X_columns: pd.Index) -> None:
     logger.info("Feature weights:")
     for feat, w in feature_weights(pipeline, X_columns).items():
         logger.info("  %s: %.1f%%", feat, w)
 
 
-def _log_feature_stability(fi) -> None:
+def _log_feature_stability(fi: pd.DataFrame) -> None:
     logger.info("Feature importance stability (walk-forward 2000-2024):")
     logger.info("  %-45s  %5s  %5s  %5s", "feature", "min%", "max%", "std")
     for col in fi.columns:

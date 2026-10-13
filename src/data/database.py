@@ -86,7 +86,7 @@ def load_latest_forecast(db_path: Path = DataFile.DB) -> dict | None:
         conn.close()
 
 
-def load_house_from_db(db_path) -> pd.DataFrame:
+def load_house_from_db(db_path: str | Path) -> pd.DataFrame:
     """Load and clean house data from SQLite — same output as load_clean_house_data."""
     db_path = Path(db_path)
     logger.info("Loading house data from %s (table house_results)", db_path)
@@ -131,7 +131,7 @@ def load_house_from_db(db_path) -> pd.DataFrame:
     return df
 
 
-def load_approval_from_db(db_path) -> pd.DataFrame:
+def load_approval_from_db(db_path: str | Path) -> pd.DataFrame:
     """Load approval ratings from SQLite — same output as load_approval."""
     db_path = Path(db_path)
     logger.info("Loading approval ratings from %s (table approval)", db_path)

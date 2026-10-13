@@ -35,7 +35,7 @@ _LOG_DIR = Path("logs/analysis")
 class _Tee:
     """Write to both the real stdout and a log file simultaneously."""
 
-    def __init__(self, log_path: Path):
+    def __init__(self, log_path: Path) -> None:
         self._terminal = sys.stdout
         log_path.parent.mkdir(parents=True, exist_ok=True)
         self._file = log_path.open("w", encoding="utf-8")

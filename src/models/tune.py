@@ -3,11 +3,13 @@
 Run from project root:
     python -m src.models.tune
 """
+from __future__ import annotations
 
 import json
 
 import numpy as np
 import optuna
+import pandas as pd
 from lightgbm import LGBMClassifier
 from sklearn.preprocessing import StandardScaler
 
@@ -20,12 +22,12 @@ OUTPUT_PATH = DataFile.BEST_PARAMS
 VALIDATION_YEARS = list(range(2010, 2024, 2))  # 2010, 2012, 2014, 2016, 2018, 2020, 2022
 
 
-def load_data():
+def load_data() -> tuple[pd.DataFrame, pd.Series, pd.Series]:
     ds = build_dataset()
     return ds.X, ds.y, ds.years
 
 
-def objective(trial, X, y, years):
+def objective(trial: optuna.Trial, X: pd.DataFrame, y: pd.Series, years: pd.Series) -> float:
     params = {
         "n_estimators": trial.suggest_int("n_estimators", 100, 500),
         "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.4, log=True),

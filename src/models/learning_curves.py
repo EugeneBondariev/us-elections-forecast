@@ -9,7 +9,7 @@ from src.models.model import build_gbm_pipeline, build_pipeline
 from src.paths import FIGURES_DIR
 
 
-def _plot_curve(ax, train_sizes, train_scores, cv_scores, title):
+def _plot_curve(ax: plt.Axes, train_sizes: np.ndarray, train_scores: np.ndarray, cv_scores: np.ndarray, title: str) -> None:
     train_mean = train_scores.mean(axis=1)
     train_std = train_scores.std(axis=1)
     cv_mean = cv_scores.mean(axis=1)
