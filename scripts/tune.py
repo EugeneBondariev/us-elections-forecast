@@ -29,7 +29,7 @@ def objective(trial, X, y, years):
     params = {
         "n_estimators": trial.suggest_int("n_estimators", 100, 500),
         "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
-        "max_depth": trial.suggest_int("max_depth", 2, 6),
+        "max_depth": trial.suggest_categorical("max_depth", [-1, 1, 2, 3, 4, 5, 6]),
         "num_leaves": trial.suggest_int("num_leaves", 4, 31),
         "min_child_samples": trial.suggest_int("min_child_samples", 10, 50),
         "subsample": trial.suggest_float("subsample", 0.6, 1.0),
@@ -65,8 +65,9 @@ def main() -> None:
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-    study = optuna.create_study(direction="maximize")
-    study.optimize(lambda trial: objective(trial, X, y, years), n_trials=50)
+    sampler = optuna.samplers.TPESampler(seed=42)
+    study = optuna.create_study(direction="maximize", sampler=sampler)
+    study.optimize(lambda trial: objective(trial, X, y, years), n_trials=200)
 
     best_params = study.best_params
     best_score = study.best_value
