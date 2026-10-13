@@ -13,7 +13,21 @@ logger = logging.getLogger(__name__)
 __all__ = ["load_fundraising", "fetch_and_cache"]
 
 FEC_BASE = "https://api.open.fec.gov/v1"
-DEFAULT_YEARS = [2014, 2016, 2018, 2020, 2022, 2024, 2026]
+
+# House elections every 2 years; FEC electronic data reliable from 1994 onward,
+# older years may be sparse but worth requesting
+DEFAULT_YEARS = list(range(1980, 2027, 2))
+
+# Fields to extract from each candidate record
+_RAW_FIELDS = [
+    "receipts",
+    "individual_receipts",
+    "individual_itemized_contributions",
+    "individual_unitemized_contributions",
+    "other_political_committee_contributions",
+    "candidate_contribution",
+    "disbursements",
+]
 
 
 def _fetch_year(api_key: str, year: int) -> list[dict]:
@@ -55,13 +69,17 @@ def _fetch_year(api_key: str, year: int) -> list[dict]:
                 district = int(district_raw)
             except ValueError:
                 district = 0
-            records.append({
+            record = {
                 "year": year,
                 "state_po": r.get("state"),
                 "district": district,
                 "party": r.get("party"),
-                "receipts": float(r.get("receipts") or 0),
-            })
+                "candidate_id": r.get("candidate_id"),
+                "candidate_name": r.get("name"),
+            }
+            for field in _RAW_FIELDS:
+                record[field] = float(r.get(field) or 0)
+            records.append(record)
 
         pages = data.get("pagination", {}).get("pages", 1)
         if page >= pages:
@@ -73,52 +91,98 @@ def _fetch_year(api_key: str, year: int) -> list[dict]:
     return records
 
 
-def _save(records: list[dict], cache_path: Path) -> None:
+def _save_raw(records: list[dict], raw_path: Path) -> None:
     if not records:
         return
+    df = pd.DataFrame(records)
+    df = df[df["state_po"].notna()].sort_values(["year", "state_po", "district", "party"])
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(raw_path, index=False)
+    logger.info("Raw fundraising saved → %s (%d rows)", raw_path, len(df))
+
+
+def _aggregate(records: list[dict]) -> pd.DataFrame:
     df = pd.DataFrame(records)
     df = df[df["state_po"].notna()]
     dem = (
         df[df["party"] == "DEM"]
-        .groupby(["year", "state_po", "district"])["receipts"]
-        .max().reset_index(name="dem_receipts")
+        .groupby(["year", "state_po", "district"])[_RAW_FIELDS]
+        .max().reset_index()
+        .rename(columns={f: f"dem_{f}" for f in _RAW_FIELDS})
     )
     rep = (
         df[df["party"] == "REP"]
-        .groupby(["year", "state_po", "district"])["receipts"]
-        .max().reset_index(name="rep_receipts")
+        .groupby(["year", "state_po", "district"])[_RAW_FIELDS]
+        .max().reset_index()
+        .rename(columns={f: f"rep_{f}" for f in _RAW_FIELDS})
     )
     result = dem.merge(rep, on=["year", "state_po", "district"], how="outer").fillna(0)
-    total = result["dem_receipts"] + result["rep_receipts"]
-    result["fundraising_dem_share"] = (result["dem_receipts"] / total.clip(lower=1)).where(total > 0, 0.5)
-    result = result[["year", "state_po", "district", "fundraising_dem_share"]]
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    result.to_csv(cache_path, index=False)
+
+    def _share(dem_col, rep_col):
+        total = result[dem_col] + result[rep_col]
+        return (result[dem_col] / total.clip(lower=1)).where(total > 0, 0.5)
+
+    result["fundraising_dem_share"] = _share("dem_receipts", "rep_receipts")
+    result["small_donor_dem_share"] = _share(
+        "dem_individual_unitemized_contributions",
+        "rep_individual_unitemized_contributions",
+    )
+    result["large_donor_dem_share"] = _share(
+        "dem_individual_itemized_contributions",
+        "rep_individual_itemized_contributions",
+    )
+    result["pac_dem_share"] = _share(
+        "dem_other_political_committee_contributions",
+        "rep_other_political_committee_contributions",
+    )
+
+    return result[[
+        "year", "state_po", "district",
+        "fundraising_dem_share", "small_donor_dem_share",
+        "large_donor_dem_share", "pac_dem_share",
+    ]]
 
 
-def fetch_and_cache(cache_path, api_key: str, years=None) -> pd.DataFrame:
+def fetch_and_cache(
+    cache_path: str | Path,
+    api_key: str,
+    years: list[int] | None = None,
+    raw_path: str | Path | None = None,
+) -> pd.DataFrame:
     """Fetch House fundraising totals from FEC API and cache to CSV."""
+    from src.paths import DataFile
     if years is None:
         years = DEFAULT_YEARS
     cache_path = Path(cache_path)
+    raw_path = Path(raw_path) if raw_path else DataFile.FUNDRAISING_RAW
 
-    # Load existing cache before overwriting so other years are preserved.
     existing = pd.read_csv(cache_path) if cache_path.exists() else pd.DataFrame()
 
     all_records = []
     for year in years:
+        logger.info("Fetching FEC data for %d...", year)
         all_records.extend(_fetch_year(api_key, year))
-        _save(all_records, cache_path)
 
-    new = pd.read_csv(cache_path)
+    if not all_records:
+        logger.warning("No records fetched")
+        return existing
+
+    _save_raw(all_records, raw_path)
+
+    new = _aggregate(all_records)
+
     if not existing.empty:
         other_years = existing[~existing["year"].isin(years)]
-        result = pd.concat([other_years, new], ignore_index=True).sort_values(["year", "state_po", "district"])
-        result.to_csv(cache_path, index=False)
+        result = (
+            pd.concat([other_years, new], ignore_index=True)
+            .sort_values(["year", "state_po", "district"])
+        )
     else:
         result = new
 
-    logger.info("Cached %d district-year records to %s", len(result), cache_path)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    result.to_csv(cache_path, index=False)
+    logger.info("Cached %d district-year records → %s", len(result), cache_path)
     return result
 
 
@@ -139,9 +203,9 @@ def load_fundraising(
         return pd.read_csv(cache_path)
 
     if api_key is None:
-        api_key = os.getenv("FEC_API_KEY")
+        api_key = os.getenv("DATA_GOV_API_KEY") or os.getenv("FEC_API_KEY")
     if api_key is None:
-        logger.warning("FEC_API_KEY not set and no cache found — skipping fundraising feature")
+        logger.warning("No API key found and no cache — skipping fundraising feature")
         return None
 
     logger.info("Fetching fundraising data from FEC API for years %s", years or DEFAULT_YEARS)
