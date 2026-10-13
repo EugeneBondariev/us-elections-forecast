@@ -32,6 +32,7 @@ def load():
         return cached
     result = run_forecast()
     save_forecast(result, DataFile.DB)
+    get_rag_collection.clear()
     return result
 
 

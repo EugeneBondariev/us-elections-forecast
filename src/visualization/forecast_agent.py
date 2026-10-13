@@ -160,6 +160,7 @@ def run_agent(user_question: str, forecast: dict, api_key: str) -> str:
             model=os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL),
             max_tokens=1024,
             tools=TOOLS,
+            tool_choice="auto",
             messages=messages,
         )
         message = response.choices[0].message

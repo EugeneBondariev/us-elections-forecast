@@ -240,7 +240,7 @@ def load_fundraising(
     if api_key is None:
         api_key = os.getenv("DATA_GOV_API_KEY") or os.getenv("FEC_API_KEY")
     if api_key is None:
-        logger.warning("No API key found and no cache — skipping fundraising feature")
+        logger.error("No API key found and no cache — fundraising features will be missing")
         return None
 
     logger.info("Fetching fundraising data from FEC API for years %s", years or DEFAULT_YEARS)

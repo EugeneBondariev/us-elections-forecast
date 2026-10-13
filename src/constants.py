@@ -1,3 +1,5 @@
+import datetime
+import warnings
 from enum import StrEnum
 
 __all__ = [
@@ -251,3 +253,10 @@ OPEN_SEATS_2026: set[tuple[str, int]] = {
     ("TX", 8), ("TX", 10), ("TX", 19), ("TX", 21), ("TX", 22), ("TX", 38),
     ("UT", 4), ("WA", 4), ("WI", 7), ("WY", 0),
 }
+
+if datetime.datetime.now().year > 2026:
+    warnings.warn(
+        "OPEN_SEATS_2026 was last updated for the 2026 cycle — update src/constants.py.",
+        UserWarning,
+        stacklevel=2,
+    )
