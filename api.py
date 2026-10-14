@@ -5,8 +5,8 @@ import numpy as np
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 
 from src.constants import DEM_MAJORITY_SEATS, Col
-from src.database import load_latest_forecast, save_forecast
-from src.forecast import run_forecast
+from src.data.database import load_latest_forecast, save_forecast
+from src.models.forecast import run_forecast
 
 
 @asynccontextmanager

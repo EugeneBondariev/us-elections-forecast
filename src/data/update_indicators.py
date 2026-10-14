@@ -7,7 +7,7 @@ Requires:
     FRED_API_KEY env var — free at https://fred.stlouisfed.org/docs/api/api_key.html
 
 Run from project root:
-    python scripts/update_indicators.py
+    python -m src.data.update_indicators
 """
 
 import os

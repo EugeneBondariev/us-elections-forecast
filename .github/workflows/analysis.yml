@@ -23,7 +23,7 @@ jobs:
       - name: Check for required data files
         id: check_data
         run: |
-          if [ -f "data/1976-2024-house.tab" ] && [ -f "data/Approval-Ratings-for-POTUS-raw.xls" ]; then
+          if [ -f "data/raw/1976-2024-house.tab" ] && [ -f "data/interim/Approval-Ratings-for-POTUS-raw.xls" ]; then
             echo "present=true" >> $GITHUB_OUTPUT
           else
             echo "present=false" >> $GITHUB_OUTPUT
@@ -43,6 +43,6 @@ jobs:
         with:
           name: analysis-outputs-${{ github.run_id }}
           path: |
-            outputs/
+            reports/
             logs/analysis/
           retention-days: 30

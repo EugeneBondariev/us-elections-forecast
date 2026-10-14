@@ -8,7 +8,7 @@ Cite The Downballot (https://www.the-downballot.com) wherever this data's result
 used or published.
 
 The one restriction they state is "please refrain from reproducing entire spreadsheets" -
-so, like scripts/build_approval_history.py, this fetches fresh from the source each run
+so, like src/data/build_approval_history.py, this fetches fresh from the source each run
 rather than mirroring a static copy anywhere (no GitHub Release, no committing the
 output - data/raw/ stays gitignored, same local-use-only treatment as every other file
 built by a script in this directory).
@@ -21,7 +21,7 @@ counts, same column order) - no changes needed there, just working URLs:
   - 2024 (district lines as of 2024): Harris/Trump 2024 plus a 2020 comparison column.
 
 Run from project root:
-    python scripts/build_pres_lean_data.py
+    python -m src.data.build_pres_lean_data
 """
 import requests
 

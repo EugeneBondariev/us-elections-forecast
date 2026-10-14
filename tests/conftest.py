@@ -1,6 +1,6 @@
 import pytest
 
-from src.features import build_dataset
+from src.features.features import build_dataset
 from src.paths import DataFile
 
 _REQUIRED_FOR_BUILD_DATASET = [

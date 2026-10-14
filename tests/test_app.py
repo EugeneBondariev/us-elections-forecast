@@ -54,7 +54,7 @@ _FORECAST = {
 
 # Import app with run_forecast mocked so module-level `data = load()` does not hit disk.
 sys.modules.pop("app", None)
-with patch("src.forecast.run_forecast", return_value=_FORECAST):
+with patch("src.models.forecast.run_forecast", return_value=_FORECAST):
     import app  # noqa: E402
 
 

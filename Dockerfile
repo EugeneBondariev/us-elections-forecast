@@ -13,8 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # so paths exist even before the mount.
 COPY src/ src/
 COPY app.py api.py ./
-COPY scripts/ scripts/
-RUN mkdir -p data/raw data/external data/interim data/processed models
+RUN mkdir -p data/raw data/external data/interim data/processed models reports/figures
 
 # Default: run streamlit
 EXPOSE 8501 8000

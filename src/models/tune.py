@@ -1,7 +1,7 @@
 """Optuna hyperparameter tuning for LightGBM walk-forward CV.
 
 Run from project root:
-    python scripts/tune.py
+    python -m src.models.tune
 """
 
 import json
@@ -11,8 +11,8 @@ import optuna
 from lightgbm import LGBMClassifier
 from sklearn.preprocessing import StandardScaler
 
-from src.features import build_dataset
-from src.model import WeightedPipeline, compute_sample_weights
+from src.features.features import build_dataset
+from src.models.model import WeightedPipeline, compute_sample_weights
 from src.paths import DataFile
 
 OUTPUT_PATH = DataFile.BEST_PARAMS

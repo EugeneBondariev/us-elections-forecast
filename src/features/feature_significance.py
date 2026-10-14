@@ -10,7 +10,7 @@ Saves a bar chart of -log10(p-value) for the top 20 features to
 data/feature_significance.png.
 
 Usage:
-    python scripts/feature_significance.py
+    python -m src.features.feature_significance
 """
 
 from __future__ import annotations
@@ -22,10 +22,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from src.features import build_dataset
-from src.paths import OUTPUTS_DIR
+from src.features.features import build_dataset
+from src.paths import FIGURES_DIR
 
-OUTPUT_PATH = OUTPUTS_DIR / "feature_significance.png"
+OUTPUT_PATH = FIGURES_DIR / "feature_significance.png"
 N_PERMUTATIONS = 1000
 TOP_N_PERMUTATION = 5
 TOP_N_CHART = 20

@@ -1,4 +1,4 @@
-.PHONY: help app test typecheck analyze predict tune rag cook db indicators agent calibrate-sigma freeze install install-dev data
+.PHONY: help app test test-e2e typecheck analyze predict tune rag cook db indicators agent calibrate-sigma freeze install install-dev data
 
 PYTHON = python
 
@@ -9,7 +9,9 @@ help:
 	@echo "  install-dev      Also install dev tooling (mypy, stubs)"
 	@echo "  data             Check required data files, fetch what's safely automatable"
 	@echo "  app              Start the Streamlit app"
-	@echo "  test             Run the test suite"
+	@echo "  test             Run the fast test suite (excludes e2e)"
+	@echo "  test-e2e         Run the real-browser Streamlit/API smoke tests (slow, opt-in -"
+	@echo "                   needs: make install-dev && playwright install chromium)"
 	@echo "  typecheck        Run mypy over src/ and api.py"
 	@echo "  analyze          Run all 6 diagnostic scripts (logs to logs/analysis/)"
 	@echo "  predict          Train model + MLflow logging + 2026 forecast"
@@ -30,7 +32,7 @@ install-dev: install
 	$(PYTHON) -m pip install -r requirements-dev.txt
 
 data:
-	$(PYTHON) scripts/fetch_data.py
+	$(PYTHON) -m src.data.fetch_data
 
 typecheck:
 	$(PYTHON) -m mypy src/ api.py
@@ -44,29 +46,32 @@ app:
 test:
 	$(PYTHON) -m pytest tests/ -q --tb=short
 
+test-e2e:
+	$(PYTHON) -m pytest tests/test_app_e2e.py -m e2e -v
+
 analyze:
-	$(PYTHON) scripts/run_analysis.py
+	$(PYTHON) -m src.visualization.run_analysis
 
 predict:
-	$(PYTHON) scripts/predict.py
+	$(PYTHON) -m src.models.predict
 
 tune:
-	$(PYTHON) scripts/tune.py
+	$(PYTHON) -m src.models.tune
 
 calibrate-sigma:
-	$(PYTHON) scripts/calibrate_sigma.py
+	$(PYTHON) -m src.models.calibrate_sigma
 
 rag:
-	$(PYTHON) scripts/build_rag_index.py
+	$(PYTHON) -m src.visualization.build_rag_index
 
 cook:
-	$(PYTHON) scripts/parse_cook.py
+	$(PYTHON) -m src.data.parse_cook
 
 db:
-	$(PYTHON) scripts/build_db.py
+	$(PYTHON) -m src.data.build_db
 
 indicators:
-	$(PYTHON) scripts/update_indicators.py
+	$(PYTHON) -m src.data.update_indicators
 
 agent:
-	$(PYTHON) scripts/forecast_agent.py
+	$(PYTHON) -m src.visualization.forecast_agent

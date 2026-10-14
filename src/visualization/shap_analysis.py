@@ -3,8 +3,8 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from src.forecast import run_forecast
-from src.paths import DATA_DIR, OUTPUTS_DIR
+from src.models.forecast import run_forecast
+from src.paths import FIGURES_DIR, REPORTS_DIR
 
 
 def main() -> None:
@@ -27,7 +27,7 @@ def main() -> None:
     ax.set_xlabel("Mean |SHAP value|")
     ax.set_title("SHAP Feature Importance (LightGBM, 2026 prediction set)")
     fig.tight_layout()
-    out_path = OUTPUTS_DIR / "shap_importance.png"
+    out_path = FIGURES_DIR / "shap_importance.png"
     fig.savefig(out_path, dpi=150)
     print(f"\nSaved: {out_path}")
     plt.close(fig)
@@ -51,17 +51,19 @@ def main() -> None:
             ax2.set_xlabel("SHAP value (positive = Dem-favoring)")
             ax2.set_title(f"SHAP waterfall — most competitive district: {label}")
             fig2.tight_layout()
-            waterfall_path = OUTPUTS_DIR / "shap_waterfall.png"
+            waterfall_path = FIGURES_DIR / "shap_waterfall.png"
             fig2.savefig(waterfall_path, dpi=150)
             print(f"Saved: {waterfall_path}")
             plt.close(fig2)
 
-    # Save full SHAP table (data artifact → data/)
+    # Save full SHAP table alongside this script's other diagnostic outputs -
+    # it's a derived artifact of running the analysis, not a data source.
     if "label" in districts.columns:
         shap_out = shap_df.copy()
         shap_out.insert(0, "label", districts["label"].values)
-        shap_out.to_csv(DATA_DIR / "shap_values.csv", index=False)
-        print(f"Saved: {DATA_DIR / 'shap_values.csv'}")
+        shap_csv_path = REPORTS_DIR / "shap_values.csv"
+        shap_out.to_csv(shap_csv_path, index=False)
+        print(f"Saved: {shap_csv_path}")
 
 
 if __name__ == "__main__":

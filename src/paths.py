@@ -17,12 +17,14 @@ remember:
     data/processed/  Derived, regenerable artifacts the app/API read at runtime
                       (forecast cache, RAG index) — safe to delete and rebuild.
     models/          Trained/tuned model artifacts — not "data" in the DS sense.
+    reports/         Generated analysis output (text/csv) — safe to delete and rebuild.
+    reports/figures/ Generated plots/images — safe to delete and rebuild.
 """
 from pathlib import Path
 
 __all__ = [
     "DATA_DIR", "RAW_DIR", "EXTERNAL_DIR", "INTERIM_DIR", "PROCESSED_DIR",
-    "MODELS_DIR", "OUTPUTS_DIR", "DataFile",
+    "MODELS_DIR", "REPORTS_DIR", "FIGURES_DIR", "DataFile",
 ]
 
 _ROOT = Path(__file__).parent.parent
@@ -33,20 +35,21 @@ EXTERNAL_DIR  = DATA_DIR / "external"
 INTERIM_DIR   = DATA_DIR / "interim"
 PROCESSED_DIR = DATA_DIR / "processed"
 MODELS_DIR    = _ROOT / "models"
-OUTPUTS_DIR   = _ROOT / "outputs"
+REPORTS_DIR   = _ROOT / "reports"
+FIGURES_DIR   = REPORTS_DIR / "figures"
 
 # Created on import, not left to .gitkeep files or any one entry point, because
 # every script/test/the app/the API all import this module — so the directories
 # exist before anything else runs, regardless of whether `make` is installed or
-# scripts/fetch_data.py has been run yet. Cheap and idempotent (exist_ok=True).
-for _d in (RAW_DIR, EXTERNAL_DIR, INTERIM_DIR, PROCESSED_DIR, MODELS_DIR, OUTPUTS_DIR):
+# src/data/fetch_data.py has been run yet. Cheap and idempotent (exist_ok=True).
+for _d in (RAW_DIR, EXTERNAL_DIR, INTERIM_DIR, PROCESSED_DIR, MODELS_DIR, REPORTS_DIR, FIGURES_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 
 class DataFile:
-    # raw/ — primary source files, manually downloaded/assembled. Immutable.
+    # raw/ — primary source files, exactly as downloaded, zero transformation
+    # applied. Immutable.
     HOUSE      = RAW_DIR / "1976-2024-house.tab"
-    APPROVAL   = RAW_DIR / "Approval-Ratings-for-POTUS-raw.xls"
     PRES_08_20 = RAW_DIR / "president-2008-2020-by-district.csv"
     PRES_20_24 = RAW_DIR / "president-2020-2024-by-district.csv"
 
@@ -54,7 +57,13 @@ class DataFile:
     COOK_HTML       = EXTERNAL_DIR / "cook.html"
     FUNDRAISING_RAW = EXTERNAL_DIR / "fundraising_raw.csv"
 
-    # interim/ — first-pass transformations of raw/external data.
+    # interim/ — first-pass transformations of raw/external data. APPROVAL belongs
+    # here, not raw/, despite the filename: src/data/build_approval_history.py pools
+    # 9 external per-president pages and *selects* (closest-before-election,
+    # staleness-filtered) rather than passing anything through untouched - the
+    # same shape of transformation as cook.html -> cook.csv, just with a more
+    # involved selection step.
+    APPROVAL    = INTERIM_DIR / "Approval-Ratings-for-POTUS-raw.xls"
     COOK        = INTERIM_DIR / "cook.csv"
     FUNDRAISING = INTERIM_DIR / "fundraising.csv"
 

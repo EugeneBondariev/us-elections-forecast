@@ -2,9 +2,9 @@ import numpy as np
 import pandas as pd
 
 from src.constants import COOK_ALPHA, OPEN_SEATS_2026, Col
-from src.features import build_dataset, build_pred_2026
-from src.loaders import load_cook_ratings
-from src.model import (
+from src.features.features import build_dataset, build_pred_2026
+from src.data.loaders import load_cook_ratings
+from src.models.model import (
     compute_sample_weights,
     explain_districts,
     load_simulation_params,

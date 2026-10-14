@@ -1,7 +1,7 @@
 """One-time script: load source CSVs into data/elections.db (SQLite).
 
 Run from project root:
-    python scripts/build_db.py
+    python -m src.data.build_db
 """
 
 import sqlite3

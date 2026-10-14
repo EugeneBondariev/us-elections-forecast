@@ -287,6 +287,15 @@ def walk_forward_calibration(
     return pd.DataFrame(rows)
 
 
+def _robust_std(values) -> float:
+    """Median absolute deviation, scaled by 1.4826 to be std-equivalent under
+    normality - unlike plain std, a single extreme value can't dominate it, since
+    it's built from the median rather than squared deviations from the mean."""
+    values = np.asarray(values, dtype=float)
+    mad = np.median(np.abs(values - np.median(values)))
+    return float(1.4826 * mad)
+
+
 def calibrate_national_sigma(
     X: pd.DataFrame,
     y: pd.Series,
@@ -304,10 +313,21 @@ def calibrate_national_sigma(
     For each walk-forward year, the realized error is actual_dem_seats minus the
     probability-weighted expected seats (sum of proba). Binary search finds the
     sigma_national whose simulated seat-count std (averaged across walk-forward
-    years) matches the std of those realized errors. sigma_district is held fixed:
-    with only a dozen or so walk-forward years, there isn't enough held-out signal
-    to identify both parameters jointly, so district-level noise stays at its prior
-    default and only the aggregate/national component is data-driven.
+    years) matches that spread. sigma_district is held fixed: with only a dozen or
+    so walk-forward years, there isn't enough held-out signal to identify both
+    parameters jointly, so district-level noise stays at its prior default and only
+    the aggregate/national component is data-driven.
+
+    The spread itself is a robust measure (median absolute deviation, scaled by
+    1.4826 to be std-equivalent under normality), not a plain standard deviation.
+    With only ~13 walk-forward years, a single historically unusual miss can swing
+    a plain std enormously - e.g. 2002's -51.7 seat error (the model, trained only
+    on 1984-2000, badly over-predicted right after that cycle's redistricting) is
+    roughly 1.5x any other year's miss and alone pushed a plain-std target high
+    enough to pin sigma_national at its search ceiling (confirmed empirically: hit
+    exactly 1.0 every time against real data). A robust spread still reflects that
+    2002 was a bad year without letting one outlier set the uncertainty band every
+    other, more typical year gets simulated with.
     """
     folds = walk_forward_probas(X, y, years, start_test_year)
     if len(folds) < min_years:
@@ -324,7 +344,7 @@ def calibrate_national_sigma(
         }
 
     realized_errors = [actual.sum() - proba.sum() for proba, actual in folds.values()]
-    target_std = float(np.std(realized_errors))
+    target_std = _robust_std(realized_errors)
 
     def _mean_simulated_std(sigma_national: float) -> float:
         stds = [
@@ -362,7 +382,7 @@ def load_simulation_params() -> dict[str, float]:
     """Load calibrated Monte Carlo sigmas from disk if available, else fall back
     to the uncalibrated defaults.
 
-    Run `python scripts/calibrate_sigma.py` to (re)generate data/calibrated_sigma.json
+    Run `python -m src.models.calibrate_sigma` to (re)generate data/calibrated_sigma.json
     from walk-forward residuals. Mirrors the _gbm_params() pattern used for LightGBM.
     """
     from src.paths import DataFile

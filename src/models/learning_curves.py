@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import learning_curve
 
-from src.features import build_dataset
-from src.model import build_gbm_pipeline, build_pipeline
-from src.paths import OUTPUTS_DIR
+from src.features.features import build_dataset
+from src.models.model import build_gbm_pipeline, build_pipeline
+from src.paths import FIGURES_DIR
 
 
 def _plot_curve(ax, train_sizes, train_scores, cv_scores, title):
@@ -54,7 +54,7 @@ def main() -> None:
     _plot_curve(ax2, ts_gbm, tr_gbm, cv_gbm, "LightGBM")
     fig.suptitle("Learning curves — US House district classifier", y=1.01)
     fig.tight_layout()
-    out = OUTPUTS_DIR / "learning_curves.png"
+    out = FIGURES_DIR / "learning_curves.png"
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved: {out}")
     plt.close(fig)

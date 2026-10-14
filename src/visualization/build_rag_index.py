@@ -1,8 +1,8 @@
 """Build the ChromaDB RAG index from the current forecast."""
 
 
-from src.forecast import run_forecast
-from src.rag import build_index, retrieve
+from src.models.forecast import run_forecast
+from src.visualization.rag import build_index, retrieve
 
 def main() -> None:
     print("Running forecast to get districts...")

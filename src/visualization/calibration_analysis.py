@@ -5,9 +5,9 @@ from sklearn.calibration import calibration_curve
 from sklearn.metrics import brier_score_loss
 from sklearn.model_selection import cross_val_predict
 
-from src.features import build_dataset
-from src.model import build_calibrated_pipeline, build_pipeline
-from src.paths import OUTPUTS_DIR
+from src.features.features import build_dataset
+from src.models.model import build_calibrated_pipeline, build_pipeline
+from src.paths import FIGURES_DIR
 
 
 def main() -> None:
@@ -36,7 +36,7 @@ def main() -> None:
     ax.legend()
     ax.grid(alpha=0.3)
     fig.tight_layout()
-    out = OUTPUTS_DIR / "calibration_curve.png"
+    out = FIGURES_DIR / "calibration_curve.png"
     fig.savefig(out, dpi=150)
     print(f"Saved: {out}")
     plt.close(fig)

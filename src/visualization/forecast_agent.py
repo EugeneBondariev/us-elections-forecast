@@ -6,7 +6,7 @@ import os
 import numpy as np
 
 from src.constants import Col, DEM_MAJORITY_SEATS
-from src.forecast import run_forecast
+from src.models.forecast import run_forecast
 
 # Override with GROQ_MODEL if Groq retires/renames this model.
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"

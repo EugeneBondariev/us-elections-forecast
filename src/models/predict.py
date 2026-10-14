@@ -7,9 +7,9 @@ import mlflow.sklearn
 import numpy as np
 
 from src.constants import DEM_MAJORITY_SEATS
-from src.features import build_dataset, build_pred_2026
+from src.features.features import build_dataset, build_pred_2026
 from src.logging_config import setup_logging
-from src.model import (
+from src.models.model import (
     bootstrap_ci,
     compute_sample_weights,
     cross_validate,
@@ -21,8 +21,8 @@ from src.model import (
     walk_forward_cv,
     walk_forward_feature_importance,
 )
-from src.narrative import generate_narrative
-from src.paths import DataFile
+from src.visualization.narrative import generate_narrative
+from src.paths import MODELS_DIR, DataFile
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +103,12 @@ def main() -> None:
 
     cook_alpha = 0.35 if DataFile.COOK.exists() else 0.0
 
+    # Without an explicit tracking URI, mlflow defaults to a sqlite db wherever the
+    # cwd happens to be when this runs - which left a stray mlflow.db at the repo
+    # root. models/ is the right home: this is training-run metadata (params,
+    # metrics), not "data" in the DS sense, same reasoning as best_params_lgbm.json
+    # and calibrated_sigma.json already living there.
+    mlflow.set_tracking_uri(f"sqlite:///{MODELS_DIR / 'mlflow.db'}")
     mlflow.set_experiment("us-house-forecast")
     with mlflow.start_run():
         mlflow.log_param("n_features", X.shape[1])

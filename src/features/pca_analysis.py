@@ -1,7 +1,7 @@
 """PCA analysis of the House election feature matrix.
 
 Usage:
-    python scripts/pca_analysis.py
+    python -m src.features.pca_analysis
 """
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ from matplotlib.patches import Patch
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-from src.features import build_dataset
-from src.paths import OUTPUTS_DIR
-OUTPUT_PATH = OUTPUTS_DIR / "pca_plot.png"
+from src.features.features import build_dataset
+from src.paths import FIGURES_DIR
+OUTPUT_PATH = FIGURES_DIR / "pca_plot.png"
 N_COMPONENTS = 10
 TOP_N_FEATURES = 5
 

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from src.constants import PRES_PARTY, Col, Val
-from src.validators import validate_approval_data, validate_house_data
+from src.data.validators import validate_approval_data, validate_house_data
 
 logger = logging.getLogger(__name__)
 

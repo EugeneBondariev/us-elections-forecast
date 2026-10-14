@@ -19,8 +19,8 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
-from src.features import build_dataset
-from src.paths import OUTPUTS_DIR
+from src.features.features import build_dataset
+from src.paths import FIGURES_DIR, REPORTS_DIR
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -61,7 +61,8 @@ def _load_data() -> tuple[pd.DataFrame, pd.Series, pd.Series]:
 
 
 def main() -> None:
-    outputs_dir = OUTPUTS_DIR
+    figures_dir = FIGURES_DIR
+    reports_dir = REPORTS_DIR
     log.info("Loading data...")
     X_full, y, _ = _load_data()
 
@@ -164,13 +165,13 @@ def main() -> None:
         fontsize=11, y=1.01,
     )
     fig.tight_layout()
-    out_png = outputs_dir / "ols_coef_comparison.png"
+    out_png = figures_dir / "ols_coef_comparison.png"
     fig.savefig(out_png, dpi=150, bbox_inches="tight")
     plt.close(fig)
     log.info("Plot saved → %s", out_png)
 
     # Save text summaries
-    out_txt = outputs_dir / "ols_summary.txt"
+    out_txt = reports_dir / "ols_summary.txt"
     with open(out_txt, "w", encoding="utf-8") as fh:
         fh.write(ols.summary(
             title="Linear Probability Model (HC3 robust SEs)",

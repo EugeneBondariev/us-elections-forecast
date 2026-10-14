@@ -1,12 +1,15 @@
 # data/{raw,external,interim,processed}/ and models/ are created on import by
 # src/paths.py (not tracked via .gitkeep) - every script/test/the app/API already
 # import it, so the directories exist before anything else runs regardless of
-# whether `make` is available or scripts/fetch_data.py has been run yet.
-data/
-models/
+# whether `make` is available or src/data/fetch_data.py has been run yet.
+#
+# Rooted (leading /) so these don't also match src/data/ and src/models/ -
+# those are source subpackages, not generated data, and must stay tracked.
+/data/
+/models/
 
-logs/
-outputs/
+/logs/
+/reports/
 .env
 .vscode/
 .claude/
@@ -16,3 +19,10 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ipynb_checkpoints/
+
+# Defensive: mlflow's own tracking store belongs in models/ (already ignored
+# above) via the explicit tracking URI in src/models/predict.py. These patterns
+# just guard against it landing at the repo root instead, e.g. from an older
+# checkout or local experimentation that doesn't set the tracking URI.
+/mlflow.db
+/mlruns/

@@ -24,10 +24,10 @@ jobs:
       - name: Verify imports
         run: |
           python -c "
-          from src.model import build_pipeline, build_stacking_ensemble, bootstrap_ci, explain_districts
-          from src.features import build_feature_matrix, build_winners
-          from src.forecast import run_forecast
-          from src.loaders import load_clean_house_data
+          from src.models.model import build_pipeline, build_stacking_ensemble, bootstrap_ci, explain_districts
+          from src.features.features import build_feature_matrix, build_winners
+          from src.models.forecast import run_forecast
+          from src.data.loaders import load_clean_house_data
           print('All imports OK')
           "
 
@@ -36,7 +36,7 @@ jobs:
         # Non-blocking for now: the codebase predates mypy and isn't fully annotated.
         # Flip to a hard failure once the baseline is clean.
 
-      # Most tests need data files (data/1976-2024-house.tab etc.) not committed to the
+      # Most tests need data files (data/raw/1976-2024-house.tab etc.) not committed to the
       # repo — conftest.py pytest.skip()s those, so some tests are always skipped here.
       # The synthetic-data tests (test_unit.py, test_api.py, test_app.py, test_fundraising.py,
       # test_database.py, test_narrative.py, test_rag.py, parts of test_features.py) still run.

@@ -10,7 +10,7 @@ automatically, via 3 different mechanisms depending on each one's licensing situ
     domain) via Harvard Dataverse's own API, so a mirror of an already-obtained copy is
     fine to redistribute, unlike the next one.
   - Approval-Ratings-for-POTUS-raw.xls: fetched fresh every run by
-    scripts/build_approval_history.py (invoked below) from presidency.ucsb.edu's
+    src/data/build_approval_history.py (invoked below) from presidency.ucsb.edu's
     dedicated per-president pages. This one can NEVER get the GitHub-release-mirror
     treatment house.tab got: traced to its source, the data is "adapted from the Gallup
     Poll" (a private company) and carries an explicit "Copyright (c) The American
@@ -20,7 +20,7 @@ automatically, via 3 different mechanisms depending on each one's licensing situ
     which that exception doesn't cover; fetching fresh each run, locally, does not
     (same basis as a manual download) - do not add this file to DOWNLOAD_SOURCES.
   - president-2008-2020-by-district.csv / president-2020-2024-by-district.csv: fetched
-    fresh every run by scripts/build_pres_lean_data.py (invoked below) from The
+    fresh every run by src/data/build_pres_lean_data.py (invoked below) from The
     Downballot's public sheets. Their stated terms explicitly welcome reuse with
     attribution ("we welcome (almost) any use of our data as long as you cite us"), with
     one restriction - "please refrain from reproducing entire spreadsheets" - so, same
@@ -38,7 +38,7 @@ Plain ASCII output only (no em dashes / arrows) - this needs to render correctly
 bare Windows console whose default codepage isn't UTF-8.
 
 Run from project root:
-    python scripts/fetch_data.py
+    python -m src.data.fetch_data
 or:
     make data
 """
@@ -113,9 +113,9 @@ REQUIRED = [
     {
         "path": DataFile.APPROVAL,
         "label": "Presidential approval ratings",
-        "auto_script": "scripts/build_approval_history.py",
+        "auto_script": "src.data.build_approval_history",
         "instructions": [
-            "scripts/build_approval_history.py just ran and failed to produce this file",
+            "src.data.build_approval_history just ran and failed to produce this file",
             "(see its output above for why - a network issue, or presidency.ucsb.edu",
             "changed its page structure again). This one can't get a static GitHub-release",
             "mirror as a fallback, unlike house.tab - see this script's module docstring for",
@@ -126,9 +126,9 @@ REQUIRED = [
     {
         "path": DataFile.PRES_08_20,
         "label": "Presidential results by district, 2008-2020",
-        "auto_script": "scripts/build_pres_lean_data.py",
+        "auto_script": "src.data.build_pres_lean_data",
         "instructions": [
-            "scripts/build_pres_lean_data.py just ran and failed to produce this file (see",
+            "src.data.build_pres_lean_data just ran and failed to produce this file (see",
             "its output above for why - a network issue, or the source sheet moved again).",
             "Search \"The Downballot presidential results by congressional district",
             "2008-2020\" to find a current link if the one hardcoded in that script is dead,",
@@ -138,9 +138,9 @@ REQUIRED = [
     {
         "path": DataFile.PRES_20_24,
         "label": "Presidential results by district, 2020-2024",
-        "auto_script": "scripts/build_pres_lean_data.py",
+        "auto_script": "src.data.build_pres_lean_data",
         "instructions": [
-            "scripts/build_pres_lean_data.py just ran and failed to produce this file (see",
+            "src.data.build_pres_lean_data just ran and failed to produce this file (see",
             "its output above for why - a network issue, or the source sheet moved again).",
             "Search \"The Downballot presidential results by congressional district",
             "2020-2024\" to find a current link if the one hardcoded in that script is dead,",
@@ -164,7 +164,7 @@ def _check_required() -> bool:
             elif item.get("auto_script") and item["auto_script"] not in ran_scripts:
                 ran_scripts.add(item["auto_script"])
                 print(f"Running {item['auto_script']} ...")
-                subprocess.run([sys.executable, item["auto_script"]], check=False)
+                subprocess.run([sys.executable, "-m", item["auto_script"]], check=False)
                 present = item["path"].exists()
             elif item.get("auto_script"):
                 # Another REQUIRED entry already ran this same script this invocation
@@ -194,7 +194,7 @@ def _fetch_fundraising() -> None:
         )
         return
     print("Fetching fundraising data (FEC_API_KEY is set)...")
-    from src.fundraising import fetch_and_cache
+    from src.data.fundraising import fetch_and_cache
 
     fetch_and_cache(DataFile.FUNDRAISING, api_key)
     print(f"[OK] {DataFile.FUNDRAISING.name} fetched")
@@ -207,7 +207,7 @@ def _check_cook() -> None:
     html_path = DataFile.COOK_HTML
     if html_path.exists():
         print(f"Found {html_path.name} - parsing...")
-        subprocess.run([sys.executable, "scripts/parse_cook.py"], check=True)
+        subprocess.run([sys.executable, "-m", "src.data.parse_cook"], check=True)
     else:
         print(
             f"[SKIP] {DataFile.COOK.name} - optional. Save the Cook Political Report House "
@@ -224,7 +224,7 @@ def main() -> None:
     _check_cook()
     print()
     if all_required_present:
-        print("All required files present - run `make test` or `python scripts/predict.py`.")
+        print("All required files present - run `make test` or `python -m src.models.predict`.")
     else:
         print(
             "Some required files are still missing (see above). Each has an automated fetch\n"

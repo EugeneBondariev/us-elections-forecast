@@ -12,11 +12,11 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.constants import COMPETITIVE_MARGIN, DEM_MAJORITY_SEATS
-from src.database import load_latest_forecast, save_forecast
-from src.forecast import run_forecast
-from src.narrative import generate_narrative
+from src.data.database import load_latest_forecast, save_forecast
+from src.models.forecast import run_forecast
+from src.visualization.narrative import generate_narrative
 from src.paths import DataFile
-from src.rag import build_index, load_index, rag_answer
+from src.visualization.rag import build_index, load_index, rag_answer
 
 st.set_page_config(page_title="2026 US House Forecast", layout="wide")
 st.title("2026 US House Election Forecast")
@@ -267,22 +267,22 @@ with tab_tools:
     st.subheader("Pipeline tools")
 
     _SCRIPTS = {
-        "Run full analysis":       ("scripts/run_analysis.py",       "Runs all 6 diagnostic scripts. Logs saved to logs/analysis/."),
-        "Train & predict (MLflow)":("scripts/predict.py",            "Full training run with walk-forward CV, bootstrap CI, and 2026 forecast. Logged to MLflow."),
-        "Hyperparameter tuning":   ("scripts/tune.py",               "Optuna tuning for LightGBM (500 trials). Saves best params to data/best_params_lgbm.json."),
-        "Calibrate sigma":         ("scripts/calibrate_sigma.py",    "Fits Monte Carlo sigma_national to walk-forward residuals. Saves to data/calibrated_sigma.json."),
-        "Rebuild RAG index":       ("scripts/build_rag_index.py",    "Rebuilds the ChromaDB vector index from the current forecast."),
-        "Fetch economic indicators":("scripts/update_indicators.py", "Downloads latest approval ratings and economic data."),
-        "Parse Cook ratings":      ("scripts/parse_cook.py",         "Parses Cook Political Report CSV into data/cook.csv."),
+        "Run full analysis":       ("src.visualization.run_analysis", "Runs all 6 diagnostic scripts. Logs saved to logs/analysis/."),
+        "Train & predict (MLflow)":("src.models.predict",             "Full training run with walk-forward CV, bootstrap CI, and 2026 forecast. Logged to MLflow."),
+        "Hyperparameter tuning":   ("src.models.tune",                "Optuna tuning for LightGBM (500 trials). Saves best params to data/best_params_lgbm.json."),
+        "Calibrate sigma":         ("src.models.calibrate_sigma",     "Fits Monte Carlo sigma_national to walk-forward residuals. Saves to data/calibrated_sigma.json."),
+        "Rebuild RAG index":       ("src.visualization.build_rag_index", "Rebuilds the ChromaDB vector index from the current forecast."),
+        "Fetch economic indicators":("src.data.update_indicators",   "Downloads latest approval ratings and economic data."),
+        "Parse Cook ratings":      ("src.data.parse_cook",            "Parses Cook Political Report CSV into data/cook.csv."),
     }
 
-    for label, (script, description) in _SCRIPTS.items():
+    for label, (module, description) in _SCRIPTS.items():
         with st.expander(label):
             st.caption(description)
             if st.button(f"Run — {label}", key=label):
-                with st.spinner(f"Running {script}..."):
+                with st.spinner(f"Running {module}..."):
                     result = subprocess.run(
-                        ["python", script],
+                        ["python", "-m", module],
                         capture_output=True,
                         text=True,
                         encoding="utf-8",

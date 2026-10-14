@@ -1,9 +1,14 @@
-"""Reconstruct data/raw/Approval-Ratings-for-POTUS-raw.xls from presidency.ucsb.edu's
+"""Reconstruct data/interim/Approval-Ratings-for-POTUS-raw.xls from presidency.ucsb.edu's
 dedicated per-president approval pages, picking the last poll reading before each
 House election.
 
+This lives in interim/, not raw/, despite the filename: it's a selection built
+from 9 pooled external sources (closest-before-election, staleness-filtered),
+not a passthrough of anything downloaded untouched - the same shape of
+transformation as cook.html -> cook.csv.
+
 LOCAL USE ONLY. This data is Gallup-sourced and explicitly copyrighted by UCSB (see the
-licensing note in scripts/fetch_data.py's module docstring) - the output of this script
+licensing note in src/data/fetch_data.py's module docstring) - the output of this script
 must never be committed, mirrored, uploaded as a release asset, or otherwise redistributed.
 It's for this project's own local analysis, same as if you'd copied the cells by hand.
 
@@ -30,7 +35,7 @@ no closer reading available. Years with no sufficiently-recent qualifying row ar
 as missing, not silently skipped or guessed at.
 
 Run from project root:
-    python scripts/build_approval_history.py
+    python -m src.data.build_approval_history
 """
 import datetime
 import re
@@ -223,7 +228,7 @@ def main() -> None:
             " in the same 5-column tab-separated format, before the pipeline will run."
         )
 
-    print("\nRemember: data/raw/Approval-Ratings-for-POTUS-raw.xls is for local use only - "
+    print("\nRemember: data/interim/Approval-Ratings-for-POTUS-raw.xls is for local use only - "
           "never commit it, mirror it, or upload it anywhere public.")
     sys.exit(0 if not missing else 1)
 

@@ -2,7 +2,7 @@
 instead of relying on a hand-picked constant.
 
 Run after any feature/data change that could shift historical walk-forward accuracy:
-    python scripts/calibrate_sigma.py
+    python -m src.models.calibrate_sigma
 
 Writes data/calibrated_sigma.json. src.model.load_simulation_params() picks it up
 automatically, so run_forecast() (used by app.py, api.py, predict.py) uses the
@@ -11,9 +11,9 @@ calibrated value on the next run.
 import json
 import logging
 
-from src.features import build_dataset
+from src.features.features import build_dataset
 from src.logging_config import setup_logging
-from src.model import calibrate_national_sigma
+from src.models.model import calibrate_national_sigma
 from src.paths import DataFile
 
 logger = logging.getLogger(__name__)

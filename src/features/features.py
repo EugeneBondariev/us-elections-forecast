@@ -18,10 +18,10 @@ from src.constants import (
     Col,
     Val,
 )
-from src.fundraising import load_fundraising
-from src.loaders import load_approval, load_clean_house_data, load_pres_lean
+from src.data.fundraising import load_fundraising
+from src.data.loaders import load_approval, load_clean_house_data, load_pres_lean
 from src.paths import DataFile
-from src.validators import validate_approval_coverage, validate_feature_matrix
+from src.data.validators import validate_approval_coverage, validate_feature_matrix
 
 logger = logging.getLogger(__name__)
 
