@@ -14,8 +14,10 @@ from src.model import (
     compute_sample_weights,
     cross_validate,
     feature_weights,
+    load_simulation_params,
     simulate_election,
     train,
+    walk_forward_calibration,
     walk_forward_cv,
     walk_forward_feature_importance,
 )
@@ -82,6 +84,15 @@ def _log_feature_stability(fi) -> None:
                     col, fi[col].min(), fi[col].max(), fi[col].std())
 
 
+def _log_probabilistic_calibration(calib) -> None:
+    logger.info("Walk-forward probabilistic calibration (Brier score / log loss):")
+    logger.info("  %4s  %6s  %8s", "year", "brier", "log_loss")
+    for row in calib.itertuples(index=False):
+        logger.info("  %4d  %6.4f  %8.4f", row.year, row.brier_score, row.log_loss)
+    logger.info("  Mean Brier score: %.4f  |  Mean log loss: %.4f",
+                calib["brier_score"].mean(), calib["log_loss"].mean())
+
+
 def main() -> None:
     log_path = setup_logging()
     logger.info("Run log: %s", log_path)
@@ -114,6 +125,14 @@ def main() -> None:
 
         _log_feature_stability(walk_forward_feature_importance(X, y, years))
 
+        calib = walk_forward_calibration(X, y, years)
+        _log_probabilistic_calibration(calib)
+        mlflow.log_metric("mean_brier_score", calib["brier_score"].mean())
+        mlflow.log_metric("mean_log_loss", calib["log_loss"].mean())
+        for row in calib.itertuples(index=False):
+            mlflow.log_metric(f"brier_{int(row.year)}", row.brier_score)
+            mlflow.log_metric(f"log_loss_{int(row.year)}", row.log_loss)
+
         for row in wf.itertuples(index=False):
             mlflow.log_metric(f"accuracy_{int(row.year)}", row.district_accuracy)
             mlflow.log_metric(f"seat_error_{int(row.year)}", row.seat_error)
@@ -132,7 +151,14 @@ def main() -> None:
         )
         proba = pipeline.predict_proba(pred_2026)[:, 1]
 
-        sim = simulate_election(proba)
+        sim_params = load_simulation_params()
+        mlflow.log_param("sigma_national", sim_params["sigma_national"])
+        mlflow.log_param("sigma_district", sim_params["sigma_district"])
+        sim = simulate_election(
+            proba,
+            sigma_national=sim_params["sigma_national"],
+            sigma_district=sim_params["sigma_district"],
+        )
         _log_simulation(sim, len(proba))
         narrative = generate_narrative(sim, district_ids, len(proba))
         if narrative:

@@ -10,6 +10,7 @@ from lightgbm import LGBMClassifier
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier, StackingClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import brier_score_loss, log_loss
 from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -32,6 +33,10 @@ __all__ = [
     "feature_weights",
     "walk_forward_cv",
     "walk_forward_feature_importance",
+    "walk_forward_probas",
+    "walk_forward_calibration",
+    "calibrate_national_sigma",
+    "load_simulation_params",
     "explain_districts",
     "simulate_election",
     "bayesian_simulate",
@@ -229,6 +234,146 @@ def walk_forward_feature_importance(
         pipeline.fit(X.loc[train_idx], y.loc[train_idx])
         rows.append({"year": test_year, **feature_weights(pipeline, X.columns)})
     return pd.DataFrame(rows).set_index("year")
+
+
+def walk_forward_probas(
+    X: pd.DataFrame,
+    y: pd.Series,
+    years: pd.Series,
+    start_test_year: int = 2000,
+) -> dict[int, tuple[np.ndarray, np.ndarray]]:
+    """Train the base LR pipeline on all years before test_year; predict probabilities
+    for test_year. Returns {year: (proba_dem, actual)} — shared building block for
+    walk_forward_calibration (Brier/log-loss) and calibrate_national_sigma.
+    """
+    test_years = sorted(yr for yr in years.unique() if yr >= start_test_year)
+    folds: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+    for test_year in test_years:
+        train_idx = years[years < test_year].index
+        test_idx = years[years == test_year].index
+        if len(train_idx) == 0 or len(test_idx) == 0:
+            continue
+        pipeline = build_pipeline()
+        w = compute_sample_weights(years.loc[train_idx])
+        pipeline.fit(X.loc[train_idx], y.loc[train_idx], sample_weight=w)
+        proba = pipeline.predict_proba(X.loc[test_idx])[:, 1]
+        folds[test_year] = (proba, y.loc[test_idx].values)
+    return folds
+
+
+def walk_forward_calibration(
+    X: pd.DataFrame,
+    y: pd.Series,
+    years: pd.Series,
+    start_test_year: int = 2000,
+) -> pd.DataFrame:
+    """Per-year Brier score and log loss from walk-forward probabilities.
+
+    walk_forward_cv only checks the hard class prediction (district_accuracy); it says
+    nothing about whether the predicted *probabilities* are well-calibrated. This does.
+    """
+    folds = walk_forward_probas(X, y, years, start_test_year)
+    rows = []
+    for year, (proba, actual) in folds.items():
+        clipped = np.clip(proba, 1e-6, 1 - 1e-6)
+        rows.append(
+            {
+                "year": year,
+                "brier_score": float(brier_score_loss(actual, proba)),
+                "log_loss": float(log_loss(actual, clipped, labels=[0, 1])),
+                "n_districts": len(actual),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def calibrate_national_sigma(
+    X: pd.DataFrame,
+    y: pd.Series,
+    years: pd.Series,
+    sigma_district: float = 0.15,
+    start_test_year: int = 2000,
+    n: int = 2000,
+    seed: int = 42,
+    min_years: int = 3,
+) -> dict[str, float]:
+    """Pick sigma_national so the Monte Carlo seat-count spread matches the
+    *empirical* spread of realized walk-forward national seat errors, instead of
+    using a hand-picked constant.
+
+    For each walk-forward year, the realized error is actual_dem_seats minus the
+    probability-weighted expected seats (sum of proba). Binary search finds the
+    sigma_national whose simulated seat-count std (averaged across walk-forward
+    years) matches the std of those realized errors. sigma_district is held fixed:
+    with only a dozen or so walk-forward years, there isn't enough held-out signal
+    to identify both parameters jointly, so district-level noise stays at its prior
+    default and only the aggregate/national component is data-driven.
+    """
+    folds = walk_forward_probas(X, y, years, start_test_year)
+    if len(folds) < min_years:
+        logger.warning(
+            "Only %d walk-forward years available (<%d) — keeping default sigma_national",
+            len(folds),
+            min_years,
+        )
+        return {
+            "sigma_national": 0.25,
+            "sigma_district": sigma_district,
+            "target_std": float("nan"),
+            "n_years": len(folds),
+        }
+
+    realized_errors = [actual.sum() - proba.sum() for proba, actual in folds.values()]
+    target_std = float(np.std(realized_errors))
+
+    def _mean_simulated_std(sigma_national: float) -> float:
+        stds = [
+            simulate_election(
+                proba, n=n, seed=seed, sigma_national=sigma_national, sigma_district=sigma_district
+            ).std()
+            for proba, _ in folds.values()
+        ]
+        return float(np.mean(stds))
+
+    lo, hi = 0.01, 1.0
+    for _ in range(25):
+        mid = (lo + hi) / 2
+        if _mean_simulated_std(mid) < target_std:
+            lo = mid
+        else:
+            hi = mid
+    sigma_national = (lo + hi) / 2
+
+    logger.info(
+        "Calibrated sigma_national=%.4f (target seat-count std=%.2f from %d walk-forward years)",
+        sigma_national,
+        target_std,
+        len(folds),
+    )
+    return {
+        "sigma_national": round(sigma_national, 4),
+        "sigma_district": sigma_district,
+        "target_std": round(target_std, 4),
+        "n_years": len(folds),
+    }
+
+
+def load_simulation_params() -> dict[str, float]:
+    """Load calibrated Monte Carlo sigmas from disk if available, else fall back
+    to the uncalibrated defaults.
+
+    Run `python scripts/calibrate_sigma.py` to (re)generate data/calibrated_sigma.json
+    from walk-forward residuals. Mirrors the _gbm_params() pattern used for LightGBM.
+    """
+    from src.paths import DataFile
+
+    defaults = {"sigma_national": 0.25, "sigma_district": 0.15}
+    if DataFile.CALIBRATED_SIGMA.exists():
+        with open(DataFile.CALIBRATED_SIGMA) as f:
+            params = json.load(f)
+        logger.info("Loaded calibrated simulation sigmas from %s", DataFile.CALIBRATED_SIGMA)
+        return {**defaults, **{k: params[k] for k in defaults if k in params}}
+    return defaults
 
 
 def explain_districts(model: StackingClassifier, X_pred: pd.DataFrame) -> pd.DataFrame:

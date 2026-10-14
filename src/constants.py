@@ -77,7 +77,13 @@ class Val(StrEnum):
 # --- Named constants (replaces inline magic numbers) ---
 
 DEM_MAJORITY_SEATS = 218      # seats needed for a House majority
-COOK_ALPHA = 0.35             # Cook Political blend weight
+
+# Cook Political blend weight. Not empirically calibrated: that would require
+# backtesting against archived historical Cook ratings district-by-district, which
+# aren't available (only the current cycle's ratings are scraped). Treat this as an
+# informed prior, not a fitted parameter — unlike sigma_national in src/model.py's
+# calibrate_national_sigma(), which *is* fit from walk-forward residuals.
+COOK_ALPHA = 0.35
 COMPETITIVE_MARGIN = 0.15     # |proba_dem - 0.5| < this → competitive district
 
 

@@ -1,10 +1,16 @@
 import numpy as np
 import pandas as pd
 
-from src.constants import Col, COOK_ALPHA, OPEN_SEATS_2026
+from src.constants import COOK_ALPHA, OPEN_SEATS_2026, Col
 from src.features import build_dataset, build_pred_2026
 from src.loaders import load_cook_ratings
-from src.model import compute_sample_weights, explain_districts, simulate_election, train
+from src.model import (
+    compute_sample_weights,
+    explain_districts,
+    load_simulation_params,
+    simulate_election,
+    train,
+)
 from src.paths import DataFile
 
 __all__ = ["run_forecast"]
@@ -52,7 +58,12 @@ def run_forecast() -> dict:
             .values
         )
 
-    sim = simulate_election(districts["proba_dem"].values)
+    sim_params = load_simulation_params()
+    sim = simulate_election(
+        districts["proba_dem"].values,
+        sigma_national=sim_params["sigma_national"],
+        sigma_district=sim_params["sigma_district"],
+    )
     districts["label"] = np.where(
         districts[Col.DISTRICT] == 0,
         districts[Col.STATE].astype(str) + "-AL",
