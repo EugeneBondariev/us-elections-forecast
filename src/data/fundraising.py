@@ -24,6 +24,7 @@ import logging
 import os
 import time
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import requests
@@ -56,15 +57,16 @@ def _fetch_year(api_key: str, year: int) -> list[dict]:
     while True:
         for attempt in range(3):
             try:
+                fec_params: dict[str, Any] = {
+                    "api_key": api_key,
+                    "office": "H",
+                    "election_year": year,
+                    "page": page,
+                    "per_page": 100,
+                }
                 resp = requests.get(
                     f"{FEC_BASE}/candidates/totals/",
-                    params={
-                        "api_key": api_key,
-                        "office": "H",
-                        "election_year": year,
-                        "page": page,
-                        "per_page": 100,
-                    },
+                    params=fec_params,
                     timeout=30,
                 )
                 resp.raise_for_status()
@@ -194,8 +196,8 @@ def fetch_and_cache(
     existing = pd.read_csv(cache_path) if cache_path.exists() else pd.DataFrame()
 
     all_records = []
-    for year in years:
-        logger.info("Fetching FEC data for %d...", year)
+    for i, year in enumerate(years, 1):
+        logger.info("  Fetching FEC year %d (%d/%d)...", year, i, len(years))
         all_records.extend(_fetch_year(api_key, year))
 
     if not all_records:
