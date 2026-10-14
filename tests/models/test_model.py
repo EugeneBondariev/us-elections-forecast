@@ -1,5 +1,5 @@
-from src.features import build_pred_2026
-from src.model import (
+from src.features.features import build_pred_2026
+from src.models.model import (
     build_calibrated_pipeline,
     feature_weights,
     train,

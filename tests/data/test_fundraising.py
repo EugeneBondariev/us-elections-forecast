@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.fundraising import _RAW_FIELDS, _aggregate, _top_candidate_per_group
+from src.data.fundraising import _RAW_FIELDS, _aggregate, _top_candidate_per_group
 
 
 def _record(party: str, candidate_id: str, receipts: float, disbursements: float,

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import numpy as np
 import pandas as pd
 
-from src.narrative import _build_prompt, generate_narrative
+from src.visualization.narrative import _build_prompt, generate_narrative
 
 _SIM = np.array([210, 215, 218, 220, 225])
 _DISTRICTS = pd.DataFrame([

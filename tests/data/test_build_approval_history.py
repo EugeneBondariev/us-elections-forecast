@@ -1,4 +1,4 @@
-"""Tests for scripts/build_approval_history.py. All synthetic data, no network calls."""
+"""Tests for src/data/build_approval_history.py. All synthetic data, no network calls."""
 from __future__ import annotations
 
 import datetime
@@ -6,7 +6,7 @@ import datetime
 import pandas as pd
 import pytest
 
-from scripts.build_approval_history import (
+from src.data.build_approval_history import (
     MAX_PLAUSIBLE_GAP_DAYS,
     _election_date,
     _normalize_col,

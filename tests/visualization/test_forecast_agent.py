@@ -1,4 +1,4 @@
-"""Tests for scripts/forecast_agent.py — Groq client is mocked, no real API calls."""
+"""Tests for src/visualization/forecast_agent.py — Groq client is mocked, no real API calls."""
 from __future__ import annotations
 
 import json
@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import numpy as np
 import pandas as pd
 
-from scripts.forecast_agent import _run_tool, run_agent
+from src.visualization.forecast_agent import _run_tool, run_agent
 from src.constants import Col
 
 _DISTRICTS = pd.DataFrame([

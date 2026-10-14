@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from src.database import load_latest_forecast, save_forecast
+from src.data.database import load_latest_forecast, save_forecast
 
 _DISTRICTS = pd.DataFrame([
     {"label": "PA-7", "state_po": "PA", "district": 7, "proba_dem": 0.55},

@@ -4,7 +4,7 @@ from __future__ import annotations
 import sys
 from unittest.mock import MagicMock
 
-from src.rag import _district_to_text, rag_answer, retrieve
+from src.visualization.rag import _district_to_text, rag_answer, retrieve
 
 
 def test_district_to_text_open_seat():
