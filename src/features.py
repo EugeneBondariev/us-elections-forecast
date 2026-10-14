@@ -8,20 +8,20 @@ import numpy as np
 import pandas as pd
 
 from src.constants import (
-    Col,
-    Val,
     ECON_GROWTH,
     GENERIC_BALLOT,
-    PRES_PARTY,
-    REDISTRICTING_YEARS,
-    PRES_YEAR_FOR_HOUSE,
     OPEN_SEATS_2026,
+    PRES_PARTY,
+    PRES_YEAR_FOR_HOUSE,
+    REDISTRICTING_YEARS,
     UNEMPLOYMENT,
+    Col,
+    Val,
 )
 from src.fundraising import load_fundraising
 from src.loaders import load_approval, load_clean_house_data, load_pres_lean
 from src.paths import DataFile
-from src.validators import validate_feature_matrix
+from src.validators import validate_approval_coverage, validate_feature_matrix
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +256,11 @@ def build_dataset() -> DatasetResult:
     top_candidates = get_top_candidate_per_party(df)
     dems_reps = build_dems_reps(top_candidates)
     approval = load_approval(DataFile.APPROVAL)
+    # PRES_PARTY has a 2026 entry too, but build_pred_2026() hardcodes that year's
+    # approval directly (pres_approval=-32 etc.) rather than sourcing it from this
+    # file, and no house-election-year row ever equals 2026 (the data only goes
+    # through 2024) - requiring it here would demand a row that's never actually used.
+    validate_approval_coverage(approval, required_years=set(top_candidates[Col.YEAR]))
     pres_lean = load_pres_lean(DataFile.PRES_08_20, DataFile.PRES_20_24)
     fundraising = load_fundraising(
         cache_path=DataFile.FUNDRAISING,

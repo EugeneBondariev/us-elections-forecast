@@ -4,7 +4,7 @@ All fixtures are synthetic hand-crafted DataFrames / arrays.
 """
 import numpy as np
 import pandas as pd
-
+import pytest
 
 # ---------------------------------------------------------------------------
 # 1. WeightedPipeline routes sample_weight correctly
@@ -110,8 +110,8 @@ def test_bootstrap_ci_keys():
 # ---------------------------------------------------------------------------
 
 def test_build_dems_reps_vote_share():
-    from src.features import build_dems_reps
     from src.constants import Col, Val
+    from src.features import build_dems_reps
 
     top = pd.DataFrame([
         {Col.YEAR: 2020, Col.STATE: "CA", Col.DISTRICT: 1,
@@ -213,8 +213,10 @@ def test_validate_feature_matrix_valid():
     assert result is X
 
 
-def test_validate_feature_matrix_invalid_does_not_raise():
-    """Out-of-range values should log a warning but never raise."""
+def test_validate_feature_matrix_invalid_raises():
+    """Out-of-range values must raise — hardened so a bad input can't silently train."""
+    import pandera.pandas as pa
+
     from src.validators import validate_feature_matrix
 
     X = pd.DataFrame({
@@ -222,8 +224,102 @@ def test_validate_feature_matrix_invalid_does_not_raise():
         "prev_dem_vote_share": [1.8],   # > 1.0, violates schema
         "pres_approval":       [10.0],
     })
-    result = validate_feature_matrix(X)   # must not raise
-    assert result is X
+    with pytest.raises(pa.errors.SchemaErrors):
+        validate_feature_matrix(X)
+
+
+# ---------------------------------------------------------------------------
+# 12b. validate_approval_data: plausibility checks on raw (pre sign-flip) ratings
+# ---------------------------------------------------------------------------
+
+def test_validate_approval_data_valid_passes():
+    from src.constants import Col
+    from src.validators import validate_approval_data
+
+    df = pd.DataFrame({
+        Col.YEAR: [1978, 1982],
+        Col.PRES_APPROVAL: [55.0, 42.0],
+        Col.PRES_DISAPPROVAL: [37.0, 50.0],
+        Col.UNSURE: [8.0, 8.0],
+    })
+    result = validate_approval_data(df)
+    assert result is df
+
+
+def test_validate_approval_data_out_of_range_raises():
+    import pandera.pandas as pa
+
+    from src.constants import Col
+    from src.validators import validate_approval_data
+
+    df = pd.DataFrame({
+        Col.YEAR: [1978],
+        Col.PRES_APPROVAL: [155.0],   # > 100, impossible
+        Col.PRES_DISAPPROVAL: [37.0],
+        Col.UNSURE: [8.0],
+    })
+    with pytest.raises(pa.errors.SchemaErrors):
+        validate_approval_data(df)
+
+
+def test_validate_approval_data_bad_total_raises():
+    """approve+disapprove+unsure far from 100% signals a wrong-row/column copy."""
+    from src.constants import Col
+    from src.validators import validate_approval_data
+
+    df = pd.DataFrame({
+        Col.YEAR: [1978],
+        Col.PRES_APPROVAL: [55.0],
+        Col.PRES_DISAPPROVAL: [50.0],   # 55+50+8 = 113, way off 100
+        Col.UNSURE: [8.0],
+    })
+    with pytest.raises(ValueError, match="approve\\+disapprove\\+unsure"):
+        validate_approval_data(df)
+
+
+def test_validate_approval_data_small_rounding_slack_is_tolerated():
+    from src.constants import Col
+    from src.validators import validate_approval_data
+
+    df = pd.DataFrame({
+        Col.YEAR: [1978],
+        Col.PRES_APPROVAL: [55.0],
+        Col.PRES_DISAPPROVAL: [38.0],
+        Col.UNSURE: [8.0],   # sums to 101 — within default tolerance of 5
+    })
+    result = validate_approval_data(df)
+    assert result is df
+
+
+# ---------------------------------------------------------------------------
+# 12c. validate_approval_coverage: duplicate / missing year detection
+# ---------------------------------------------------------------------------
+
+def test_validate_approval_coverage_valid_passes():
+    from src.constants import Col
+    from src.validators import validate_approval_coverage
+
+    df = pd.DataFrame({Col.YEAR: [1976, 1978, 1980]})
+    result = validate_approval_coverage(df, required_years={1976, 1978, 1980})
+    assert result is df
+
+
+def test_validate_approval_coverage_missing_year_raises():
+    from src.constants import Col
+    from src.validators import validate_approval_coverage
+
+    df = pd.DataFrame({Col.YEAR: [1976, 1980]})   # 1978 missing
+    with pytest.raises(ValueError, match="missing year"):
+        validate_approval_coverage(df, required_years={1976, 1978, 1980})
+
+
+def test_validate_approval_coverage_duplicate_year_raises():
+    from src.constants import Col
+    from src.validators import validate_approval_coverage
+
+    df = pd.DataFrame({Col.YEAR: [1976, 1976, 1980]})   # 1976 twice
+    with pytest.raises(ValueError, match="duplicate"):
+        validate_approval_coverage(df, required_years={1976, 1980})
 
 
 # ---------------------------------------------------------------------------
@@ -232,8 +328,8 @@ def test_validate_feature_matrix_invalid_does_not_raise():
 # ---------------------------------------------------------------------------
 
 def test_add_incumbency_features():
-    from src.features import add_incumbency_features
     from src.constants import Col, Val
+    from src.features import add_incumbency_features
 
     # Raw candidate-level data: 3 years, 1 district
     df = pd.DataFrame([
@@ -292,6 +388,106 @@ def _make_minimal_winners() -> pd.DataFrame:
                 Col.IS_INCUMBENT: 1.0,  Col.REDISTRICTING: 0,
             })
     return pd.DataFrame(rows)
+
+
+def _make_walk_forward_frame(n_years=6, n_per_year=60, seed=0):
+    rng = np.random.RandomState(seed)
+    years = sorted(2000 + 2 * i for i in range(n_years))
+    rows_X, rows_y, rows_years = [], [], []
+    for yr in years:
+        a = rng.randn(n_per_year)
+        b = rng.randn(n_per_year)
+        y_year = (a + 0.1 * rng.randn(n_per_year) > 0).astype(int)
+        rows_X.append(pd.DataFrame({"a": a, "b": b}))
+        rows_y.extend(y_year)
+        rows_years.extend([yr] * n_per_year)
+    X = pd.concat(rows_X, ignore_index=True)
+    y = pd.Series(rows_y)
+    years_s = pd.Series(rows_years)
+    return X, y, years_s
+
+
+# ---------------------------------------------------------------------------
+# 15. walk_forward_probas returns one (proba, actual) pair per test year
+# ---------------------------------------------------------------------------
+
+def test_walk_forward_probas_shapes():
+    from src.model import walk_forward_probas
+
+    X, y, years = _make_walk_forward_frame()
+    folds = walk_forward_probas(X, y, years, start_test_year=2004)
+    assert set(folds.keys()) == {2004, 2006, 2008, 2010}
+    for proba, actual in folds.values():
+        assert proba.shape == actual.shape
+        assert (proba >= 0).all() and (proba <= 1).all()
+
+
+# ---------------------------------------------------------------------------
+# 16. walk_forward_calibration returns Brier score / log loss per year
+# ---------------------------------------------------------------------------
+
+def test_walk_forward_calibration_columns_and_bounds():
+    from src.model import walk_forward_calibration
+
+    X, y, years = _make_walk_forward_frame()
+    calib = walk_forward_calibration(X, y, years, start_test_year=2004)
+    assert set(calib.columns) == {"year", "brier_score", "log_loss", "n_districts"}
+    assert (calib["brier_score"] >= 0).all() and (calib["brier_score"] <= 1).all()
+    assert (calib["log_loss"] >= 0).all()
+
+
+# ---------------------------------------------------------------------------
+# 17. calibrate_national_sigma: too few years falls back to the documented default
+# ---------------------------------------------------------------------------
+
+def test_calibrate_national_sigma_falls_back_with_too_few_years():
+    from src.model import calibrate_national_sigma
+
+    X, y, years = _make_walk_forward_frame(n_years=3)
+    result = calibrate_national_sigma(X, y, years, start_test_year=2004, min_years=5)
+    assert result["sigma_national"] == 0.25
+    assert np.isnan(result["target_std"])
+
+
+# ---------------------------------------------------------------------------
+# 18. calibrate_national_sigma: with enough years, returns a positive, bounded sigma
+# ---------------------------------------------------------------------------
+
+def test_calibrate_national_sigma_returns_bounded_value_with_enough_years():
+    from src.model import calibrate_national_sigma
+
+    X, y, years = _make_walk_forward_frame(n_years=8)
+    result = calibrate_national_sigma(X, y, years, start_test_year=2002, n=200, min_years=3)
+    assert 0.0 < result["sigma_national"] < 1.0
+    assert result["sigma_district"] == 0.15
+    assert result["n_years"] > 0
+
+
+# ---------------------------------------------------------------------------
+# 19. load_simulation_params: defaults when no calibrated file exists, else reads it
+# ---------------------------------------------------------------------------
+
+def test_load_simulation_params_defaults_when_file_absent(tmp_path, monkeypatch):
+    from src.model import load_simulation_params
+    from src.paths import DataFile
+
+    monkeypatch.setattr(DataFile, "CALIBRATED_SIGMA", tmp_path / "nonexistent.json")
+    result = load_simulation_params()
+    assert result == {"sigma_national": 0.25, "sigma_district": 0.15}
+
+
+def test_load_simulation_params_reads_calibrated_file(tmp_path, monkeypatch):
+    import json
+
+    from src.model import load_simulation_params
+    from src.paths import DataFile
+
+    path = tmp_path / "calibrated_sigma.json"
+    path.write_text(json.dumps({"sigma_national": 0.4, "sigma_district": 0.15, "extra": 1}))
+    monkeypatch.setattr(DataFile, "CALIBRATED_SIGMA", path)
+
+    result = load_simulation_params()
+    assert result == {"sigma_national": 0.4, "sigma_district": 0.15}
 
 
 def test_build_feature_matrix_column_types():

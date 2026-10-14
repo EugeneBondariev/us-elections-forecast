@@ -3,9 +3,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.constants import Col, Val, GENERIC_BALLOT, PRES_PARTY, REDISTRICTING_YEARS
-from src.loaders import load_approval, load_clean_house_data, load_cook_ratings, load_pres_lean
+from src.constants import GENERIC_BALLOT, PRES_PARTY, REDISTRICTING_YEARS, Col, Val
 from src.features import build_dems_reps, build_pred_2026
+from src.loaders import load_approval, load_clean_house_data, load_cook_ratings, load_pres_lean
 
 ELECTION_YEARS = set(range(1976, 2025, 2))
 
@@ -136,6 +136,20 @@ class TestLoadHouseData:
     def test_drops_negative_votes(self, tmp_path):
         path = self._write_house_csv(tmp_path, [self._base_row(**{Col.CANDIDATE_VOTES: 100}), self._base_row(**{Col.CANDIDATE_VOTES: -1})])
         assert len(load_clean_house_data(path)) == 1
+
+    def test_drops_uncontested_zero_total_votes(self, tmp_path):
+        """Real MIT data has uncontested races recorded as candidatevotes=totalvotes=0
+        (e.g. FL-24 2016, Frederica Wilson ran unopposed). Caught via the actual GitHub
+        Release mirror of 1976-2024-house.tab tripping validate_house_data's totalvotes
+        gt=0 bound — fixed by dropping these explicitly instead of letting them become
+        a silent 0/0 NaN three functions downstream."""
+        path = self._write_house_csv(tmp_path, [
+            self._base_row(**{Col.CANDIDATE_VOTES: 100, Col.TOTAL_VOTES: 200}),
+            self._base_row(**{Col.CANDIDATE: "UNOPPOSED", Col.CANDIDATE_VOTES: 0, Col.TOTAL_VOTES: 0}),
+        ])
+        result = load_clean_house_data(path)
+        assert len(result) == 1
+        assert (result[Col.TOTAL_VOTES] > 0).all()
 
     def test_normalizes_dfl_party(self, tmp_path):
         path = self._write_house_csv(tmp_path, [self._base_row(**{Col.PARTY: Val.DEM_FARMER_LABOR})])

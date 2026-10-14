@@ -6,7 +6,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.constants import Col, Val, PRES_PARTY
+from src.constants import PRES_PARTY, Col, Val
+from src.validators import validate_approval_data, validate_house_data
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,17 @@ def load_clean_house_data(path: str | Path) -> pd.DataFrame:
     ]
     df = df.drop(columns=drop, errors="ignore")
     df = df[df[Col.PARTY].notna()]
-    df = df[(df[Col.CANDIDATE_VOTES] >= 0) & (df[Col.TOTAL_VOTES] >= 0)]
+
+    # totalvotes == 0 shows up for genuinely uncontested races (MIT's dataset records
+    # these with a 0 sentinel rather than a real count, e.g. FL-24 2016 - Frederica
+    # Wilson ran unopposed). It's not bad data, but it's also unusable here: vote_share
+    # would be a 0/0 division, and an uncontested race carries no dem_lean signal anyway.
+    # Drop it explicitly (and loudly) instead of letting it slip through as a NaN that
+    # happens to get dropna()'d three functions later for an unrelated-looking reason.
+    uncontested = (df[Col.CANDIDATE_VOTES] >= 0) & (df[Col.TOTAL_VOTES] == 0)
+    if uncontested.any():
+        logger.info("Dropping %d uncontested-race row(s) with totalvotes == 0", uncontested.sum())
+    df = df[(df[Col.CANDIDATE_VOTES] >= 0) & (df[Col.TOTAL_VOTES] > 0)]
 
     party_map = {
         Val.DEM_FARMER_LABOR: Val.DEMOCRAT,
@@ -115,6 +126,7 @@ def load_clean_house_data(path: str | Path) -> pd.DataFrame:
     df[Col.PARTY] = df[Col.PARTY].replace(party_map)
     df = df.reset_index(drop=True)
     logger.info("Loaded %d rows", len(df))
+    validate_house_data(df)
     return df
 
 
@@ -139,6 +151,10 @@ def load_approval(path: str | Path) -> pd.DataFrame:
         names=[Col.START, Col.END, Col.PRES_APPROVAL, Col.PRES_DISAPPROVAL, Col.UNSURE],
     )
     approval[Col.YEAR] = pd.to_datetime(approval[Col.START]).dt.year
+    # Validate on the raw 0-100 scale, before UNSURE is dropped and before the
+    # sign-flip below — that's where "approve+disapprove+unsure ~= 100%" still means
+    # what it says, and where a bad cell copy is easiest to catch.
+    validate_approval_data(approval)
     approval = approval[[Col.YEAR, Col.PRES_APPROVAL, Col.PRES_DISAPPROVAL]]
     approval[Col.PRES_PARTY] = approval[Col.YEAR].map(PRES_PARTY)
 
