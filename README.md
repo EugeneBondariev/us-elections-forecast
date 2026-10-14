@@ -27,8 +27,10 @@ data/           Not committed (see below) — Cookiecutter Data Science layout:
                    immutability rule, just not the core dataset.
   interim/        First-pass transformations of raw/external data, not yet final features.
   processed/      Derived runtime artifacts (forecast cache, RAG index) — safe to delete.
-models/         Not committed — trained/tuned model artifacts (best LightGBM params,
-                 calibrated Monte Carlo sigma). Not "data" in the DS sense, so it's separate.
+models/         Not committed — regenerable training-run artifacts (calibrated Monte Carlo
+                 sigma, the mlflow tracking db). Not "data" in the DS sense, so it's separate.
+config/         Committed — tuned hyperparameters (best_params_lgbm.json). Unlike models/,
+                 this is checked in so a fresh clone doesn't need to re-run `make tune`.
 reports/        Not committed — generated analysis output (text/csv), regenerable.
   figures/        Generated plots/images from the diagnostic scripts, regenerable.
 ```
@@ -201,7 +203,7 @@ directory — see `src/paths.py`'s Cookiecutter Data Science docstring). Run any
 | `src.features.ols_analysis` | OLS regression on structural features → `reports/` + `reports/figures/` |
 | `src.features.pca_analysis` | PCA on feature matrix, plots loadings → `reports/figures/` |
 | `src.models.predict` | CLI forecast: walk-forward validation, MLflow logging, LLM narrative |
-| `src.models.tune` | Optuna hyperparameter search for LightGBM → `models/best_params_lgbm.json` |
+| `src.models.tune` | Optuna hyperparameter search for LightGBM → `config/best_params_lgbm.json` |
 | `src.models.calibrate_sigma` | Fits Monte Carlo `sigma_national` to walk-forward residuals → `models/calibrated_sigma.json` |
 | `src.models.learning_curves` | Accuracy vs. training size for LR and LightGBM → `reports/figures/` |
 | `src.visualization.run_analysis` | Run all 6 diagnostic modules in sequence, outputs land in `reports/` |

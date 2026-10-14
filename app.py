@@ -14,8 +14,8 @@ import streamlit as st
 from src.constants import COMPETITIVE_MARGIN, DEM_MAJORITY_SEATS
 from src.data.database import load_latest_forecast, save_forecast
 from src.models.forecast import run_forecast
-from src.visualization.narrative import generate_narrative
 from src.paths import DataFile
+from src.visualization.narrative import generate_narrative
 from src.visualization.rag import build_index, load_index, rag_answer
 
 st.set_page_config(page_title="2026 US House Forecast", layout="wide")
@@ -270,7 +270,7 @@ with tab_tools:
     _SCRIPTS = {
         "Run full analysis":       ("src.visualization.run_analysis", "Runs all 6 diagnostic scripts. Logs saved to logs/analysis/."),
         "Train & predict (MLflow)":("src.models.predict",             "Full training run with walk-forward CV, bootstrap CI, and 2026 forecast. Logged to MLflow."),
-        "Hyperparameter tuning":   ("src.models.tune",                "Optuna tuning for LightGBM (500 trials). Saves best params to data/best_params_lgbm.json."),
+        "Hyperparameter tuning":   ("src.models.tune",                "Optuna tuning for LightGBM (500 trials). Saves best params to config/best_params_lgbm.json."),
         "Calibrate sigma":         ("src.models.calibrate_sigma",     "Fits Monte Carlo sigma_national to walk-forward residuals. Saves to data/calibrated_sigma.json."),
         "Rebuild RAG index":       ("src.visualization.build_rag_index", "Rebuilds the ChromaDB vector index from the current forecast."),
         "Fetch economic indicators":("src.data.update_indicators",   "Downloads latest approval ratings and economic data."),
