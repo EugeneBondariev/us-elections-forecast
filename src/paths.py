@@ -54,7 +54,6 @@ class DataFile:
     PRES_20_24 = RAW_DIR / "president-2020-2024-by-district.csv"
 
     # external/ — third-party supplementary data. Same immutability rule as raw/.
-    COOK_HTML       = EXTERNAL_DIR / "cook.html"
     FUNDRAISING_RAW = EXTERNAL_DIR / "fundraising_raw.csv"
 
     # interim/ — first-pass transformations of raw/external data. APPROVAL belongs

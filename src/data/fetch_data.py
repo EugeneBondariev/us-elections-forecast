@@ -31,8 +31,7 @@ automatically, via 3 different mechanisms depending on each one's licensing situ
 So this script checks what's present, downloads+checksum-verifies anything listed in
 DOWNLOAD_SOURCES, runs the dedicated fetch script for anything that has one, falls back
 to manual instructions only if that fails, and automates the genuinely-automatable
-optional pieces too (FEC fundraising via FEC_API_KEY, Cook ratings parsing if you've
-already saved the HTML page).
+optional pieces too (FEC fundraising via FEC_API_KEY, Cook ratings via Wikipedia).
 
 Plain ASCII output only (no em dashes / arrows) - this needs to render correctly on a
 bare Windows console whose default codepage isn't UTF-8.
@@ -40,15 +39,27 @@ bare Windows console whose default codepage isn't UTF-8.
 Run from project root:
     python -m src.data.fetch_data
 or:
-    make data
+    make fetch
 """
 import hashlib
+import logging
 import subprocess
 import sys
 import urllib.request
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 from src.paths import DataFile  # importing this already creates data/raw etc. - see src/paths.py
+
+logger = logging.getLogger(__name__)
+
+
+class _RequiredItem(TypedDict):
+    path: Path
+    label: str
+    instructions: list[str]
+    auto_script: NotRequired[str]
+
 
 # Mirrors of CC0/public-domain required files ONLY, hosted as GitHub Release assets on
 # this repo so re-downloading them doesn't require redoing a manual/consent-gated step.
@@ -58,7 +69,7 @@ from src.paths import DataFile  # importing this already creates data/raw etc. -
 # DataFile.APPROVAL, DataFile.PRES_08_20, and DataFile.PRES_20_24 must NEVER be added
 # here - see the module docstring above for why each one specifically can't be mirrored
 # this way. Verify licensing carefully before adding anything else to this dict too.
-DOWNLOAD_SOURCES = {
+DOWNLOAD_SOURCES: dict[Path, dict[str, str]] = {
     DataFile.HOUSE: {
         "url": "https://github.com/EugeneBondariev/us-elections-forecast/releases/download/data-v1/1976-2024-house.tab",
         "sha256": "76eec42483ee9f0fc5cf6e377442c783d1ae6eefa929729fd6561a69bab47f2a",
@@ -67,35 +78,31 @@ DOWNLOAD_SOURCES = {
 
 
 def _download_and_verify(url: str, dest: Path, sha256_hex: str) -> bool:
-    """Download url to dest, verify its SHA256 matches sha256_hex. Returns True on success.
-
-    On any failure (network error, hash mismatch) the partial/wrong file is removed
-    and False is returned - callers fall back to manual instructions rather than
-    silently leaving a corrupt or wrong file in place.
-    """
+    """Download url to dest, verify its SHA256 matches sha256_hex. Returns True on success."""
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_name(dest.name + ".part")
     try:
-        print(f"Downloading {dest.name} from {url} ...")
+        logger.info("Downloading %s from %s ...", dest.name, url)
         urllib.request.urlretrieve(url, tmp)
         digest = hashlib.sha256(tmp.read_bytes()).hexdigest()
         if digest != sha256_hex:
-            print(
-                f"CHECKSUM MISMATCH for {dest.name}: expected {sha256_hex}, got {digest}. "
-                f"Discarding the download - falling back to manual instructions."
+            logger.error(
+                "CHECKSUM MISMATCH for %s: expected %s, got %s. "
+                "Discarding the download - falling back to manual instructions.",
+                dest.name, sha256_hex, digest,
             )
             tmp.unlink(missing_ok=True)
             return False
         tmp.replace(dest)
-        print(f"Verified checksum and saved: {dest}")
+        logger.info("Verified checksum and saved: %s", dest)
         return True
     except Exception as e:
-        print(f"Download of {dest.name} failed: {e}")
+        logger.error("Download of %s failed: %s", dest.name, e)
         tmp.unlink(missing_ok=True)
         return False
 
 
-REQUIRED = [
+REQUIRED: list[_RequiredItem] = [
     {
         "path": DataFile.HOUSE,
         "label": "MIT Election Lab House results (1976-2024)",
@@ -130,8 +137,8 @@ REQUIRED = [
         "instructions": [
             "src.data.build_pres_lean_data just ran and failed to produce this file (see",
             "its output above for why - a network issue, or the source sheet moved again).",
-            "Search \"The Downballot presidential results by congressional district",
-            "2008-2020\" to find a current link if the one hardcoded in that script is dead,",
+            "Search 'The Downballot presidential results by congressional district",
+            "2008-2020' to find a current link if the one hardcoded in that script is dead,",
             f"then update it there. Expected to land at: {DataFile.PRES_08_20}",
         ],
     },
@@ -142,8 +149,8 @@ REQUIRED = [
         "instructions": [
             "src.data.build_pres_lean_data just ran and failed to produce this file (see",
             "its output above for why - a network issue, or the source sheet moved again).",
-            "Search \"The Downballot presidential results by congressional district",
-            "2020-2024\" to find a current link if the one hardcoded in that script is dead,",
+            "Search 'The Downballot presidential results by congressional district",
+            "2020-2024' to find a current link if the one hardcoded in that script is dead,",
             f"then update it there. Expected to land at: {DataFile.PRES_20_24}",
         ],
     },
@@ -151,7 +158,7 @@ REQUIRED = [
 
 
 def _check_required() -> bool:
-    print("Required files (needed for `make test` to stop skipping and for the pipeline to run):\n")
+    logger.info("Required files (needed for `make test` to stop skipping and for the pipeline to run):\n")
     all_present = True
     ran_scripts: set[str] = set()
     for item in REQUIRED:
@@ -161,72 +168,93 @@ def _check_required() -> bool:
             source = DOWNLOAD_SOURCES.get(item["path"])
             if source and source["url"] and source["sha256"]:
                 present = _download_and_verify(source["url"], item["path"], source["sha256"])
-            elif item.get("auto_script") and item["auto_script"] not in ran_scripts:
-                ran_scripts.add(item["auto_script"])
-                print(f"Running {item['auto_script']} ...")
-                subprocess.run([sys.executable, "-m", item["auto_script"]], check=False)
+            elif (script := item.get("auto_script")) and script not in ran_scripts:
+                ran_scripts.add(script)
+                logger.info("Running %s ...", script)
+                subprocess.run([sys.executable, "-m", script], check=False)
                 present = item["path"].exists()
             elif item.get("auto_script"):
-                # Another REQUIRED entry already ran this same script this invocation
-                # (build_pres_lean_data.py fetches both Downballot files in one go).
                 present = item["path"].exists()
 
         all_present = all_present and present
-        print(f"[{'OK' if present else 'MISSING'}] {item['path'].name} - {item['label']}")
-        if not present:
+        if present:
+            logger.info("[OK]  %s - %s", item["path"].name, item["label"])
+        else:
+            logger.error("[MISSING] %s - %s", item["path"].name, item["label"])
             for line in item["instructions"]:
-                print(f"       {line}")
-            print()
+                logger.error("       %s", line)
+            logger.error("")
     return all_present
 
 
 def _fetch_fundraising() -> None:
     import os
-
     if DataFile.FUNDRAISING.exists():
-        print(f"[OK] {DataFile.FUNDRAISING.name} already present")
+        logger.info("[OK]  %s already present", DataFile.FUNDRAISING.name)
         return
     api_key = os.getenv("FEC_API_KEY") or os.getenv("DATA_GOV_API_KEY")
     if not api_key:
-        print(
-            f"[SKIP] {DataFile.FUNDRAISING.name} - optional. Set FEC_API_KEY to fetch "
-            f"automatically (free key: https://api.data.gov/signup)."
+        logger.info(
+            "[SKIP] %s - optional. Set FEC_API_KEY to fetch automatically "
+            "(free key: https://api.data.gov/signup).",
+            DataFile.FUNDRAISING.name,
         )
         return
-    print("Fetching fundraising data (FEC_API_KEY is set)...")
+    logger.info("Fetching fundraising data (FEC_API_KEY is set)...")
     from src.data.fundraising import fetch_and_cache
-
     fetch_and_cache(DataFile.FUNDRAISING, api_key)
-    print(f"[OK] {DataFile.FUNDRAISING.name} fetched")
+    if DataFile.FUNDRAISING.exists():
+        from src.data.validate_data import validate_fundraising
+        validate_fundraising()
+    else:
+        logger.error("[FAIL] fundraising fetch produced no output file")
 
 
 def _check_cook() -> None:
     if DataFile.COOK.exists():
-        print(f"[OK] {DataFile.COOK.name} already present")
-        return
-    html_path = DataFile.COOK_HTML
-    if html_path.exists():
-        print(f"Found {html_path.name} - parsing...")
-        subprocess.run([sys.executable, "-m", "src.data.parse_cook"], check=True)
-    else:
-        print(
-            f"[SKIP] {DataFile.COOK.name} - optional. Save the Cook Political Report House "
-            f"ratings page as {html_path} (File -> Save Page As in your browser), then rerun."
+        from src.data.validate_data import validate_cook
+        if validate_cook():
+            return
+        logger.warning("cook.csv failed validation — deleting and re-fetching")
+        DataFile.COOK.unlink(missing_ok=True)
+    logger.info("Fetching Wikipedia election ratings...")
+    result = subprocess.run(
+        [sys.executable, "-m", "src.data.parse_cook"], check=False
+    )
+    if result.returncode != 0 or not DataFile.COOK.exists():
+        logger.warning(
+            "[SKIP] %s - optional. Wikipedia fetch failed (network issue?).",
+            DataFile.COOK.name,
         )
+        return
+    from src.data.validate_data import validate_cook
+    validate_cook()
 
 
 def main() -> None:
-    print("=" * 72)
+    import logging as _logging
+    from dotenv import load_dotenv
+    load_dotenv()
+    _logging.basicConfig(level=_logging.INFO, format="%(message)s")
+
+    logger.info("=" * 72)
     all_required_present = _check_required()
-    print("=" * 72)
-    print("\nOptional data (automated where a free API key or cached file is available):\n")
+
+    if all_required_present:
+        logger.info("")
+        logger.info("Validating required files...")
+        from src.data.validate_data import validate_required
+        validate_required()
+
+    logger.info("=" * 72)
+    logger.info("\nOptional data (automated where a free API key or cached file is available):\n")
     _fetch_fundraising()
     _check_cook()
-    print()
+    logger.info("")
     if all_required_present:
-        print("All required files present - run `make test` or `python -m src.models.predict`.")
+        logger.info("All required files present - run `make test` or `python -m src.models.predict`.")
     else:
-        print(
+        logger.error(
             "Some required files are still missing (see above). Each has an automated fetch\n"
             "attempt built in; if one still failed, see its specific instructions above for\n"
             "the manual fallback (this script's module docstring has the full picture)."

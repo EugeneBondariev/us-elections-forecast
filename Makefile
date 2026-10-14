@@ -1,4 +1,4 @@
-.PHONY: help app test test-e2e typecheck analyze predict tune rag cook db indicators agent calibrate-sigma freeze install install-dev data
+.PHONY: help app test test-e2e typecheck analyze predict tune rag db indicators agent calibrate-sigma freeze install install-dev fetch validate
 
 PYTHON = python
 
@@ -7,18 +7,18 @@ help:
 	@echo ""
 	@echo "  install          Install runtime dependencies + this package (editable)"
 	@echo "  install-dev      Also install dev tooling (mypy, stubs)"
-	@echo "  data             Check required data files, fetch what's safely automatable"
+	@echo "  fetch            Fetch all data files (downloads + builds + inline validation)"
+	@echo "  validate         Re-validate all data files already on disk"
 	@echo "  app              Start the Streamlit app"
 	@echo "  test             Run the fast test suite (excludes e2e)"
 	@echo "  test-e2e         Run the real-browser Streamlit/API smoke tests (slow, opt-in -"
-	@echo "                   needs: make install-dev && playwright install chromium)"
+	@echo "                   needs: pip install playwright && playwright install chromium)"
 	@echo "  typecheck        Run mypy over src/ and api.py"
 	@echo "  analyze          Run all 6 diagnostic scripts (logs to logs/analysis/)"
 	@echo "  predict          Train model + MLflow logging + 2026 forecast"
 	@echo "  tune             Optuna hyperparameter tuning for LightGBM"
 	@echo "  calibrate-sigma  Calibrate Monte Carlo sigma_national from walk-forward residuals"
 	@echo "  rag              Build the ChromaDB RAG index from current forecast"
-	@echo "  cook             Parse Cook Political Report ratings"
 	@echo "  db               Build the SQLite forecast database"
 	@echo "  indicators       Fetch latest economic indicators"
 	@echo "  agent            Run the LLM forecast agent (requires GROQ_API_KEY)"
@@ -31,8 +31,11 @@ install:
 install-dev: install
 	$(PYTHON) -m pip install -r requirements-dev.txt
 
-data:
+fetch:
 	$(PYTHON) -m src.data.fetch_data
+
+validate:
+	$(PYTHON) -m src.data.validate_data
 
 typecheck:
 	$(PYTHON) -m mypy src/ api.py
@@ -63,9 +66,6 @@ calibrate-sigma:
 
 rag:
 	$(PYTHON) -m src.visualization.build_rag_index
-
-cook:
-	$(PYTHON) -m src.data.parse_cook
 
 db:
 	$(PYTHON) -m src.data.build_db

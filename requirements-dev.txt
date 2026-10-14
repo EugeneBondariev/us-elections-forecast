@@ -3,11 +3,8 @@
 mypy
 pandas-stubs
 types-requests
-
-# For tests/test_app_e2e.py (make test-e2e) only. Also needs a one-time
-# `playwright install chromium` to download the actual browser binary - pip
-# alone does not do this.
-playwright
+# Needed for make test-e2e only. Also run: playwright install chromium
+playwright~=1.0
 
 # For building docs/ (make -C docs html) only.
 sphinx
