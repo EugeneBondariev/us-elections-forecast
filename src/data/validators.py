@@ -19,10 +19,16 @@ __all__ = [
     "HouseDataSchema",
     "FeatureMatrixSchema",
     "ApprovalSchema",
+    "PresLeanSchema",
+    "CookCsvSchema",
+    "FundraisingSchema",
     "validate_house_data",
     "validate_feature_matrix",
     "validate_approval_data",
     "validate_approval_coverage",
+    "validate_pres_lean",
+    "validate_cook_csv",
+    "validate_fundraising",
 ]
 
 logger = logging.getLogger(__name__)
@@ -64,6 +70,47 @@ class ApprovalSchema(pa.DataFrameModel):
     pres_approval: Series[float] = pa.Field(ge=0, le=100, alias=Col.PRES_APPROVAL)
     pres_disapproval: Series[float] = pa.Field(ge=0, le=100, alias=Col.PRES_DISAPPROVAL)
     unsure: Series[float] = pa.Field(ge=0, le=100, alias=Col.UNSURE)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
+class PresLeanSchema(pa.DataFrameModel):
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
+    pres_year: Series[int] = pa.Field(ge=2008, le=2030)
+    pres_lean: Series[float] = pa.Field(ge=0, le=1, alias=Col.PRES_LEAN)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
+class CookCsvSchema(pa.DataFrameModel):
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
+    cook_prob: Series[float] = pa.Field(ge=0, le=1, alias=Col.COOK_PROB)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
+class FundraisingSchema(pa.DataFrameModel):
+    year: Series[int] = pa.Field(ge=1980, le=2030, alias=Col.YEAR)
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    # le=99 not le=53: raw FEC data includes non-voting delegate/territory candidates
+    # whose district codes go beyond 53; the pipeline drops them on merge.
+    district: Series[int] = pa.Field(ge=0, le=99, alias=Col.DISTRICT)
+    fundraising_dem_share: Series[float] = pa.Field(ge=0, le=1, alias=Col.FUNDRAISING_DEM_SHARE)
+    large_donor_dem_share: Series[float] = pa.Field(ge=0, le=1, alias=Col.LARGE_DONOR_DEM_SHARE)
+    pac_dem_share: Series[float] = pa.Field(ge=0, le=1, alias=Col.PAC_DEM_SHARE)
+    spending_dem_share: Series[float] = pa.Field(ge=0, le=1, alias=Col.SPENDING_DEM_SHARE)
+    # surplus_dem_share is intentionally unbounded: negative when Dem spent more than raised
+    # relative to Rep, >1 when Rep ran a deficit. Unlike the other share columns it is not
+    # clamped to [0,1] by design — see fundraising.py _aggregate() for the formula.
+    surplus_dem_share: Series[float] = pa.Field(alias=Col.SURPLUS_DEM_SHARE)
 
     class Config:
         coerce = True
@@ -155,4 +202,59 @@ def validate_approval_coverage(df, required_years: set[int]):
         )
 
     logger.info("Approval data coverage validated (%d required years present)", len(required_years))
+    return df
+
+
+def validate_pres_lean(df, min_rows: int = 400):
+    """Validate presidential lean data. Raises on failure."""
+    if len(df) < min_rows:
+        raise ValueError(
+            f"Presidential lean data too small: {len(df)} rows (expected >= {min_rows})"
+        )
+    try:
+        PresLeanSchema.validate(df, lazy=True)
+        logger.info("Presidential lean validation passed (%d district-year rows)", len(df))
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "Presidential lean validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases), e.failure_cases.head(10).to_string(),
+        )
+        raise
+    return df
+
+
+def validate_cook_csv(df, min_districts: int = 100):
+    """Validate parsed Cook CSV. Raises on failure."""
+    if len(df) < min_districts:
+        raise ValueError(
+            f"Cook CSV too small: {len(df)} districts (expected >= {min_districts}; "
+            "check the Playwright fetch captured the full ratings table)"
+        )
+    try:
+        CookCsvSchema.validate(df, lazy=True)
+        logger.info("Cook CSV validation passed (%d districts)", len(df))
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "Cook CSV validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases), e.failure_cases.head(10).to_string(),
+        )
+        raise
+    return df
+
+
+def validate_fundraising(df, min_rows: int = 500):
+    """Validate fundraising CSV. Raises on failure."""
+    if len(df) < min_rows:
+        raise ValueError(
+            f"Fundraising data too small: {len(df)} rows (expected >= {min_rows})"
+        )
+    try:
+        FundraisingSchema.validate(df, lazy=True)
+        logger.info("Fundraising validation passed (%d district-year rows)", len(df))
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "Fundraising validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases), e.failure_cases.head(10).to_string(),
+        )
+        raise
     return df
