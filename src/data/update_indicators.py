@@ -12,6 +12,7 @@ Run from project root:
 
 import os
 import sys
+from typing import Any
 
 import requests
 
@@ -22,15 +23,16 @@ YEAR = 2026
 
 
 def _fred(series_id: str, api_key: str, limit: int = 12) -> list[dict]:
+    params: dict[str, Any] = {
+        "series_id": series_id,
+        "api_key": api_key,
+        "file_type": "json",
+        "sort_order": "desc",
+        "limit": limit,
+    }
     resp = requests.get(
         FRED_BASE,
-        params={
-            "series_id": series_id,
-            "api_key": api_key,
-            "file_type": "json",
-            "sort_order": "desc",
-            "limit": limit,
-        },
+        params=params,
         timeout=15,
     )
     resp.raise_for_status()
@@ -80,7 +82,7 @@ def main() -> None:
     unemp_hard = UNEMPLOYMENT.get(YEAR)
     if unemp_live is not None:
         print(f"Unemployment  hardcoded={unemp_hard}%   live={unemp_live}%   "
-              f"{_status(unemp_live, unemp_hard, 0.3)}")
+              f"{_status(unemp_live, float(unemp_hard or 0), 0.3)}")
     else:
         print(f"Unemployment  hardcoded={unemp_hard}%   live=unavailable")
 
@@ -88,7 +90,7 @@ def main() -> None:
     gdp_hard = ECON_GROWTH.get(YEAR)
     if gdp_live is not None:
         print(f"GDP growth    hardcoded={gdp_hard}%   live={gdp_live}%   "
-              f"{_status(gdp_live, gdp_hard, 0.4)}")
+              f"{_status(gdp_live, float(gdp_hard or 0), 0.4)}")
     else:
         print(f"GDP growth    hardcoded={gdp_hard}%   live=unavailable")
 

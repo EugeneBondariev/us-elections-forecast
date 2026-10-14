@@ -35,9 +35,7 @@ jobs:
           "
 
       - name: Type check (mypy)
-        run: mypy src/ api.py --install-types --non-interactive || true
-        # Non-blocking for now: the codebase predates mypy and isn't fully annotated.
-        # Flip to a hard failure once the baseline is clean.
+        run: mypy src/ api.py --install-types --non-interactive
 
       # Most tests need data files (data/raw/1976-2024-house.tab etc.) not committed to the
       # repo — conftest.py pytest.skip()s those, so some tests are always skipped here.

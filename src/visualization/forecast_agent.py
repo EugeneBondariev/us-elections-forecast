@@ -2,6 +2,7 @@
 
 import json
 import os
+from typing import Any
 
 import numpy as np
 
@@ -150,13 +151,13 @@ def run_agent(user_question: str, forecast: dict, api_key: str) -> str:
     """Run one agentic turn: the model decides which tools to call, calls them, returns the final answer."""
     from groq import Groq
     client = Groq(api_key=api_key)
-    messages = [
+    messages: list[dict[str, Any]] = [
         {"role": "system", "content": SYSTEM},
         {"role": "user", "content": user_question},
     ]
 
     while True:
-        response = client.chat.completions.create(
+        response = client.chat.completions.create(  # type: ignore[call-overload]
             model=os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL),
             max_tokens=1024,
             tools=TOOLS,

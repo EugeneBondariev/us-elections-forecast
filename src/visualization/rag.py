@@ -66,7 +66,7 @@ def build_index(districts: pd.DataFrame, persist: bool = True) -> object:
             "proba_dem": float(row.get("proba_dem", 0.5)),
         })
 
-    collection.add(documents=docs, ids=ids, metadatas=metas)
+    collection.add(documents=docs, ids=ids, metadatas=metas)  # type: ignore[arg-type]
     logger.info("RAG index built: %d district documents", len(docs))
     return collection
 
@@ -82,7 +82,7 @@ def retrieve(query: str, n_results: int = 5, collection: object | None = None) -
     """Retrieve the n most relevant district documents for a query."""
     if collection is None:
         collection = load_index()
-    results = collection.query(query_texts=[query], n_results=n_results)
+    results = collection.query(query_texts=[query], n_results=n_results)  # type: ignore[attr-defined]
     docs = results["documents"][0]
     metas = results["metadatas"][0]
     return [{"text": d, **m} for d, m in zip(docs, metas)]
@@ -114,4 +114,4 @@ def rag_answer(query: str, collection: object | None = None, api_key: str | None
             },
         ],
     )
-    return response.choices[0].message.content.strip()
+    return (response.choices[0].message.content or "").strip()

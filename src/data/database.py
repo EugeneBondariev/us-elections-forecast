@@ -53,6 +53,8 @@ def save_forecast(result: dict, db_path: Path = DataFile.DB) -> int:
         )
         conn.commit()
         run_id = cur.lastrowid
+        if run_id is None:
+            raise RuntimeError("INSERT did not return a row id")
         logger.info("Forecast saved to %s (run_id=%d)", db_path, run_id)
         return run_id
     finally:
@@ -80,7 +82,7 @@ def load_latest_forecast(db_path: Path = DataFile.DB) -> dict | None:
         return {
             "n_districts": n_districts,
             "seats_sim": np.array(json.loads(seats_sim_json)),
-            "districts": pd.read_json(pd.io.common.StringIO(districts_json), orient="records"),
+            "districts": pd.read_json(pd.io.common.StringIO(districts_json), orient="records"),  # type: ignore[call-overload,attr-defined]
         }
     finally:
         conn.close()

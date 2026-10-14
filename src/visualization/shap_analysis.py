@@ -23,7 +23,7 @@ def main() -> None:
     # Global feature importance bar chart
     fig, ax = plt.subplots(figsize=(10, 6))
     top10 = mean_abs.head(10)
-    ax.barh(top10.index[::-1], top10.values[::-1], color=["#3366cc"] * len(top10))
+    ax.barh(top10.index[::-1], top10.to_numpy()[::-1], color=["#3366cc"] * len(top10))
     ax.set_xlabel("Mean |SHAP value|")
     ax.set_title("SHAP Feature Importance (LightGBM, 2026 prediction set)")
     fig.tight_layout()
@@ -60,7 +60,7 @@ def main() -> None:
     # it's a derived artifact of running the analysis, not a data source.
     if "label" in districts.columns:
         shap_out = shap_df.copy()
-        shap_out.insert(0, "label", districts["label"].values)
+        shap_out.insert(0, "label", districts["label"].to_numpy())
         shap_csv_path = REPORTS_DIR / "shap_values.csv"
         shap_out.to_csv(shap_csv_path, index=False)
         print(f"Saved: {shap_csv_path}")

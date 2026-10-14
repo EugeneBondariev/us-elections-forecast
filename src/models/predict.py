@@ -40,7 +40,7 @@ def _log_walk_forward(wf: pd.DataFrame) -> None:
     for row in wf.itertuples(index=False):
         logger.info("  %4d  %6d  %6d  %+6d  %7.1f%%",
                     row.year, row.actual_dem, row.predicted_dem,
-                    row.seat_error, row.district_accuracy * 100)
+                    row.seat_error, float(row.district_accuracy) * 100)  # type: ignore[arg-type]
     logger.info("  Mean absolute seat error: %.1f", wf["seat_error"].abs().mean())
 
 
@@ -69,8 +69,8 @@ def _log_competitive_districts(district_ids: pd.DataFrame) -> None:
     )
     logger.info("Most competitive districts:")
     for row in competitive.itertuples(index=False):
-        lean = "Dem" if row.proba_dem >= 0.5 else "Rep"
-        logger.info("  %-8s  %.1f%% %s", row.label, row.proba_dem * 100, lean)
+        lean = "Dem" if float(row.proba_dem) >= 0.5 else "Rep"  # type: ignore[arg-type]
+        logger.info("  %-8s  %.1f%% %s", row.label, float(row.proba_dem) * 100, lean)  # type: ignore[arg-type]
 
 
 def _log_feature_weights(pipeline: object, X_columns: pd.Index) -> None:
@@ -140,12 +140,12 @@ def main() -> None:
         mlflow.log_metric("mean_brier_score", calib["brier_score"].mean())
         mlflow.log_metric("mean_log_loss", calib["log_loss"].mean())
         for row in calib.itertuples(index=False):
-            mlflow.log_metric(f"brier_{int(row.year)}", row.brier_score)
-            mlflow.log_metric(f"log_loss_{int(row.year)}", row.log_loss)
+            mlflow.log_metric(f"brier_{int(row.year)}", float(row.brier_score))  # type: ignore[arg-type]
+            mlflow.log_metric(f"log_loss_{int(row.year)}", float(row.log_loss))  # type: ignore[arg-type]
 
         for row in wf.itertuples(index=False):
-            mlflow.log_metric(f"accuracy_{int(row.year)}", row.district_accuracy)
-            mlflow.log_metric(f"seat_error_{int(row.year)}", row.seat_error)
+            mlflow.log_metric(f"accuracy_{int(row.year)}", float(row.district_accuracy))  # type: ignore[arg-type]
+            mlflow.log_metric(f"seat_error_{int(row.year)}", float(row.seat_error))  # type: ignore[arg-type]
         mlflow.log_metric("mean_wf_accuracy", wf["district_accuracy"].mean())
         mlflow.log_metric("mean_abs_seat_error", wf["seat_error"].abs().mean())
 

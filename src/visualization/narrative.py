@@ -45,7 +45,7 @@ def _build_prompt(sim: np.ndarray, districts: pd.DataFrame, n_districts: int) ->
         inc = getattr(r, "district_incumbent", "unknown")
         open_seat = getattr(r, "is_open", False)
         tag = " (open seat)" if open_seat else f" (incumbent: {str(inc).title()})"
-        comp_lines.append(f"  {r.label}: {r.proba_dem*100:.1f}% Dem{tag}")
+        comp_lines.append(f"  {str(r.label)}: {float(r.proba_dem)*100:.1f}% Dem{tag}")  # type: ignore[arg-type]
 
     # Open seats count
     n_open = (
@@ -92,7 +92,7 @@ def generate_narrative(sim: np.ndarray, districts: pd.DataFrame, n_districts: in
                 {"role": "user", "content": prompt},
             ],
         )
-        text = response.choices[0].message.content.strip()
+        text = (response.choices[0].message.content or "").strip()
         logger.info("Narrative generated (%d chars)", len(text))
         return text
     except Exception as e:

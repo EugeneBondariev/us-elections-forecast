@@ -60,7 +60,7 @@ def run_forecast() -> dict:
 
     sim_params = load_simulation_params()
     sim = simulate_election(
-        districts["proba_dem"].values,
+        districts["proba_dem"].to_numpy(),
         sigma_national=sim_params["sigma_national"],
         sigma_district=sim_params["sigma_district"],
     )

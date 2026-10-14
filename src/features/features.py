@@ -310,8 +310,8 @@ def build_pred_2026(
         .groupby([Col.STATE, Col.DISTRICT])[Col.DEM_VOTE_SHARE]
         .apply(
             lambda v: (
-                np.polyfit(range(len(v)), v.values, 1)[0]
-                if len(v) == 4 and not np.any(np.isnan(v.values))
+                np.polyfit(range(len(v)), v.to_numpy(), 1)[0]
+                if len(v) == 4 and not np.any(np.isnan(v.to_numpy()))
                 else np.nan
             )
         )

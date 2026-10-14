@@ -48,7 +48,7 @@ def objective(trial: optuna.Trial, X: pd.DataFrame, y: pd.Series, years: pd.Seri
 
         pipeline = WeightedPipeline([
             ("scaler", StandardScaler()),
-            ("model", LGBMClassifier(**params)),
+            ("model", LGBMClassifier(**params)),  # type: ignore[arg-type]
         ])
         w = compute_sample_weights(years.loc[train_idx])
         pipeline.fit(X.loc[train_idx], y.loc[train_idx], sample_weight=w)

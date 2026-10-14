@@ -150,7 +150,7 @@ def select_readings(
                 "row": None, "gap_days": None, "status": "no_candidate",
             })
             continue
-        best = candidates.loc[candidates["end_date"].idxmax()]
+        best = candidates.loc[candidates["end_date"].idxmax()]  # type: ignore[call-overload]
         gap_days = (pd.Timestamp(election) - best["end_date"]).days
         if gap_days > max_gap_days:
             results.append({
