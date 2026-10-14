@@ -1,12 +1,14 @@
-.PHONY: help app test test-e2e typecheck analyze predict tune rag db indicators agent calibrate-sigma freeze install install-dev fetch validate
+.PHONY: help app test test-e2e typecheck analyze predict tune rag db indicators agent calibrate-sigma freeze install install-dev fetch validate push
 
 PYTHON = python
+export PYTHONUNBUFFERED := 1
 
 help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "  install          Install runtime dependencies + this package (editable)"
 	@echo "  install-dev      Also install dev tooling (mypy, stubs)"
+	@echo "  push             Run typecheck + test, then git push (only if both pass)"
 	@echo "  fetch            Fetch all data files (downloads + builds + inline validation)"
 	@echo "  validate         Re-validate all data files already on disk"
 	@echo "  app              Start the Streamlit app"
@@ -30,6 +32,9 @@ install:
 
 install-dev: install
 	$(PYTHON) -m pip install -r requirements-dev.txt
+
+push: typecheck test
+	git push
 
 fetch:
 	$(PYTHON) -m src.data.fetch_data
