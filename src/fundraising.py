@@ -121,20 +121,28 @@ def _save_raw(records: list[dict], raw_path: Path) -> None:
     logger.info("Raw fundraising saved → %s (%d rows)", raw_path, len(df))
 
 
+def _top_candidate_per_group(df_party: pd.DataFrame) -> pd.DataFrame:
+    """Pick the single candidate with the highest receipts per (year, state, district).
+
+    Using groupby(...).max() per field independently (the previous behavior) could
+    stitch together columns from two *different* candidates in a multi-candidate
+    primary (e.g. candidate A's receipts with candidate B's disbursements). Selecting
+    one row via idxmax keeps every field internally consistent.
+    """
+    if df_party.empty:
+        return df_party[["year", "state_po", "district"] + _RAW_FIELDS]
+    idx = df_party.groupby(["year", "state_po", "district"])["receipts"].idxmax()
+    return df_party.loc[idx, ["year", "state_po", "district"] + _RAW_FIELDS].reset_index(drop=True)
+
+
 def _aggregate(records: list[dict]) -> pd.DataFrame:
     df = pd.DataFrame(records)
     df = df[df["state_po"].notna()]
-    dem = (
-        df[df["party"] == "DEM"]
-        .groupby(["year", "state_po", "district"])[_RAW_FIELDS]
-        .max().reset_index()
-        .rename(columns={f: f"dem_{f}" for f in _RAW_FIELDS})
+    dem = _top_candidate_per_group(df[df["party"] == "DEM"]).rename(
+        columns={f: f"dem_{f}" for f in _RAW_FIELDS}
     )
-    rep = (
-        df[df["party"] == "REP"]
-        .groupby(["year", "state_po", "district"])[_RAW_FIELDS]
-        .max().reset_index()
-        .rename(columns={f: f"rep_{f}" for f in _RAW_FIELDS})
+    rep = _top_candidate_per_group(df[df["party"] == "REP"]).rename(
+        columns={f: f"rep_{f}" for f in _RAW_FIELDS}
     )
     result = dem.merge(rep, on=["year", "state_po", "district"], how="outer").fillna(0)
 
