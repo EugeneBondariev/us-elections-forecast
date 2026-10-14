@@ -1,11 +1,13 @@
+import os
 from contextlib import asynccontextmanager
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 
-from src.constants import Col, DEM_MAJORITY_SEATS
+from src.constants import DEM_MAJORITY_SEATS, Col
 from src.database import load_latest_forecast, save_forecast
 from src.forecast import run_forecast
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -18,11 +20,23 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="US House Forecast 2026", lifespan=lifespan)
 
+
+def verify_refresh_key(x_api_key: str | None = Header(default=None)) -> None:
+    """Guard /refresh — it triggers a full retrain plus external FEC API calls.
+
+    If REFRESH_API_KEY is unset (local/dev use), the endpoint stays open. Set it
+    in any environment reachable from the public internet.
+    """
+    expected = os.getenv("REFRESH_API_KEY")
+    if expected and x_api_key != expected:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+
 @app.get("/health")
 def health(request: Request):
     return {"status": "ok", "cache_ready": hasattr(request.app.state, "forecast")}
 
-@app.get("/refresh")
+@app.get("/refresh", dependencies=[Depends(verify_refresh_key)])
 def refresh(request: Request):
     result = run_forecast()
     save_forecast(result)

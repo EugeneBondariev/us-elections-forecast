@@ -85,3 +85,31 @@ class TestDistrictDetail:
 
     def test_unknown_district_404(self, client):
         assert client.get("/districts/ZZ/99").status_code == 404
+
+
+class TestRefreshAuth:
+    """/refresh triggers a full retrain — must be gated once REFRESH_API_KEY is set."""
+
+    @pytest.fixture()
+    def mocked_refresh(self):
+        with patch("api.run_forecast", return_value=_MOCK_FORECAST), patch("api.save_forecast"):
+            yield
+
+    def test_open_when_no_key_configured(self, client, monkeypatch, mocked_refresh):
+        monkeypatch.delenv("REFRESH_API_KEY", raising=False)
+        assert client.get("/refresh").status_code == 200
+
+    def test_rejects_missing_key_when_configured(self, client, monkeypatch, mocked_refresh):
+        monkeypatch.setenv("REFRESH_API_KEY", "secret123")
+        assert client.get("/refresh").status_code == 401
+
+    def test_rejects_wrong_key(self, client, monkeypatch, mocked_refresh):
+        monkeypatch.setenv("REFRESH_API_KEY", "secret123")
+        resp = client.get("/refresh", headers={"X-API-Key": "wrong"})
+        assert resp.status_code == 401
+
+    def test_accepts_correct_key(self, client, monkeypatch, mocked_refresh):
+        monkeypatch.setenv("REFRESH_API_KEY", "secret123")
+        resp = client.get("/refresh", headers={"X-API-Key": "secret123"})
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "refreshed"
