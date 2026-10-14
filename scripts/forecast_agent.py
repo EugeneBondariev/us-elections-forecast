@@ -1,52 +1,68 @@
-"""Interactive agentic forecast assistant using Claude tool use."""
+"""Interactive agentic forecast assistant using Groq tool use."""
 
 import json
 import os
 
-import anthropic
 import numpy as np
 
 from src.constants import Col, DEM_MAJORITY_SEATS
 from src.forecast import run_forecast
 
+# Override with GROQ_MODEL if Groq retires/renames this model.
+DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+
+# Groq's chat completions API is OpenAI-compatible: each tool is wrapped under
+# {"type": "function", "function": {...}} with a "parameters" JSON schema.
 TOOLS = [
     {
-        "name": "get_forecast_summary",
-        "description": "Get the top-level 2026 House forecast: projected seat counts, majority probability, and confidence intervals.",
-        "input_schema": {"type": "object", "properties": {}, "required": []},
-    },
-    {
-        "name": "get_competitive_districts",
-        "description": "Get the most competitive districts — those closest to 50/50.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "n": {"type": "integer", "description": "Number of districts to return (default 10)", "default": 10}
-            },
-            "required": [],
+        "type": "function",
+        "function": {
+            "name": "get_forecast_summary",
+            "description": "Get the top-level 2026 House forecast: projected seat counts, majority probability, and confidence intervals.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
     {
-        "name": "get_district_detail",
-        "description": "Get detailed forecast for a specific congressional district.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "state": {"type": "string", "description": "Two-letter state postal code, e.g. 'PA'"},
-                "district": {"type": "integer", "description": "District number. Use 0 for at-large districts."},
+        "type": "function",
+        "function": {
+            "name": "get_competitive_districts",
+            "description": "Get the most competitive districts — those closest to 50/50.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "n": {"type": "integer", "description": "Number of districts to return (default 10)", "default": 10}
+                },
+                "required": [],
             },
-            "required": ["state", "district"],
         },
     },
     {
-        "name": "get_state_summary",
-        "description": "Get all congressional districts in a state with their win probabilities.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "state": {"type": "string", "description": "Two-letter state postal code, e.g. 'AZ'"},
+        "type": "function",
+        "function": {
+            "name": "get_district_detail",
+            "description": "Get detailed forecast for a specific congressional district.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "state": {"type": "string", "description": "Two-letter state postal code, e.g. 'PA'"},
+                    "district": {"type": "integer", "description": "District number. Use 0 for at-large districts."},
+                },
+                "required": ["state", "district"],
             },
-            "required": ["state"],
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_state_summary",
+            "description": "Get all congressional districts in a state with their win probabilities.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "state": {"type": "string", "description": "Two-letter state postal code, e.g. 'AZ'"},
+                },
+                "required": ["state"],
+            },
         },
     },
 ]
@@ -131,51 +147,48 @@ def _run_tool(name: str, inputs: dict, forecast: dict) -> str:
 
 
 def run_agent(user_question: str, forecast: dict, api_key: str) -> str:
-    """Run one agentic turn: Claude decides which tools to call, calls them, returns final answer."""
-    client = anthropic.Anthropic(api_key=api_key)
-    messages = [{"role": "user", "content": user_question}]
+    """Run one agentic turn: the model decides which tools to call, calls them, returns the final answer."""
+    from groq import Groq
+    client = Groq(api_key=api_key)
+    messages = [
+        {"role": "system", "content": SYSTEM},
+        {"role": "user", "content": user_question},
+    ]
 
     while True:
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+        response = client.chat.completions.create(
+            model=os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL),
             max_tokens=1024,
-            system=SYSTEM,
             tools=TOOLS,
             messages=messages,
         )
+        message = response.choices[0].message
 
-        # Append assistant turn
-        messages.append({"role": "assistant", "content": response.content})
+        if not message.tool_calls:
+            return message.content or "No response generated."
 
-        if response.stop_reason == "end_turn":
-            # Extract text response
-            for block in response.content:
-                if hasattr(block, "text"):
-                    return block.text
-            return ""
-
-        if response.stop_reason == "tool_use":
-            tool_results = []
-            for block in response.content:
-                if block.type == "tool_use":
-                    result = _run_tool(block.name, block.input, forecast)
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": result,
-                    })
-            messages.append({"role": "user", "content": tool_results})
-            continue
-
-        break
-
-    return "No response generated."
+        messages.append({
+            "role": "assistant",
+            "content": message.content,
+            "tool_calls": [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                }
+                for tc in message.tool_calls
+            ],
+        })
+        for tc in message.tool_calls:
+            inputs = json.loads(tc.function.arguments)
+            result = _run_tool(tc.function.name, inputs, forecast)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
 
 
 def main() -> None:
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        print("Error: ANTHROPIC_API_KEY environment variable not set.")
+        print("Error: GROQ_API_KEY environment variable not set.")
         return
 
     print("Loading forecast data...")

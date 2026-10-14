@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["generate_narrative"]
 
+# Override with GROQ_MODEL if Groq retires/renames this model.
+DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+
 SYSTEM_PROMPT = """You are a nonpartisan political analyst writing a concise forecast briefing.
 Your audience: politically-informed readers who want data-driven analysis, not spin.
 Rules:
@@ -66,25 +69,27 @@ Write the briefing now."""
     return prompt
 
 
-# anthropic imported lazily — optional dependency, only needed when ANTHROPIC_API_KEY is set
+# groq imported lazily — optional dependency, only needed when GROQ_API_KEY is set
 def generate_narrative(sim: np.ndarray, districts: pd.DataFrame, n_districts: int) -> str:
-    """Call Anthropic API to generate a forecast narrative. Returns empty string on failure."""
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    """Call Groq to generate a forecast narrative. Returns empty string on failure."""
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        logger.warning("ANTHROPIC_API_KEY not set — skipping narrative generation")
+        logger.warning("GROQ_API_KEY not set — skipping narrative generation")
         return ""
 
     try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=api_key)
+        from groq import Groq
+        client = Groq(api_key=api_key)
         prompt = _build_prompt(sim, districts, n_districts)
-        message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+        response = client.chat.completions.create(
+            model=os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL),
             max_tokens=512,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
         )
-        text = message.content[0].text.strip()
+        text = response.choices[0].message.content.strip()
         logger.info("Narrative generated (%d chars)", len(text))
         return text
     except Exception as e:

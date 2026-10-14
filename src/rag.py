@@ -14,6 +14,9 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["build_index", "load_index", "retrieve", "rag_answer"]
 
+# Override with GROQ_MODEL if Groq retires/renames this model.
+DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+
 
 def _district_to_text(row: dict | pd.Series) -> str:
     """Convert a district row to a searchable text document."""
@@ -98,7 +101,7 @@ def rag_answer(query: str, collection=None, api_key: str | None = None) -> str:
     from groq import Groq
     client = Groq(api_key=api_key)
     response = client.chat.completions.create(
-        model="qwen/qwen3.8-27b",
+        model=os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL),
         max_tokens=300,
         messages=[
             {
