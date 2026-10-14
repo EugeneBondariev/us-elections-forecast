@@ -53,7 +53,7 @@ def parse(html: str) -> list[dict]:
 
 
 def main() -> None:
-    html_path = DataFile.COOK.with_suffix(".html")
+    html_path = DataFile.COOK_HTML
     csv_path = DataFile.COOK
 
     html = html_path.read_text(encoding="utf-8")
@@ -68,6 +68,7 @@ def main() -> None:
             seen.add(key)
             unique.append(row)
 
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
     with csv_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["state_po", "district", "rating", "cook_prob"])
         writer.writeheader()

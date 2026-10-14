@@ -1,3 +1,7 @@
+# Core deps are exact-pinned. A few optional-feature deps below use >= because an
+# exact known-good version wasn't verified in this environment — after `pip install`,
+# run `make freeze` to snapshot a fully-resolved requirements-lock.txt for true
+# reproducibility (don't hand-edit version numbers you haven't verified install).
 pandas==2.3.2
 numpy==2.3.2
 scikit-learn==1.9.0
@@ -12,7 +16,7 @@ optuna==5.0.0
 shap==0.52.0
 requests==2.34.2
 pandera>=0.20
-anthropic>=0.40
+lxml>=5.0
 httpx>=0.27
 chromadb>=0.5
 statsmodels>=0.14

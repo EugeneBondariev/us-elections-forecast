@@ -13,6 +13,7 @@ from src.paths import DataFile
 
 
 def main() -> None:
+    DataFile.DB.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DataFile.DB)
     try:
         # Table: house_results
