@@ -7,20 +7,35 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 
+
 # Replace streamlit with a lightweight mock BEFORE app.py is imported.
 # cache_data is a passthrough so `load` stays a real callable.
 # tabs/columns return correctly-sized lists so tuple unpacking in app.py succeeds.
+def _make_column_mock():
+    # A bare MagicMock's .selectbox()/.checkbox() return an auto-generated child
+    # MagicMock, which app.py then compares against real DataFrame columns
+    # (e.g. `df["state_po"] == state_sel`). Newer pandas raises on that instead of
+    # just evaluating to all-False, so give these controls realistic no-op defaults
+    # ("All" / unchecked) matching their actual Streamlit widget defaults.
+    col = MagicMock()
+    col.selectbox.return_value = "All"
+    col.checkbox.return_value = False
+    return col
+
+
 _st_mock = MagicMock()
 _st_mock.cache_data = lambda f: f
 _st_mock.tabs.side_effect = lambda labels: [MagicMock() for _ in labels]
-_st_mock.columns.side_effect = lambda spec: [MagicMock() for _ in (range(spec) if isinstance(spec, int) else spec)]
+_st_mock.columns.side_effect = lambda spec: [
+    _make_column_mock() for _ in (range(spec) if isinstance(spec, int) else spec)
+]
 # Empty selection prevents the district detail panel from executing at import time.
 _mock_event = MagicMock()
 _mock_event.selection.rows = []
 _st_mock.dataframe.return_value = _mock_event
 sys.modules["streamlit"] = _st_mock
 
-from src.constants import Col, DEM_MAJORITY_SEATS  # noqa: E402
+from src.constants import DEM_MAJORITY_SEATS, Col  # noqa: E402
 
 _DISTRICTS = pd.DataFrame([
     {"label": "PA-7", Col.STATE: "PA", Col.DISTRICT: 7, "proba_dem": 0.60,
