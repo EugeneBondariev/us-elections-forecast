@@ -1,10 +1,18 @@
+# data/{raw,external,interim,processed}/ and models/ are created on import by
+# src/paths.py (not tracked via .gitkeep) - every script/test/the app/API already
+# import it, so the directories exist before anything else runs regardless of
+# whether `make` is available or scripts/fetch_data.py has been run yet.
 data/
+models/
+
 logs/
 outputs/
 .env
 .vscode/
+.claude/
 __pycache__/
 *.pyc
 *.egg-info/
 .pytest_cache/
+.mypy_cache/
 .ipynb_checkpoints/
