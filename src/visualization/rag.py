@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["build_index", "load_index", "retrieve", "rag_answer"]
 
 # Override with GROQ_MODEL if Groq retires/renames this model.
-DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 
 
 def _district_to_text(row: dict | pd.Series) -> str:

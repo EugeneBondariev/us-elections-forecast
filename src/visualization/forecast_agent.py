@@ -5,11 +5,11 @@ import os
 
 import numpy as np
 
-from src.constants import Col, DEM_MAJORITY_SEATS
+from src.constants import DEM_MAJORITY_SEATS, Col
 from src.models.forecast import run_forecast
 
 # Override with GROQ_MODEL if Groq retires/renames this model.
-DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 
 # Groq's chat completions API is OpenAI-compatible: each tool is wrapped under
 # {"type": "function", "function": {...}} with a "parameters" JSON schema.

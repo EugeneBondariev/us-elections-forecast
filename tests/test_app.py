@@ -29,6 +29,11 @@ _st_mock.tabs.side_effect = lambda labels: [MagicMock() for _ in labels]
 _st_mock.columns.side_effect = lambda spec: [
     _make_column_mock() for _ in (range(spec) if isinstance(spec, int) else spec)
 ]
+# A bare MagicMock's .text_input() returns an auto-generated child MagicMock, which
+# is truthy - the Ask tab's `if query:` would then be True and call the real Groq
+# API at import time. Empty string keeps that branch untaken, like a user who hasn't
+# typed anything yet.
+_st_mock.text_input.return_value = ""
 # Empty selection prevents the district detail panel from executing at import time.
 _mock_event = MagicMock()
 _mock_event.selection.rows = []

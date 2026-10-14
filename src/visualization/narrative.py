@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["generate_narrative"]
 
 # Override with GROQ_MODEL if Groq retires/renames this model.
-DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 
 SYSTEM_PROMPT = """You are a nonpartisan political analyst writing a concise forecast briefing.
 Your audience: politically-informed readers who want data-driven analysis, not spin.
