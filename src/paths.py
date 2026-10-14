@@ -71,6 +71,8 @@ class DataFile:
     DB     = PROCESSED_DIR / "elections.db"
     CHROMA = PROCESSED_DIR / "chroma_db"
 
-    # models/ — trained/tuned model artifacts.
-    BEST_PARAMS      = MODELS_DIR / "best_params_lgbm.json"
+    # models/ — trained model artifacts (gitignored, regenerable).
     CALIBRATED_SIGMA = MODELS_DIR / "calibrated_sigma.json"
+
+    # config/ — committed tuned hyperparameters (not gitignored, reproducible).
+    BEST_PARAMS = _ROOT / "config" / "best_params_lgbm.json"
