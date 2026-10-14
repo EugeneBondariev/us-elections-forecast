@@ -19,7 +19,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Verify imports
         run: |
@@ -31,8 +31,14 @@ jobs:
           print('All imports OK')
           "
 
-      # Tests require data files (data/1976-2024-house.tab etc.) not committed to the repo.
-      # conftest.py uses pytest.skip() when files are absent, so all tests will be skipped
-      # (exit code 5). The || true converts that to success so CI doesn't fail.
+      - name: Type check (mypy)
+        run: mypy src/ api.py --install-types --non-interactive || true
+        # Non-blocking for now: the codebase predates mypy and isn't fully annotated.
+        # Flip to a hard failure once the baseline is clean.
+
+      # Most tests need data files (data/1976-2024-house.tab etc.) not committed to the
+      # repo — conftest.py pytest.skip()s those, so some tests are always skipped here.
+      # The synthetic-data tests (test_unit.py, test_api.py, test_app.py, test_fundraising.py,
+      # test_database.py, test_narrative.py, test_rag.py, parts of test_features.py) still run.
       - name: Run tests
-        run: python -m pytest tests/ -q --tb=short || test $? -eq 5
+        run: python -m pytest tests/ -q --tb=short

@@ -1,0 +1,5 @@
+# Dev-only tooling, not needed to run the app/API/scripts.
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+mypy
+pandas-stubs
+types-requests
