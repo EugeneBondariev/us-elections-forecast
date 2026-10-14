@@ -13,11 +13,11 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from src.visualization.calibration_analysis import main as calibration
 from src.features.feature_significance import main as feature_significance
-from src.models.learning_curves import main as learning_curves
 from src.features.ols_analysis import main as ols
 from src.features.pca_analysis import main as pca
+from src.models.learning_curves import main as learning_curves
+from src.visualization.calibration_analysis import main as calibration
 from src.visualization.shap_analysis import main as shap
 
 _STEPS = [

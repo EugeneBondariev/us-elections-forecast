@@ -97,7 +97,7 @@ def load_clean_house_data(path: str | Path) -> pd.DataFrame:
 
     df = df[df[Col.STAGE] == Val.GEN]
     for col in exclude_if_true:
-        df = df[df[col] == False]
+        df = df[~df[col]]
 
     drop = [
         "state", Col.STATE_FIPS, Col.STATE_CEN, Col.STATE_IC, Col.FUSION_TICKET,

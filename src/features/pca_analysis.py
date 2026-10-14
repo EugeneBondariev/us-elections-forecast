@@ -13,6 +13,7 @@ from sklearn.preprocessing import StandardScaler
 
 from src.features.features import build_dataset
 from src.paths import FIGURES_DIR
+
 OUTPUT_PATH = FIGURES_DIR / "pca_plot.png"
 N_COMPONENTS = 10
 TOP_N_FEATURES = 5

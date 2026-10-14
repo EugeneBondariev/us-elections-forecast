@@ -196,7 +196,6 @@ def main() -> None:
     print(cont_results.to_string(index=False))
 
     # ── 2. Permutation test on top-5 continuous features ─────────────────────
-    top5 = cont_results.head(TOP_N_PERMUTATION)["feature"].tolist()
     print(f"\n{'=' * 70}")
     print(
         f"2. PERMUTATION TEST (top {TOP_N_PERMUTATION} features by |correlation|, "

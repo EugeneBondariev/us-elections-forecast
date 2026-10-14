@@ -20,10 +20,18 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Exploratory scratch work, not production code - re-importing/redefining names
+# across cells is normal notebook practice, not a bug. Same exclusion as mypy below.
+exclude = ["notebooks/"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# load_dotenv() must run before the imports below it so they see env vars it sets -
+# the E402 this triggers is intentional, not something to reorder away.
+"app.py" = ["E402"]
 
 [tool.black]
 line-length = 100

@@ -4,13 +4,14 @@
 from src.models.forecast import run_forecast
 from src.visualization.rag import build_index, retrieve
 
+
 def main() -> None:
     print("Running forecast to get districts...")
     result = run_forecast()
     districts = result["districts"]
     print(f"Building RAG index for {len(districts)} districts...")
     collection = build_index(districts, persist=True)
-    print(f"Index built. Stored at data/chroma_db/")
+    print("Index built. Stored at data/chroma_db/")
 
     # Quick smoke test
     hits = retrieve("competitive swing district Pennsylvania", n_results=3, collection=collection)

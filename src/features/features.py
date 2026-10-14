@@ -20,8 +20,8 @@ from src.constants import (
 )
 from src.data.fundraising import load_fundraising
 from src.data.loaders import load_approval, load_clean_house_data, load_pres_lean
-from src.paths import DataFile
 from src.data.validators import validate_approval_coverage, validate_feature_matrix
+from src.paths import DataFile
 
 logger = logging.getLogger(__name__)
 

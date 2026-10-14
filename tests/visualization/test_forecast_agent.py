@@ -8,8 +8,8 @@ from unittest.mock import MagicMock
 import numpy as np
 import pandas as pd
 
-from src.visualization.forecast_agent import _run_tool, run_agent
 from src.constants import Col
+from src.visualization.forecast_agent import _run_tool, run_agent
 
 _DISTRICTS = pd.DataFrame([
     {"label": "PA-7", Col.STATE: "PA", Col.DISTRICT: 7, "proba_dem": 0.55,

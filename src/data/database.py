@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.constants import Col, Val, PRES_PARTY
+from src.constants import PRES_PARTY, Col, Val
 from src.paths import DataFile
 
 logger = logging.getLogger(__name__)
@@ -109,7 +109,7 @@ def load_house_from_db(db_path: str | Path) -> pd.DataFrame:
 
     df = df[df[Col.STAGE] == Val.GEN]
     for col in exclude_if_true:
-        df = df[df[col] == False]
+        df = df[~df[col]]
 
     drop = [
         "state", Col.STATE_FIPS, Col.STATE_CEN, Col.STATE_IC, Col.FUSION_TICKET,

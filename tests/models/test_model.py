@@ -6,7 +6,6 @@ from src.models.model import (
     walk_forward_cv,
 )
 
-
 # --- existing ---
 
 def test_predictions_are_binary(real_data):
