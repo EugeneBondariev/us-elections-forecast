@@ -6,8 +6,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-load_dotenv()
-
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
@@ -99,7 +97,7 @@ with tab_overview:
     )
 
     st.subheader("Forecast narrative")
-    if os.getenv("ANTHROPIC_API_KEY"):
+    if os.getenv("GROQ_API_KEY"):
         with st.spinner("Generating narrative..."):
             narrative = generate_narrative(sim, districts, n_districts)
         if narrative:
@@ -107,7 +105,7 @@ with tab_overview:
         else:
             st.info("Narrative generation failed — check logs.")
     else:
-        st.info("Set ANTHROPIC_API_KEY to enable AI-generated narrative.")
+        st.info("Set GROQ_API_KEY to enable AI-generated narrative.")
 
 with tab_districts:
     f1, f2, f3 = st.columns([1, 1, 1])
@@ -272,6 +270,7 @@ with tab_tools:
         "Run full analysis":       ("scripts/run_analysis.py",       "Runs all 6 diagnostic scripts. Logs saved to logs/analysis/."),
         "Train & predict (MLflow)":("scripts/predict.py",            "Full training run with walk-forward CV, bootstrap CI, and 2026 forecast. Logged to MLflow."),
         "Hyperparameter tuning":   ("scripts/tune.py",               "Optuna tuning for LightGBM (500 trials). Saves best params to data/best_params_lgbm.json."),
+        "Calibrate sigma":         ("scripts/calibrate_sigma.py",    "Fits Monte Carlo sigma_national to walk-forward residuals. Saves to data/calibrated_sigma.json."),
         "Rebuild RAG index":       ("scripts/build_rag_index.py",    "Rebuilds the ChromaDB vector index from the current forecast."),
         "Fetch economic indicators":("scripts/update_indicators.py", "Downloads latest approval ratings and economic data."),
         "Parse Cook ratings":      ("scripts/parse_cook.py",         "Parses Cook Political Report CSV into data/cook.csv."),
