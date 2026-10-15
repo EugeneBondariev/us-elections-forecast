@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.constants import PRES_PARTY, Col, Val
+from src.constants import ECON_GROWTH, GENERIC_BALLOT, OPEN_SEATS_2026, PRES_PARTY, UNEMPLOYMENT, Col, Val
 from src.data.validators import validate_approval_data, validate_house_data
 
 logger = logging.getLogger(__name__)
@@ -16,6 +16,9 @@ __all__ = [
     "load_clean_house_data",
     "load_cook_ratings",
     "load_approval",
+    "load_indicators",
+    "load_generic_ballot",
+    "load_open_seats",
 ]
 
 
@@ -162,3 +165,76 @@ def load_approval(path: str | Path) -> pd.DataFrame:
     approval[Col.PRES_APPROVAL] = approval[Col.PRES_APPROVAL] * sign
     approval[Col.PRES_DISAPPROVAL] = approval[Col.PRES_DISAPPROVAL] * (-sign)
     return approval[[Col.YEAR, Col.PRES_APPROVAL, Col.PRES_DISAPPROVAL]]
+
+
+def load_indicators() -> tuple[dict[int, float], dict[int, float]]:
+    """Return (econ_growth_by_year, unemployment_by_year).
+
+    Uses data/interim/indicators.csv if present; falls back to constants dicts.
+    """
+    from src.paths import DataFile
+
+    path = DataFile.INDICATORS
+    if not path.exists():
+        logger.info("indicators.csv absent — using constants.py fallback")
+        return dict(ECON_GROWTH), dict(UNEMPLOYMENT)
+
+    df = pd.read_csv(path)
+    econ = dict(zip(df["year"].astype(int), df["econ_growth"].astype(float)))
+    unemp = dict(zip(df["year"].astype(int), df["unemployment"].astype(float)))
+
+    # Fill any years missing from the CSV with constants fallback
+    for year, val in ECON_GROWTH.items():
+        econ.setdefault(year, val)
+    for year, val in UNEMPLOYMENT.items():
+        unemp.setdefault(year, val)
+
+    logger.info("Loaded indicators: %d years from %s", len(df), path)
+    return econ, unemp
+
+
+def load_generic_ballot() -> dict[int, float]:
+    """Return year→margin dict (Dem minus Rep percentage points).
+
+    Uses data/interim/generic_ballot.csv if present; falls back to constants.
+    """
+    from src.paths import DataFile
+
+    path = DataFile.GENERIC_BALLOT_CSV
+    if not path.exists():
+        logger.info("generic_ballot.csv absent — using constants.py fallback")
+        return dict(GENERIC_BALLOT)
+
+    df = pd.read_csv(path)
+    result = dict(zip(df["year"].astype(int), df["margin"].astype(float)))
+
+    # Fill any years missing from the CSV with constants fallback
+    for year, val in GENERIC_BALLOT.items():
+        result.setdefault(year, float(val))
+
+    logger.info("Loaded generic ballot: %d years from %s", len(df), path)
+    return result
+
+
+def load_open_seats(year: int = 2026) -> set[tuple[str, int]]:
+    """Return set of (state_po, district) open seats for the given year.
+
+    Uses data/interim/open_seats_2026.csv if present and year==2026; falls back to constants.
+    """
+    from src.paths import DataFile
+
+    if year != 2026:
+        logger.info("load_open_seats: no CSV source for year %d — returning empty set", year)
+        return set()
+
+    path = DataFile.OPEN_SEATS_CSV
+    if not path.exists():
+        logger.info("open_seats_2026.csv absent — using constants.py fallback")
+        return set(OPEN_SEATS_2026)
+
+    df = pd.read_csv(path, dtype={"district": int})
+    seats: set[tuple[str, int]] = {
+        (str(row["state_po"]), int(row["district"])) for _, row in df.iterrows()
+    }
+    logger.info("Loaded %d open seats from %s", len(seats), path)
+    return seats

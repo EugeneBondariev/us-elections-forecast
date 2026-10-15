@@ -20,6 +20,8 @@ remember:
     reports/         Generated analysis output (text/csv) — safe to delete and rebuild.
     reports/figures/ Generated plots/images — safe to delete and rebuild.
 """
+from __future__ import annotations
+
 from pathlib import Path
 
 __all__ = [
@@ -62,9 +64,12 @@ class DataFile:
     # staleness-filtered) rather than passing anything through untouched - the
     # same shape of transformation as cook.html -> cook.csv, just with a more
     # involved selection step.
-    APPROVAL    = INTERIM_DIR / "Approval-Ratings-for-POTUS-raw.xls"
-    COOK        = INTERIM_DIR / "cook.csv"
-    FUNDRAISING = INTERIM_DIR / "fundraising.csv"
+    APPROVAL      = INTERIM_DIR / "Approval-Ratings-for-POTUS-raw.xls"
+    COOK          = INTERIM_DIR / "cook.csv"
+    FUNDRAISING   = INTERIM_DIR / "fundraising.csv"
+    INDICATORS       = INTERIM_DIR / "indicators.csv"
+    GENERIC_BALLOT_CSV = INTERIM_DIR / "generic_ballot.csv"
+    OPEN_SEATS_CSV   = INTERIM_DIR / "open_seats_2026.csv"
 
     # processed/ — derived artifacts the app/API read at runtime. Safe to delete.
     DB     = PROCESSED_DIR / "elections.db"

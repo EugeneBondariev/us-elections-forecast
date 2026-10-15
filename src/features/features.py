@@ -8,18 +8,21 @@ import numpy as np
 import pandas as pd
 
 from src.constants import (
-    ECON_GROWTH,
-    GENERIC_BALLOT,
-    OPEN_SEATS_2026,
     PRES_PARTY,
     PRES_YEAR_FOR_HOUSE,
     REDISTRICTING_YEARS,
-    UNEMPLOYMENT,
     Col,
     Val,
 )
 from src.data.fundraising import load_fundraising
-from src.data.loaders import load_approval, load_clean_house_data, load_pres_lean
+from src.data.loaders import (
+    load_approval,
+    load_clean_house_data,
+    load_generic_ballot,
+    load_indicators,
+    load_open_seats,
+    load_pres_lean,
+)
 from src.data.validators import validate_approval_coverage, validate_feature_matrix
 from src.paths import DataFile
 
@@ -136,13 +139,15 @@ def build_winners(
         how="left",
     )
     winners = winners.merge(approval, on=Col.YEAR, how="left")
-    winners[Col.GENERIC_BALLOT] = winners[Col.YEAR].map(GENERIC_BALLOT)
+    _generic_ballot = load_generic_ballot()
+    winners[Col.GENERIC_BALLOT] = winners[Col.YEAR].map(_generic_ballot)
     # Sign convention matches pres_approval: positive = Dem-favorable
     pres_is_rep = winners[Col.YEAR].map(PRES_PARTY) == "REPUBLICAN"
     sign = pres_is_rep.map({True: -1, False: 1})
-    winners[Col.ECON_GROWTH] = winners[Col.YEAR].map(ECON_GROWTH) * sign
+    _econ_growth, _unemployment = load_indicators()
+    winners[Col.ECON_GROWTH] = winners[Col.YEAR].map(_econ_growth) * sign
     # High unemployment under Rep president = good for Dems → flip sign the other way
-    winners[Col.UNEMPLOYMENT] = winners[Col.YEAR].map(UNEMPLOYMENT) * (-sign)
+    winners[Col.UNEMPLOYMENT] = winners[Col.YEAR].map(_unemployment) * (-sign)
     if pres_lean is not None:
         winners["_pres_year"] = winners[Col.YEAR].map(PRES_YEAR_FOR_HOUSE)
         lean_lookup = pres_lean.rename(columns={"pres_year": "_pres_year"})
@@ -279,16 +284,22 @@ def build_pred_2026(
     feature_columns: pd.Index,
     pres_approval: int = -32,
     pres_disapproval: int = 65,
-    open_seats: set = OPEN_SEATS_2026,
+    open_seats: set[tuple[str, int]] | None = None,
     pres_lean: pd.DataFrame | None = None,
     fundraising: pd.DataFrame | None = None,
-    econ_growth_2026: float = -ECON_GROWTH[2026],  # negative: Rep president, weak economy
-    unemployment_2026: float = UNEMPLOYMENT[
-        2026
-    ],  # positive: Rep president, high unemp = Dem-favorable
+    econ_growth_2026: float | None = None,
+    unemployment_2026: float | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Returns (pred_features, district_ids) where district_ids labels each row."""
     logger.info("Building 2026 prediction features")
+    if open_seats is None:
+        open_seats = load_open_seats(2026)
+    if econ_growth_2026 is None or unemployment_2026 is None:
+        _econ_growth, _unemployment = load_indicators()
+        if econ_growth_2026 is None:
+            econ_growth_2026 = -_econ_growth[2026]  # negative: Rep president
+        if unemployment_2026 is None:
+            unemployment_2026 = _unemployment[2026]  # positive: Rep pres, high unemp = Dem-favorable
     incumbents = (
         winners[winners[Col.YEAR] == 2024][[Col.STATE, Col.DISTRICT, Col.PARTY]]
         .rename(columns={Col.PARTY: Col.DISTRICT_INCUMBENT})
@@ -324,11 +335,12 @@ def build_pred_2026(
     pred[Col.NATION_INCUMBENT] = Val.REPUBLICAN
     pred[Col.PRES_APPROVAL] = pres_approval
     pred[Col.PRES_DISAPPROVAL] = pres_disapproval
-    pred[Col.GENERIC_BALLOT] = GENERIC_BALLOT[2026]
+    pred[Col.GENERIC_BALLOT] = load_generic_ballot()[2026]
     pred[Col.ECON_GROWTH] = econ_growth_2026
     pred[Col.UNEMPLOYMENT] = unemployment_2026
+    _open_seats: set[tuple[str, int]] = open_seats
     pred[Col.IS_INCUMBENT] = pred.apply(
-        lambda r: 0 if (r[Col.STATE], r[Col.DISTRICT]) in open_seats else 1, axis=1
+        lambda r: 0 if (r[Col.STATE], r[Col.DISTRICT]) in _open_seats else 1, axis=1
     )
     pred[Col.REDISTRICTING] = 0
     prev_share_2026 = dems_reps[dems_reps[Col.YEAR] == 2024][
