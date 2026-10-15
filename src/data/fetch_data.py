@@ -41,6 +41,8 @@ Run from project root:
 or:
     make fetch
 """
+from __future__ import annotations
+
 import hashlib
 import logging
 import subprocess
@@ -233,6 +235,7 @@ def _check_cook() -> None:
 
 def main() -> None:
     import logging as _logging
+
     from dotenv import load_dotenv
     load_dotenv()
     _logging.basicConfig(level=_logging.INFO, format="%(message)s")

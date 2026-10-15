@@ -1,4 +1,4 @@
-.PHONY: help app test test-e2e typecheck lint analyze predict tune rag db indicators agent calibrate-sigma freeze install install-dev fetch validate push
+.PHONY: help app test test-e2e typecheck lint analyze predict tune rag db indicators generic-ballot open-seats agent calibrate-sigma freeze install install-dev fetch validate push
 
 PYTHON = python
 export PYTHONUNBUFFERED := 1
@@ -13,7 +13,7 @@ help:
 	@echo ""
 	@echo "Quality:"
 	@echo "  push             Run typecheck + test, then git push (only if both pass)"
-	@echo "  typecheck        Run mypy over src/ and api.py"
+	@echo "  typecheck        Run mypy over src/, api.py and app.py"
 	@echo "  lint             Run ruff linter"
 	@echo "  test             Run the fast test suite (excludes e2e)"
 	@echo "  test-e2e         Run the real-browser Streamlit/API smoke tests (slow, opt-in -"
@@ -22,7 +22,9 @@ help:
 	@echo "Data:"
 	@echo "  fetch            Fetch all data files (downloads + builds + inline validation)"
 	@echo "  validate         Re-validate all data files already on disk"
-	@echo "  indicators       Fetch latest economic indicators"
+	@echo "  indicators       Fetch latest economic indicators from FRED"
+	@echo "  generic-ballot   Fetch generic ballot history (FiveThirtyEight + Wikipedia)"
+	@echo "  open-seats       Fetch 2026 open-seat list from Wikipedia"
 	@echo "  db               Build the SQLite forecast database"
 	@echo ""
 	@echo "Model:"
@@ -53,7 +55,7 @@ validate:
 	$(PYTHON) -m src.data.validate_data
 
 typecheck:
-	$(PYTHON) -m mypy src/ api.py
+	$(PYTHON) -m mypy src/ api.py app.py
 
 lint:
 	$(PYTHON) -m ruff check .
@@ -65,7 +67,7 @@ app:
 	streamlit run app.py
 
 test:
-	$(PYTHON) -m pytest tests/ -q --tb=short
+	$(PYTHON) -m pytest tests/ -v --tb=short
 
 test-e2e:
 	$(PYTHON) -m pytest tests/test_app_e2e.py -m e2e -v
@@ -89,7 +91,13 @@ db:
 	$(PYTHON) -m src.data.build_db
 
 indicators:
-	$(PYTHON) -m src.data.update_indicators
+	$(PYTHON) -m src.data.build_indicators
+
+generic-ballot:
+	$(PYTHON) -m src.data.build_generic_ballot
+
+open-seats:
+	$(PYTHON) -m src.data.build_open_seats
 
 agent:
 	$(PYTHON) -m src.visualization.forecast_agent

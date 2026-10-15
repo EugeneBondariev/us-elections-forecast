@@ -273,7 +273,7 @@ with tab_tools:
         "Hyperparameter tuning":   ("src.models.tune",                "Optuna tuning for LightGBM (500 trials). Saves best params to config/best_params_lgbm.json."),
         "Calibrate sigma":         ("src.models.calibrate_sigma",     "Fits Monte Carlo sigma_national to walk-forward residuals. Saves to data/calibrated_sigma.json."),
         "Rebuild RAG index":       ("src.visualization.build_rag_index", "Rebuilds the ChromaDB vector index from the current forecast."),
-        "Fetch economic indicators":("src.data.update_indicators",   "Downloads latest approval ratings and economic data."),
+        "Fetch economic indicators":("src.data.build_indicators",    "Downloads latest FRED GDP and unemployment data to data/interim/indicators.csv."),
         "Parse Cook ratings":      ("src.data.parse_cook",            "Parses Cook Political Report CSV into data/cook.csv."),
     }
 
