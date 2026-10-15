@@ -1,4 +1,4 @@
-.PHONY: help app test test-e2e typecheck analyze predict tune rag db indicators agent calibrate-sigma freeze install install-dev fetch validate push
+.PHONY: help app test test-e2e typecheck lint analyze predict tune rag db indicators agent calibrate-sigma freeze install install-dev fetch validate push
 
 PYTHON = python
 export PYTHONUNBUFFERED := 1
@@ -14,6 +14,7 @@ help:
 	@echo "Quality:"
 	@echo "  push             Run typecheck + test, then git push (only if both pass)"
 	@echo "  typecheck        Run mypy over src/ and api.py"
+	@echo "  lint             Run ruff linter"
 	@echo "  test             Run the fast test suite (excludes e2e)"
 	@echo "  test-e2e         Run the real-browser Streamlit/API smoke tests (slow, opt-in -"
 	@echo "                   needs: pip install playwright && playwright install chromium)"
@@ -53,6 +54,9 @@ validate:
 
 typecheck:
 	$(PYTHON) -m mypy src/ api.py
+
+lint:
+	$(PYTHON) -m ruff check .
 
 freeze:
 	$(PYTHON) -m pip freeze > requirements-lock.txt
