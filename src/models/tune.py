@@ -6,7 +6,9 @@ Run from project root:
 from __future__ import annotations
 
 import json
+import logging
 
+import mlflow
 import numpy as np
 import optuna
 import pandas as pd
@@ -15,7 +17,9 @@ from sklearn.preprocessing import StandardScaler
 
 from src.features.features import build_dataset
 from src.models.model import WeightedPipeline, compute_sample_weights
-from src.paths import DataFile
+from src.paths import MODELS_DIR, DataFile
+
+logger = logging.getLogger(__name__)
 
 OUTPUT_PATH = DataFile.BEST_PARAMS
 
@@ -64,10 +68,11 @@ def objective(trial: optuna.Trial, X: pd.DataFrame, y: pd.Series, years: pd.Seri
 
 
 def main() -> None:
-    print("Loading data...")
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logger.info("Loading data...")
     X, y, years = load_data()
-    print(f"  {len(X)} rows, {X.shape[1]} features, years {years.min()}-{years.max()}")
-    print(f"  Validation window: {VALIDATION_YEARS}")
+    logger.info("  %d rows, %d features, years %s-%s", len(X), X.shape[1], years.min(), years.max())
+    logger.info("  Validation window: %s", VALIDATION_YEARS)
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
@@ -86,12 +91,20 @@ def main() -> None:
     with open(OUTPUT_PATH, "w") as f:
         json.dump(best_params, f, indent=2)
 
-    print(f"\nBest score (mean district accuracy): {best_score:.4f}")
-    print(f"Trials: {n_complete} complete, {n_pruned} pruned")
-    print("Best params:")
+    mlflow.set_tracking_uri(f"sqlite:///{MODELS_DIR / 'mlflow.db'}")
+    mlflow.set_experiment("us-house-forecast")
+    with mlflow.start_run(run_name="tune"):
+        mlflow.log_metric("best_cv_accuracy", best_score)
+        mlflow.log_metric("n_trials_complete", n_complete)
+        mlflow.log_metric("n_trials_pruned", n_pruned)
+        mlflow.log_params(best_params)
+
+    logger.info("\nBest score (mean district accuracy): %.4f", best_score)
+    logger.info("Trials: %d complete, %d pruned", n_complete, n_pruned)
+    logger.info("Best params:")
     for k, v in best_params.items():
-        print(f"  {k}: {v}")
-    print(f"\nSaved to {OUTPUT_PATH}")
+        logger.info("  %s: %s", k, v)
+    logger.info("\nSaved to %s", OUTPUT_PATH)
 
 
 if __name__ == "__main__":
