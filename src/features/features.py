@@ -23,7 +23,17 @@ from src.data.loaders import (
     load_open_seats,
     load_pres_lean,
 )
-from src.data.validators import validate_approval_coverage, validate_feature_matrix
+from pandera.typing import DataFrame
+
+from src.data.validators import (
+    ApprovalDataSchema,
+    DemsRepsSchema,
+    HouseDataSchema,
+    TopCandidatesSchema,
+    WinnersSchema,
+    validate_approval_coverage,
+    validate_feature_matrix,
+)
 from src.paths import DataFile
 
 logger = logging.getLogger(__name__)
@@ -43,11 +53,12 @@ __all__ = [
 class DatasetResult(NamedTuple):
     X: pd.DataFrame
     y: pd.Series
-    winners: pd.DataFrame
+    winners: DataFrame[WinnersSchema]
     years: pd.Series
-    dems_reps: pd.DataFrame
+    dems_reps: DataFrame[DemsRepsSchema]
     pres_lean: pd.DataFrame | None
     fundraising: pd.DataFrame | None
+
 
 _DROP_COLS = [
     Col.YEAR,
@@ -61,9 +72,9 @@ _DROP_COLS = [
 ]
 
 
-def get_top_candidate_per_party(df: pd.DataFrame) -> pd.DataFrame:
+def get_top_candidate_per_party(df: DataFrame[HouseDataSchema]) -> DataFrame[TopCandidatesSchema]:
     """Return the highest-vote candidate per party-district-year."""
-    return (
+    return (  # type: ignore[return-value]
         df.loc[
             df.groupby([Col.YEAR, Col.STATE, Col.DISTRICT, Col.PARTY])[Col.CANDIDATE_VOTES].idxmax()
         ]
@@ -72,7 +83,9 @@ def get_top_candidate_per_party(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def build_dems_reps(top_candidates: pd.DataFrame, dem_lean_window: int = 4) -> pd.DataFrame:
+def build_dems_reps(
+    top_candidates: DataFrame[TopCandidatesSchema], dem_lean_window: int = 4
+) -> DataFrame[DemsRepsSchema]:
     """Merge Dem/Rep top candidates and compute rolling lean and trend features."""
     logger.info("Computing dem lean features (window=%d)", dem_lean_window)
     reps = top_candidates[top_candidates[Col.PARTY] == Val.REPUBLICAN][
@@ -108,16 +121,16 @@ def build_dems_reps(top_candidates: pd.DataFrame, dem_lean_window: int = 4) -> p
     dems_reps[Col.PREV_DEM_SHARE] = dems_reps.groupby([Col.STATE, Col.DISTRICT])[
         Col.DEM_VOTE_SHARE
     ].transform(lambda x: x.shift(1))
-    return dems_reps.reset_index(drop=True)
+    return dems_reps.reset_index(drop=True)  # type: ignore[return-value]
 
 
 def build_winners(
-    top_candidates: pd.DataFrame,
-    dems_reps: pd.DataFrame,
-    approval: pd.DataFrame,
+    top_candidates: DataFrame[TopCandidatesSchema],
+    dems_reps: DataFrame[DemsRepsSchema],
+    approval: DataFrame[ApprovalDataSchema],
     pres_lean: pd.DataFrame | None = None,
     fundraising: pd.DataFrame | None = None,
-) -> pd.DataFrame:
+) -> DataFrame[WinnersSchema]:
     """Build winners table by merging top candidates with structural and economic features."""
     logger.info("Building winners table")
     winners = top_candidates.loc[
@@ -159,8 +172,11 @@ def build_winners(
         winners[Col.PRES_LEAN] = winners[Col.PRES_LEAN].fillna(0.5)
     if fundraising is not None:
         _fund_cols = [
-            Col.FUNDRAISING_DEM_SHARE, Col.LARGE_DONOR_DEM_SHARE,
-            Col.PAC_DEM_SHARE, Col.SPENDING_DEM_SHARE, Col.SURPLUS_DEM_SHARE,
+            Col.FUNDRAISING_DEM_SHARE,
+            Col.LARGE_DONOR_DEM_SHARE,
+            Col.PAC_DEM_SHARE,
+            Col.SPENDING_DEM_SHARE,
+            Col.SURPLUS_DEM_SHARE,
         ]
         available = [c for c in _fund_cols if c in fundraising.columns]
         winners = winners.merge(
@@ -170,10 +186,12 @@ def build_winners(
         )
         for c in available:
             winners[c] = winners[c].fillna(0.5)
-    return winners
+    return winners  # type: ignore[return-value]
 
 
-def add_incumbency_features(winners: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
+def add_incumbency_features(
+    winners: DataFrame[WinnersSchema], df: DataFrame[HouseDataSchema]
+) -> DataFrame[WinnersSchema]:
     """Add is_incumbent, prev_winner, and redistricting flag to the winners table."""
     logger.info("Adding incumbency features")
     winner_names = (
@@ -207,7 +225,7 @@ def add_incumbency_features(winners: pd.DataFrame, df: pd.DataFrame) -> pd.DataF
         how="left",
     )
     winners[Col.REDISTRICTING] = winners[Col.YEAR].isin(REDISTRICTING_YEARS).astype(int)
-    return winners
+    return winners  # type: ignore[return-value]
 
 
 def build_feature_matrix(winners: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
@@ -255,7 +273,7 @@ def build_dataset() -> DatasetResult:
         ds = build_dataset()
         X, y = ds.X, ds.y                          # simple analysis scripts
         X, y, years = ds.X, ds.y, ds.years         # walk-forward / CV
-        # ds.dems_reps / ds.pres_lean / ds.fundraising  for build_pred_2026
+        ds.dems_reps / ds.pres_lean / ds.fundraising  for build_pred_2026
     """
     df = load_clean_house_data(DataFile.HOUSE)
     top_candidates = get_top_candidate_per_party(df)
@@ -274,8 +292,15 @@ def build_dataset() -> DatasetResult:
     winners = build_winners(top_candidates, dems_reps, approval, pres_lean, fundraising)
     winners = add_incumbency_features(winners, df)
     X, y, years = build_feature_matrix(winners)
-    return DatasetResult(X=X, y=y, winners=winners, years=years,
-                         dems_reps=dems_reps, pres_lean=pres_lean, fundraising=fundraising)
+    return DatasetResult(
+        X=X,
+        y=y,
+        winners=winners,
+        years=years,
+        dems_reps=dems_reps,
+        pres_lean=pres_lean,
+        fundraising=fundraising,
+    )
 
 
 def build_pred_2026(
@@ -299,7 +324,9 @@ def build_pred_2026(
         if econ_growth_2026 is None:
             econ_growth_2026 = -_econ_growth[2026]  # negative: Rep president
         if unemployment_2026 is None:
-            unemployment_2026 = _unemployment[2026]  # positive: Rep pres, high unemp = Dem-favorable
+            unemployment_2026 = _unemployment[
+                2026
+            ]  # positive: Rep pres, high unemp = Dem-favorable
     incumbents = (
         winners[winners[Col.YEAR] == 2024][[Col.STATE, Col.DISTRICT, Col.PARTY]]
         .rename(columns={Col.PARTY: Col.DISTRICT_INCUMBENT})
@@ -360,10 +387,15 @@ def build_pred_2026(
         pred[Col.PRES_LEAN] = pred[Col.PRES_LEAN].fillna(0.5)
     if fundraising is not None:
         _fund_cols = [
-            Col.FUNDRAISING_DEM_SHARE, Col.LARGE_DONOR_DEM_SHARE,
-            Col.PAC_DEM_SHARE, Col.SPENDING_DEM_SHARE, Col.SURPLUS_DEM_SHARE,
+            Col.FUNDRAISING_DEM_SHARE,
+            Col.LARGE_DONOR_DEM_SHARE,
+            Col.PAC_DEM_SHARE,
+            Col.SPENDING_DEM_SHARE,
+            Col.SURPLUS_DEM_SHARE,
         ]
-        available = [c for c in _fund_cols if c in fundraising.columns and c in list(feature_columns)]
+        available = [
+            c for c in _fund_cols if c in fundraising.columns and c in list(feature_columns)
+        ]
         if available:
             fund_2026 = fundraising[fundraising[Col.YEAR] == 2026][
                 [Col.STATE, Col.DISTRICT] + available
