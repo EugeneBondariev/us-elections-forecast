@@ -38,7 +38,8 @@ def test_retrieve_uses_passed_collection():
     )
 
 
-def test_rag_answer_without_key_returns_message():
+def test_rag_answer_without_key_returns_message(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
     assert rag_answer("anything", api_key=None) == "GROQ_API_KEY not set."
 
 

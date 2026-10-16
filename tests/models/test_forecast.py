@@ -1,33 +1,21 @@
-import pytest
-
-
-@pytest.mark.usefixtures("real_data")
 class TestRunForecast:
     """End-to-end smoke test for run_forecast(). Skipped when data files are absent."""
 
-    def test_returns_required_keys(self):
-        from src.models.forecast import run_forecast
-        result = run_forecast()
-        assert "seats_sim" in result
-        assert "districts" in result
-        assert "n_districts" in result
+    def test_returns_required_keys(self, forecast_result):
+        assert "seats_sim" in forecast_result
+        assert "districts" in forecast_result
+        assert "n_districts" in forecast_result
 
-    def test_districts_count(self):
-        from src.models.forecast import run_forecast
-        result = run_forecast()
-        assert result["n_districts"] > 400
-        assert len(result["districts"]) == result["n_districts"]
+    def test_districts_count(self, forecast_result):
+        assert forecast_result["n_districts"] > 400
+        assert len(forecast_result["districts"]) == forecast_result["n_districts"]
 
-    def test_probabilities_bounded(self):
-        from src.models.forecast import run_forecast
-        result = run_forecast()
-        proba = result["districts"]["proba_dem"]
+    def test_probabilities_bounded(self, forecast_result):
+        proba = forecast_result["districts"]["proba_dem"]
         assert (proba >= 0).all() and (proba <= 1).all()
 
-    def test_seat_sim_shape_and_range(self):
-        from src.models.forecast import run_forecast
-        result = run_forecast()
-        sim = result["seats_sim"]
+    def test_seat_sim_shape_and_range(self, forecast_result):
+        sim = forecast_result["seats_sim"]
         assert sim.shape == (10_000,)
         assert sim.min() >= 0
-        assert sim.max() <= result["n_districts"]
+        assert sim.max() <= forecast_result["n_districts"]

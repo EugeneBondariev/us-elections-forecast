@@ -57,9 +57,18 @@ _FORECAST = {
     "districts": _DISTRICTS,
 }
 
-# Import app with run_forecast mocked so module-level `data = load()` does not hit disk.
+# Import app with all external I/O mocked so module-level code never hits disk or network:
+# - load_latest_forecast: skip DB read so we never fall through to run_forecast
+# - run_forecast: guard in case load_latest_forecast somehow returns None
+# - save_forecast: skip DB write (no state side-effects in tests)
+# - generate_narrative: skip Groq API call (GROQ_API_KEY may be set in dev environments)
 sys.modules.pop("app", None)
-with patch("src.models.forecast.run_forecast", return_value=_FORECAST):
+with (
+    patch("src.data.database.load_latest_forecast", return_value=_FORECAST),
+    patch("src.data.database.save_forecast"),
+    patch("src.models.forecast.run_forecast", return_value=_FORECAST),
+    patch("src.visualization.narrative.generate_narrative", return_value=""),
+):
     import app  # noqa: E402
 
 
