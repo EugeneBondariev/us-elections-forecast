@@ -1,8 +1,49 @@
+from __future__ import annotations
+
 import logging
 from datetime import datetime
 from pathlib import Path
 
 import colorlog
+
+_OK_LEVEL = 21
+_SKIP_LEVEL = 22
+logging.addLevelName(_OK_LEVEL, "OK")
+logging.addLevelName(_SKIP_LEVEL, "SKIP")
+
+_status_logger = logging.getLogger(__name__)
+
+_LOG_COLORS = {
+    "DEBUG": "cyan",
+    "INFO": "light_white",
+    "OK": "bold_green",
+    "SKIP": "yellow",
+    "WARNING": "yellow",
+    "ERROR": "red",
+    "CRITICAL": "bold_red",
+}
+
+
+def log_ok(label: str, detail: str = "") -> None:
+    _status_logger.log(_OK_LEVEL, "[OK]   %s%s", label, f" - {detail}" if detail else "")
+
+
+def log_skip(label: str, reason: str) -> None:
+    _status_logger.log(_SKIP_LEVEL, "[SKIP] %s - %s", label, reason)
+
+
+def log_fail(label: str, msg: object) -> None:
+    _status_logger.error("[FAIL] %s - %s", label, msg)
+
+
+def setup_cli_logging(level: int = logging.INFO) -> None:
+    """Console-only logging with color — for CLI entry points that don't need a log file."""
+    handler = colorlog.StreamHandler()
+    handler.setFormatter(
+        colorlog.ColoredFormatter(fmt="%(log_color)s%(message)s", log_colors=_LOG_COLORS)
+    )
+    logging.root.setLevel(level)
+    logging.root.handlers = [handler]
 
 
 def setup_logging(level: int = logging.INFO, log_dir: str = "logs/app") -> Path:
@@ -11,13 +52,7 @@ def setup_logging(level: int = logging.INFO, log_dir: str = "logs/app") -> Path:
         colorlog.ColoredFormatter(
             fmt="%(log_color)s%(asctime)s  %(message)s",
             datefmt="%H:%M:%S",
-            log_colors={
-                "DEBUG": "cyan",
-                "INFO": "light_green",
-                "WARNING": "yellow",
-                "ERROR": "red",
-                "CRITICAL": "bold_red",
-            },
+            log_colors=_LOG_COLORS,
         )
     )
 
