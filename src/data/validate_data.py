@@ -8,13 +8,21 @@ Run:
 or:
     make validate
 """
+
 from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import Callable
+from pathlib import Path
 
 import pandas as pd
 
+from src.constants import Col
+from src.data.loaders import load_approval, load_clean_house_data, load_pres_lean
+from src.data.validators import validate_cook_csv
+from src.data.validators import validate_fundraising as _validate_fundraising_schema
+from src.logging_config import log_fail, log_ok, log_skip, setup_cli_logging
 from src.paths import DataFile
 
 logger = logging.getLogger(__name__)
@@ -22,124 +30,107 @@ logger = logging.getLogger(__name__)
 __all__ = ["validate_all", "validate_required", "validate_cook", "validate_fundraising"]
 
 
-def _ok(label: str, detail: str = "") -> None:
-    logger.info("[OK]   %s%s", label, f" — {detail}" if detail else "")
-
-
-def _skip(label: str, reason: str) -> None:
-    logger.info("[SKIP] %s — %s", label, reason)
-
-
-def _fail(label: str, exc: Exception) -> None:
-    logger.error("[FAIL] %s — %s", label, exc)
-
-
-def _validate_house() -> bool:
-    if not DataFile.HOUSE.exists():
-        _skip("house results", "not downloaded")
+def _validate_file(
+    label: str,
+    paths: list[Path],
+    skip_reason: str,
+    load: Callable[[], pd.DataFrame],
+    ok_detail: Callable[[pd.DataFrame], str],
+    min_rows: int = 0,
+) -> bool:
+    """Check existence, run load(), log [OK]/[SKIP]/[FAIL]. Returns True if passed or absent."""
+    if not all(p.exists() for p in paths):
+        log_skip(label, skip_reason)
         return True
     try:
-        from src.data.loaders import load_clean_house_data
-        df = load_clean_house_data(DataFile.HOUSE)
-        if len(df) < 20_000:
-            raise ValueError(f"only {len(df):,} rows, expected 20 000+")
-        _ok("house results", f"{len(df):,} rows, years {df['year'].min()}-{df['year'].max()}")
+        df = load()
+        if min_rows and len(df) < min_rows:
+            raise ValueError(f"only {len(df):,} rows, expected {min_rows:,}+")
+        log_ok(label, ok_detail(df))
         return True
     except Exception as exc:
-        _fail("house results", exc)
+        log_fail(label, exc)
         return False
 
 
-def _validate_approval() -> bool:
-    if not DataFile.APPROVAL.exists():
-        _skip("approval ratings", "not downloaded")
-        return True
-    try:
-        from src.data.loaders import load_approval
-        df = load_approval(DataFile.APPROVAL)
-        if len(df) < 20:
-            raise ValueError(f"only {len(df)} rows, expected 20+")
-        _ok("approval ratings", f"{len(df)} election years")
-        return True
-    except Exception as exc:
-        _fail("approval ratings", exc)
-        return False
+def _load_cook() -> pd.DataFrame:
+    df = pd.read_csv(DataFile.COOK, dtype={Col.DISTRICT: int})
+    validate_cook_csv(df)
+    return df
 
 
-def _validate_pres_lean() -> bool:
-    if not DataFile.PRES_08_20.exists() or not DataFile.PRES_20_24.exists():
-        _skip("presidential lean", "not downloaded")
-        return True
-    try:
-        from src.data.loaders import load_pres_lean
-        from src.data.validators import validate_pres_lean
-        df = load_pres_lean(DataFile.PRES_08_20, DataFile.PRES_20_24)
-        validate_pres_lean(df)
-        _ok("presidential lean", f"{len(df):,} district-year rows")
-        return True
-    except Exception as exc:
-        _fail("presidential lean", exc)
-        return False
+def _load_fundraising() -> pd.DataFrame:
+    df = pd.read_csv(DataFile.FUNDRAISING)
+    _validate_fundraising_schema(df)
+    return df
 
 
 def validate_cook() -> bool:
-    if not DataFile.COOK.exists():
-        _skip("cook ratings", "optional, not present")
-        return True
-    try:
-        from src.data.validators import validate_cook_csv
-        df = pd.read_csv(DataFile.COOK, dtype={"district": int})
-        validate_cook_csv(df)
-        _ok("cook ratings", f"{len(df)} districts")
-        return True
-    except Exception as exc:
-        _fail("cook ratings", exc)
-        return False
+    return _validate_file(
+        label="cook ratings",
+        paths=[DataFile.COOK],
+        skip_reason="optional, not present",
+        load=_load_cook,
+        ok_detail=lambda df: f"{len(df)} districts",
+    )
 
 
 def validate_fundraising() -> bool:
-    if not DataFile.FUNDRAISING.exists():
-        _skip("fundraising", "optional, not present")
-        return True
-    try:
-        from src.data.validators import validate_fundraising as _schema_check
-        df = pd.read_csv(DataFile.FUNDRAISING)
-        _schema_check(df)
-        _ok("fundraising", f"{len(df):,} district-year rows, {int(df['year'].min())}-{int(df['year'].max())}")
-        return True
-    except Exception as exc:
-        _fail("fundraising", exc)
-        return False
+    return _validate_file(
+        label="fundraising",
+        paths=[DataFile.FUNDRAISING],
+        skip_reason="optional, not present",
+        load=_load_fundraising,
+        ok_detail=lambda df: f"{len(df):,} district-year rows, {int(df['year'].min())}-{int(df['year'].max())}",
+    )
 
 
 def validate_required() -> bool:
     """Validate the required files only (house, approval, pres lean)."""
-    results = [_validate_house(), _validate_approval(), _validate_pres_lean()]
-    return all(results)
+    return all(
+        [
+            _validate_file(
+                label="house results",
+                paths=[DataFile.HOUSE],
+                skip_reason="not downloaded",
+                load=lambda: load_clean_house_data(DataFile.HOUSE),
+                ok_detail=lambda df: f"{len(df):,} rows, years {df['year'].min()}-{df['year'].max()}",
+                min_rows=20_000,
+            ),
+            _validate_file(
+                label="approval ratings",
+                paths=[DataFile.APPROVAL],
+                skip_reason="not downloaded",
+                load=lambda: load_approval(DataFile.APPROVAL),
+                ok_detail=lambda df: f"{len(df)} election years",
+                min_rows=20,
+            ),
+            _validate_file(
+                label="presidential lean",
+                paths=[DataFile.PRES_08_20, DataFile.PRES_20_24],
+                skip_reason="not downloaded",
+                load=lambda: load_pres_lean(DataFile.PRES_08_20, DataFile.PRES_20_24),
+                ok_detail=lambda df: f"{len(df):,} district-year rows",
+            ),
+        ]
+    )
 
 
 def validate_all() -> bool:
     """Validate all downloaded files. Returns True if all present files pass."""
-    results = [
-        _validate_house(),
-        _validate_approval(),
-        _validate_pres_lean(),
-        validate_cook(),
-        validate_fundraising(),
-    ]
+    results = [validate_required(), validate_cook(), validate_fundraising()]
     ok = all(results)
     logger.info("")
     if ok:
         logger.info("All files valid.")
     else:
-        logger.error("%d file(s) failed validation.", sum(1 for r in results if not r))
+        logger.error("Validation failed - see above.")
     return ok
 
 
 def main() -> None:
-    import logging as _logging
-    _logging.basicConfig(level=_logging.INFO, format="%(message)s")
-    sys.exit(0 if validate_all() else 1)
+    setup_cli_logging()
+    sys.exit(not validate_all())
 
 
 if __name__ == "__main__":
