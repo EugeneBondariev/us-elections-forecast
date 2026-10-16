@@ -12,7 +12,7 @@ class ForecastResult(TypedDict):
     seats_sim: np.ndarray
     n_districts: int
     districts: pd.DataFrame
-    shap_values: NotRequired[pd.DataFrame]
+    shap_values: pd.DataFrame
 
 
 class SimParams(TypedDict):
