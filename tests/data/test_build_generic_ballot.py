@@ -2,15 +2,15 @@
 from __future__ import annotations
 
 import csv
-import io as _io
 import csv as _csv
+import io as _io
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from src.constants import GENERIC_BALLOT
-from src.data.build_generic_ballot import _fetch_2026_wiki, _fetch_538, main
+from src.data.build_generic_ballot import _fetch_538, _fetch_2026_wiki, main
 
 
 def _fte_csv(rows: list[dict]) -> str:
