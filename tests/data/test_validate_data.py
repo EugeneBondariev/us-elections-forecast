@@ -21,7 +21,7 @@ class TestValidateFile:
             paths=[tmp_path / "missing.csv"],
             skip_reason="not present",
             load=lambda: pd.DataFrame(),
-            ok_detail=lambda _: "ok",
+            ok_detail=lambda _: "",
         )
         assert result is True
 
@@ -32,7 +32,7 @@ class TestValidateFile:
             paths=[tmp_path / "exists.csv", tmp_path / "missing.csv"],
             skip_reason="not present",
             load=lambda: pd.DataFrame(),
-            ok_detail=lambda _: "ok",
+            ok_detail=lambda _: "",
         )
         assert result is True
 
@@ -41,7 +41,7 @@ class TestValidateFile:
         result = _validate_file(
             label="test",
             paths=[tmp_path / "data.csv"],
-            skip_reason="not present",
+            skip_reason="",
             load=lambda: pd.DataFrame({"a": [1, 2]}),
             ok_detail=lambda df: f"{len(df)} rows",
         )
@@ -56,9 +56,9 @@ class TestValidateFile:
         result = _validate_file(
             label="test",
             paths=[tmp_path / "data.csv"],
-            skip_reason="not present",
+            skip_reason="",
             load=bad_load,
-            ok_detail=lambda _: "ok",
+            ok_detail=lambda _: "",
         )
         assert result is False
 
@@ -67,9 +67,9 @@ class TestValidateFile:
         result = _validate_file(
             label="test",
             paths=[tmp_path / "data.csv"],
-            skip_reason="not present",
+            skip_reason="",
             load=lambda: pd.DataFrame({"a": [1, 2]}),
-            ok_detail=lambda _: "ok",
+            ok_detail=lambda _: "",
             min_rows=100,
         )
         assert result is False
@@ -79,7 +79,7 @@ class TestValidateFile:
         result = _validate_file(
             label="test",
             paths=[tmp_path / "data.csv"],
-            skip_reason="not present",
+            skip_reason="",
             load=lambda: pd.DataFrame({"a": range(10)}),
             ok_detail=lambda df: f"{len(df)} rows",
             min_rows=5,

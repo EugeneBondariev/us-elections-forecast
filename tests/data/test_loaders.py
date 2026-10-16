@@ -1,6 +1,8 @@
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
+import pytest
 
 from src.constants import Col, Val
 from src.data.loaders import load_approval, load_clean_house_data, load_cook_ratings, load_pres_lean
@@ -138,6 +140,11 @@ class TestLoadCookRatings:
 
 
 class TestLoadPresLean:
+    @pytest.fixture(autouse=True)
+    def _patch_validate(self):
+        with patch("src.data.loaders.validate_pres_lean"):
+            yield
+
     @staticmethod
     def _write_2008_2020(tmp_path: Path) -> Path:
         lines = (
