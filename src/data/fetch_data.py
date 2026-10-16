@@ -51,6 +51,7 @@ import urllib.request
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
+from src.logging_config import log_fail, log_ok, log_skip
 from src.paths import DataFile  # importing this already creates data/raw etc. - see src/paths.py
 
 logger = logging.getLogger(__name__)
@@ -96,10 +97,10 @@ def _download_and_verify(url: str, dest: Path, sha256_hex: str) -> bool:
             tmp.unlink(missing_ok=True)
             return False
         tmp.replace(dest)
-        logger.info("Verified checksum and saved: %s", dest)
+        log_ok(dest.name, "checksum verified")
         return True
     except Exception as e:
-        logger.error("Download of %s failed: %s", dest.name, e)
+        log_fail(dest.name, e)
         tmp.unlink(missing_ok=True)
         return False
 
@@ -180,7 +181,7 @@ def _check_required() -> bool:
 
         all_present = all_present and present
         if present:
-            logger.info("[OK]  %s - %s", item["path"].name, item["label"])
+            log_ok(item["path"].name, item["label"])
         else:
             logger.error("[MISSING] %s - %s", item["path"].name, item["label"])
             for line in item["instructions"]:
@@ -192,14 +193,14 @@ def _check_required() -> bool:
 def _fetch_fundraising() -> None:
     import os
     if DataFile.FUNDRAISING.exists():
-        logger.info("[OK]  %s already present", DataFile.FUNDRAISING.name)
+        log_ok(DataFile.FUNDRAISING.name, "already present")
         return
     api_key = os.getenv("FEC_API_KEY") or os.getenv("DATA_GOV_API_KEY")
     if not api_key:
-        logger.info(
-            "[SKIP] %s - optional. Set FEC_API_KEY to fetch automatically "
-            "(free key: https://api.data.gov/signup).",
+        log_skip(
             DataFile.FUNDRAISING.name,
+            "optional. Set FEC_API_KEY to fetch automatically "
+            "(free key: https://api.data.gov/signup).",
         )
         return
     logger.info("Fetching fundraising data (FEC_API_KEY is set)...")
@@ -209,7 +210,7 @@ def _fetch_fundraising() -> None:
         from src.data.validate_data import validate_fundraising
         validate_fundraising()
     else:
-        logger.error("[FAIL] fundraising fetch produced no output file")
+        log_fail(DataFile.FUNDRAISING.name, "fetch produced no output file")
 
 
 def _check_cook() -> None:
@@ -224,10 +225,7 @@ def _check_cook() -> None:
         [sys.executable, "-m", "src.data.parse_cook"], check=False
     )
     if result.returncode != 0 or not DataFile.COOK.exists():
-        logger.warning(
-            "[SKIP] %s - optional. Wikipedia fetch failed (network issue?).",
-            DataFile.COOK.name,
-        )
+        log_skip(DataFile.COOK.name, "optional. Wikipedia fetch failed (network issue?).")
         return
     from src.data.validate_data import validate_cook
     validate_cook()
@@ -247,7 +245,9 @@ def main() -> None:
         logger.info("")
         logger.info("Validating required files...")
         from src.data.validate_data import validate_required
-        validate_required()
+        if not validate_required():
+            logger.error("Required data failed validation — fix the issues above before running the model.")
+            sys.exit(1)
 
     logger.info("=" * 72)
     logger.info("\nOptional data (automated where a free API key or cached file is available):\n")

@@ -22,6 +22,7 @@ from src.data.validators import (
     HouseDataSchema,
     validate_approval_data,
     validate_house_data,
+    validate_pres_lean,
 )
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,7 @@ def load_pres_lean(path_2008_2020: Path, path_2020_2024: Path) -> pd.DataFrame:
         ignore_index=True,
     )
     logger.info("Loaded presidential lean: %d district-year records", len(result))
+    validate_pres_lean(result)
     return result
 
 
