@@ -4,6 +4,7 @@ All fixtures are synthetic hand-crafted DataFrames / arrays.
 """
 import numpy as np
 import pandas as pd
+from unittest.mock import patch
 
 # ---------------------------------------------------------------------------
 # 1. WeightedPipeline routes sample_weight correctly
@@ -150,8 +151,11 @@ def test_feature_weights_stacking_ensemble():
     np.random.seed(7)
     X = pd.DataFrame(np.random.randn(80, 3), columns=["a", "b", "c"])
     y = pd.Series((X["a"] > 0).astype(int))
-    model = build_stacking_ensemble()
-    model.fit(X, y)
+    # Tuned params (min_child_samples=112) prevent splits on 80 samples — override for this test.
+    _small = {"min_child_samples": 1, "n_estimators": 50, "verbose": -1}
+    with patch("src.models.model._gbm_params", return_value=_small):
+        model = build_stacking_ensemble()
+        model.fit(X, y)
     fw = feature_weights(model, X.columns)
     assert set(fw.keys()) == {"a", "b", "c"}
     assert abs(sum(fw.values()) - 100) < 0.01

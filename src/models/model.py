@@ -182,7 +182,8 @@ def feature_weights(model: object, feature_names: pd.Index | list[str]) -> dict[
         importances = np.abs(m.coef_[0]) if hasattr(m, "coef_") else m.feature_importances_
     else:
         return {}
-    weights = importances / importances.sum() * 100
+    total = importances.sum()
+    weights = importances / total * 100 if total > 0 else np.zeros_like(importances, dtype=float)
     return dict(sorted(zip(feature_names, weights), key=lambda x: x[1], reverse=True))
 
 
