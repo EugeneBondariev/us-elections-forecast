@@ -133,10 +133,11 @@ def _top_candidate_per_group(df_party: pd.DataFrame) -> pd.DataFrame:
     primary (e.g. candidate A's receipts with candidate B's disbursements). Selecting
     one row via idxmax keeps every field internally consistent.
     """
+    key_cols: list[str] = [Col.YEAR, Col.STATE, Col.DISTRICT]
     if df_party.empty:
-        return df_party[[Col.YEAR, Col.STATE, Col.DISTRICT] + _RAW_FIELDS]
+        return df_party[key_cols + _RAW_FIELDS]
     idx = df_party.groupby([Col.YEAR, Col.STATE, Col.DISTRICT])["receipts"].idxmax()
-    return df_party.loc[idx, [Col.YEAR, Col.STATE, Col.DISTRICT] + _RAW_FIELDS].reset_index(drop=True)
+    return df_party.loc[idx, key_cols + _RAW_FIELDS].reset_index(drop=True)
 
 
 def _aggregate(records: list[dict[str, Any]]) -> pd.DataFrame:

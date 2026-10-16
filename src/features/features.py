@@ -74,8 +74,8 @@ _DROP_COLS = [
 
 def get_top_candidate_per_party(df: DataFrame[HouseDataSchema]) -> DataFrame[TopCandidatesSchema]:
     """Return the highest-vote candidate per party-district-year."""
-    return (  # type: ignore[return-value]
-        df.loc[
+    return (
+        df.loc[  # type: ignore[return-value]
             df.groupby([Col.YEAR, Col.STATE, Col.DISTRICT, Col.PARTY])[Col.CANDIDATE_VOTES].idxmax()
         ]
         .drop(columns=[Col.CANDIDATE])
@@ -225,7 +225,7 @@ def add_incumbency_features(
         how="left",
     )
     winners[Col.REDISTRICTING] = winners[Col.YEAR].isin(REDISTRICTING_YEARS).astype(int)
-    return winners  # type: ignore[return-value]
+    return winners
 
 
 def build_feature_matrix(winners: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series, pd.Series]:

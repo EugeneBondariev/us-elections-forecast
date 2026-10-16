@@ -79,7 +79,7 @@ def load_latest_forecast(db_path: Path = DataFile.DB) -> ForecastResult | None:
             return None
         run_id, run_at, n_districts, seats_sim_json, districts_json = row
         logger.info("Loaded forecast from DB (run_id=%d, run_at=%s)", run_id, run_at)
-        return {
+        return {  # type: ignore[return-value]
             "n_districts": n_districts,
             "seats_sim": np.array(json.loads(seats_sim_json)),
             "districts": pd.read_json(pd.io.common.StringIO(districts_json), orient="records"),  # type: ignore[call-overload,attr-defined]

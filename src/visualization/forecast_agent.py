@@ -8,6 +8,7 @@ import numpy as np
 
 from src.constants import DEM_MAJORITY_SEATS, Col
 from src.models.forecast import run_forecast
+from src.types import ForecastResult
 
 # Override with GROQ_MODEL if Groq retires/renames this model.
 DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
@@ -74,7 +75,7 @@ Always call a tool first — never make up numbers.
 Be concise: one short paragraph per answer unless asked for more detail."""
 
 
-def _run_tool(name: str, inputs: dict, forecast: dict) -> str:
+def _run_tool(name: str, inputs: dict, forecast: ForecastResult) -> str:
     sim = forecast["seats_sim"]
     districts = forecast["districts"]
     n_districts = forecast["n_districts"]
@@ -100,13 +101,14 @@ def _run_tool(name: str, inputs: dict, forecast: dict) -> str:
             .head(n)
         )
         rows = []
-        for r in comp.itertuples(index=False):
+        for r in comp.to_dict("records"):
+            proba = float(r["proba_dem"])
             rows.append({
-                "label": r.label,
-                "proba_dem_pct": round(r.proba_dem * 100, 1),
-                "lean": "Dem" if r.proba_dem >= 0.5 else "Rep",
-                "incumbent": str(getattr(r, "district_incumbent", "unknown")).title(),
-                "is_open": bool(getattr(r, "is_open", False)),
+                "label": r["label"],
+                "proba_dem_pct": round(proba * 100, 1),
+                "lean": "Dem" if proba >= 0.5 else "Rep",
+                "incumbent": str(r.get("district_incumbent", "unknown")).title(),
+                "is_open": bool(r.get("is_open", False)),
             })
         return json.dumps(rows)
 
@@ -136,18 +138,19 @@ def _run_tool(name: str, inputs: dict, forecast: dict) -> str:
         if state_df.empty:
             return json.dumps({"error": f"No districts found for state {state}"})
         rows = []
-        for r in state_df.itertuples(index=False):
+        for r in state_df.to_dict("records"):
+            proba = float(r["proba_dem"])
             rows.append({
-                "label": r.label,
-                "proba_dem_pct": round(float(r.proba_dem) * 100, 1),
-                "lean": "Dem" if r.proba_dem >= 0.5 else "Rep",
+                "label": r["label"],
+                "proba_dem_pct": round(proba * 100, 1),
+                "lean": "Dem" if proba >= 0.5 else "Rep",
             })
         return json.dumps({"state": state, "n_districts": len(rows), "districts": rows})
 
     return json.dumps({"error": f"Unknown tool: {name}"})
 
 
-def run_agent(user_question: str, forecast: dict, api_key: str) -> str:
+def run_agent(user_question: str, forecast: ForecastResult, api_key: str) -> str:
     """Run one agentic turn: the model decides which tools to call, calls them, returns the final answer."""
     from groq import Groq
     client = Groq(api_key=api_key)

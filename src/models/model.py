@@ -346,7 +346,7 @@ def calibrate_national_sigma(
             "n_years": len(folds),
         }
 
-    realized_errors = [actual.sum() - proba.sum() for proba, actual in folds.values()]
+    realized_errors = np.array([actual.sum() - proba.sum() for proba, actual in folds.values()])
     target_std = _robust_std(realized_errors)
 
     def _mean_simulated_std(sigma_national: float) -> float:
@@ -390,13 +390,15 @@ def load_simulation_params() -> SimParams:
     """
     from src.paths import DataFile
 
-    defaults = {"sigma_national": 0.25, "sigma_district": 0.15}
     if DataFile.CALIBRATED_SIGMA.exists():
         with open(DataFile.CALIBRATED_SIGMA) as f:
             params = json.load(f)
         logger.info("Loaded calibrated simulation sigmas from %s", DataFile.CALIBRATED_SIGMA)
-        return {**defaults, **{k: params[k] for k in defaults if k in params}}
-    return defaults
+        return SimParams(
+            sigma_national=float(params.get("sigma_national", 0.25)),
+            sigma_district=float(params.get("sigma_district", 0.15)),
+        )
+    return SimParams(sigma_national=0.25, sigma_district=0.15)
 
 
 def explain_districts(model: StackingClassifier, X_pred: pd.DataFrame) -> pd.DataFrame:
