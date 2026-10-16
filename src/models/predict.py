@@ -154,6 +154,14 @@ def main() -> None:
             pipeline,
             artifact_path="model",
             registered_model_name="us-house-stacking-ensemble",
+            skops_trusted_types=[
+                "collections.OrderedDict",
+                "lightgbm.basic.Booster",
+                "lightgbm.sklearn.LGBMClassifier",
+                "sklearn.tree._tree.Tree",
+                "sklearn.utils._bunch.Bunch",
+                "src.models.model.WeightedPipeline",
+            ],
         )
         logger.info("Model logged to MLflow registry as 'us-house-stacking-ensemble'")
         pred_2026, district_ids = build_pred_2026(
