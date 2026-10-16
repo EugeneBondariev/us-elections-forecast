@@ -22,8 +22,10 @@ import csv
 import io
 import logging
 import re
+import ssl
 import urllib.request
 
+import certifi
 import pandas as pd
 
 from src.constants import GENERIC_BALLOT
@@ -35,7 +37,7 @@ _UA = "Mozilla/5.0 (compatible; us-elections-forecast/1.0; educational use)"
 
 _FTE_URL = (
     "https://raw.githubusercontent.com/fivethirtyeight/data/master/"
-    "generic-ballot/generic_ballot_averages.csv"
+    "congress-generic-ballot/generic_topline_historical.csv"
 )
 _WIKI_URL = (
     "https://en.wikipedia.org/wiki/2026_United_States_House_of_Representatives_elections"
@@ -53,63 +55,57 @@ ELECTION_YEARS_538 = list(range(2006, 2025, 2))
 
 def _fetch(url: str) -> str:
     req = urllib.request.Request(url, headers={"User-Agent": _UA})
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
         return resp.read().decode("utf-8")
 
 
-def _fetch_538() -> dict[int, float]:
-    """Return {year: final_dem_minus_rep_margin} for 2006–2024 from FiveThirtyEight CSV."""
+def _fetch_538() -> tuple[dict[int, float], str]:
+    """Return ({year: margin}, source_label) for 2006–2024."""
     try:
         raw = _fetch(_FTE_URL)
     except Exception as exc:
         logger.info("FiveThirtyEight fetch failed: %s — falling back to constants.py", exc)
-        return {y: GENERIC_BALLOT[y] for y in ELECTION_YEARS_538 if y in GENERIC_BALLOT}
+        return {y: GENERIC_BALLOT[y] for y in ELECTION_YEARS_538 if y in GENERIC_BALLOT}, "constants.py"
 
     try:
         df = pd.read_csv(io.StringIO(raw))
     except Exception as exc:
         logger.info("FiveThirtyEight CSV parse failed: %s — falling back to constants.py", exc)
-        return {y: GENERIC_BALLOT[y] for y in ELECTION_YEARS_538 if y in GENERIC_BALLOT}
+        return {y: GENERIC_BALLOT[y] for y in ELECTION_YEARS_538 if y in GENERIC_BALLOT}, "constants.py"
 
-    cols_lower = {c.lower(): c for c in df.columns}
-    # Expected columns contain 'dem', 'rep' (or 'pct_dem'/'pct_rep') and a date column.
-    date_col = next((cols_lower[c] for c in cols_lower if "date" in c), None)
-    dem_col = next(
-        (cols_lower[c] for c in cols_lower if re.search(r"\bdem\b", c) and "pct" in c), None
-    ) or next((cols_lower[c] for c in cols_lower if re.search(r"\bdem\b", c)), None)
-    rep_col = next(
-        (cols_lower[c] for c in cols_lower if re.search(r"\brep\b", c) and "pct" in c), None
-    ) or next((cols_lower[c] for c in cols_lower if re.search(r"\brep\b", c)), None)
-
-    if not date_col or not dem_col or not rep_col:
+    required = {"modeldate", "dem_estimate", "rep_estimate"}
+    if not required.issubset(df.columns):
         logger.info(
-            "FiveThirtyEight CSV missing expected columns (date/dem/rep) — falling back. "
-            "Columns found: %s", list(df.columns)
+            "FiveThirtyEight CSV missing expected columns — falling back. Columns: %s",
+            list(df.columns),
         )
-        return {y: GENERIC_BALLOT[y] for y in ELECTION_YEARS_538 if y in GENERIC_BALLOT}
+        return {y: GENERIC_BALLOT[y] for y in ELECTION_YEARS_538 if y in GENERIC_BALLOT}, "constants.py"
 
-    df["_date"] = pd.to_datetime(df[date_col], errors="coerce")
+    # Prefer likely-voter subgroup; fall back to all polls if absent.
+    if "subgroup" in df.columns:
+        lv = df[df["subgroup"] == "Likely voters"]
+        df = lv if not lv.empty else df[df["subgroup"] == "All polls"]
+
+    df["_date"] = pd.to_datetime(df["modeldate"], errors="coerce")
     df["_year"] = df["_date"].dt.year
-    df["_margin"] = pd.to_numeric(df[dem_col], errors="coerce") - pd.to_numeric(
-        df[rep_col], errors="coerce"
+    df["_margin"] = pd.to_numeric(df["dem_estimate"], errors="coerce") - pd.to_numeric(
+        df["rep_estimate"], errors="coerce"
     )
     df = df.dropna(subset=["_date", "_margin"])
 
     result: dict[int, float] = {}
     for year in ELECTION_YEARS_538:
-        # Take the last (most recent) pre-election-day observation for that election year.
         cutoff = pd.Timestamp(f"{year}-11-08")
-        year_df = df[(df["_year"] == year) | (df["_date"] <= cutoff)]
-        year_df = year_df[df["_date"] <= cutoff]
+        year_df = df[df["_date"] <= cutoff]
         year_df = year_df[year_df["_year"] >= year - 1]
         if year_df.empty:
             logger.info("No FiveThirtyEight data for %s — using constants.py", year)
             result[year] = GENERIC_BALLOT.get(year, 0.0)
         else:
-            last_margin = float(year_df.sort_values("_date")["_margin"].iloc[-1])
-            result[year] = round(last_margin, 1)
+            result[year] = round(float(year_df.sort_values("_date")["_margin"].iloc[-1]), 1)
 
-    return result
+    return result, "FiveThirtyEight"
 
 
 def _fetch_2026_wiki() -> float | None:
@@ -184,10 +180,10 @@ def main() -> None:
     margins: dict[int, float] = dict(_HARDCODED)
 
     logger.info("Fetching 2006–2024 generic ballot from FiveThirtyEight...")
-    fte_margins = _fetch_538()
+    fte_margins, fte_source = _fetch_538()
     for year, margin in fte_margins.items():
         margins[year] = margin
-        logger.info("  %s: %.1f (FiveThirtyEight)", year, margin)
+        logger.info("  %s: %.1f (%s)", year, margin, fte_source)
 
     logger.info("Fetching 2026 generic ballot from Wikipedia...")
     wiki_margin = _fetch_2026_wiki()
