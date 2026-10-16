@@ -9,7 +9,7 @@ import mlflow.sklearn
 import numpy as np
 import pandas as pd
 
-from src.constants import DEM_MAJORITY_SEATS
+from src.constants import Col, DEM_MAJORITY_SEATS
 from src.features.features import build_dataset, build_pred_2026
 from src.logging_config import setup_logging
 from src.models.model import (
@@ -190,7 +190,7 @@ def main() -> None:
         district_ids = district_ids.copy()
         district_ids["proba_dem"] = proba
         district_ids["label"] = district_ids.apply(
-            lambda r: _label(r["state_po"], r["district"]), axis=1
+            lambda r: _label(r[Col.STATE], r[Col.DISTRICT]), axis=1
         )
         _log_competitive_districts(district_ids)
         _log_feature_weights(pipeline, X.columns)

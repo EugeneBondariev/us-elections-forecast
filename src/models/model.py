@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import logging
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import shap
@@ -16,6 +18,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from src.constants import DEM_MAJORITY_SEATS
+from src.types import BootstrapResult, CalibrationResult, SimParams
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +80,7 @@ _GBM_DEFAULTS = {
 }
 
 
-def _gbm_params() -> dict:
+def _gbm_params() -> dict[str, Any]:
     """Return tuned params from disk if available, else hardcoded defaults."""
     from src.paths import DataFile
     if DataFile.BEST_PARAMS.exists():
@@ -287,7 +290,7 @@ def walk_forward_calibration(
     return pd.DataFrame(rows)
 
 
-def _robust_std(values) -> float:
+def _robust_std(values: np.ndarray) -> float:
     """Median absolute deviation, scaled by 1.4826 to be std-equivalent under
     normality - unlike plain std, a single extreme value can't dominate it, since
     it's built from the median rather than squared deviations from the mean."""
@@ -305,7 +308,7 @@ def calibrate_national_sigma(
     n: int = 2000,
     seed: int = 42,
     min_years: int = 3,
-) -> dict[str, float]:
+) -> CalibrationResult:
     """Pick sigma_national so the Monte Carlo seat-count spread matches the
     *empirical* spread of realized walk-forward national seat errors, instead of
     using a hand-picked constant.
@@ -378,7 +381,7 @@ def calibrate_national_sigma(
     }
 
 
-def load_simulation_params() -> dict[str, float]:
+def load_simulation_params() -> SimParams:
     """Load calibrated Monte Carlo sigmas from disk if available, else fall back
     to the uncalibrated defaults.
 
@@ -471,7 +474,7 @@ def bootstrap_ci(
     n_bootstrap: int = 200,
     ci: float = 0.95,
     seed: int = 42,
-) -> dict[str, float]:
+) -> BootstrapResult:
     """
     Bootstrap CI for walk-forward district accuracy and mean seat error.
     Re-samples districts (with replacement) within each test year,

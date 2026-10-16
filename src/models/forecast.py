@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 
@@ -12,11 +14,12 @@ from src.models.model import (
     train,
 )
 from src.paths import DataFile
+from src.types import ForecastResult
 
 __all__ = ["run_forecast"]
 
 
-def run_forecast() -> dict:
+def run_forecast() -> ForecastResult:
     """Run the full 2026 House forecast pipeline.
 
     Returns a dict with:
