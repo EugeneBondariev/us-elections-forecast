@@ -28,7 +28,11 @@ _REQUIRED_COLS = {"label", "proba_dem", "district_incumbent", "is_open", "dem_le
 @st.cache_data
 def load():
     cached = load_latest_forecast(DataFile.DB)
-    if cached is not None and _REQUIRED_COLS.issubset(cached["districts"].columns):
+    if (
+        cached is not None
+        and _REQUIRED_COLS.issubset(cached["districts"].columns)
+        and len(cached["districts"]) > 100
+    ):
         return cached
     result = run_forecast()
     save_forecast(result, DataFile.DB)
@@ -73,7 +77,7 @@ with tab_overview:
     fig.add_vline(x=DEM_MAJORITY_SEATS - 0.5, line_dash="dash", line_color="black")
     fig.update_layout(showlegend=False, xaxis_title="Dem Seats", yaxis_title="Simulations",
                       margin=dict(l=20,r=20,t=20,b=20), height=300)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     st.subheader("Competitive districts (35–65% Dem win probability)")
     comp = (
@@ -93,7 +97,7 @@ with tab_overview:
     })
     st.dataframe(
         comp[["District", "Dem win %", "Lean", "Incumbent party", "Open seat"]],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -134,7 +138,7 @@ with tab_districts:
 
     event = st.dataframe(
         display,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         on_select="rerun",
         selection_mode="single-row",
@@ -165,7 +169,7 @@ with tab_districts:
             fig2.update_layout(xaxis=dict(range=[0,1], title="P(Dem win)"),
                                height=80, margin=dict(l=0,r=0,t=0,b=0),
                                showlegend=False)
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, width="stretch")
 
             if "shap_values" in data:
                 shap_df = data["shap_values"]
@@ -184,7 +188,7 @@ with tab_districts:
                         margin=dict(l=0, r=0, t=30, b=0),
                         xaxis_title="SHAP value (+ = Dem)",
                     )
-                    st.plotly_chart(fig_shap, use_container_width=True)
+                    st.plotly_chart(fig_shap, width="stretch")
 
 with tab_map:
     state_agg = (
@@ -208,7 +212,7 @@ with tab_map:
         labels={"mean_proba_dem": "Avg Dem %"},
     )
     fig_map.update_layout(height=500)
-    st.plotly_chart(fig_map, use_container_width=True)
+    st.plotly_chart(fig_map, width="stretch")
 
     st.subheader("Most competitive states")
     top_competitive = (
@@ -224,7 +228,7 @@ with tab_map:
     })
     st.dataframe(
         top_competitive[["State", "Avg Dem %", "Competitive districts"]],
-        use_container_width=False,
+        width="content",
         hide_index=True,
     )
 

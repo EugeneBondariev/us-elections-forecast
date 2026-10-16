@@ -117,6 +117,8 @@ def api_server(real_data_present):
 @pytest.fixture(scope="module")
 def browser():
     with sync_playwright() as p:
+        if not Path(p.chromium.executable_path).exists():
+            pytest.skip("Chromium binary not installed — run: playwright install chromium")
         b = p.chromium.launch(headless=True)
         yield b
         b.close()

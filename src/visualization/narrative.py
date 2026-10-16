@@ -85,7 +85,7 @@ def generate_narrative(sim: np.ndarray, districts: pd.DataFrame, n_districts: in
         client = Groq(api_key=api_key)
         prompt = _build_prompt(sim, districts, n_districts)
         response = client.chat.completions.create(
-            model=os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL),
+            model=os.getenv("GROQ_MODEL") or DEFAULT_GROQ_MODEL,
             max_tokens=512,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},

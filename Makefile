@@ -64,7 +64,7 @@ freeze:
 	$(PYTHON) -m pip freeze > requirements-lock.txt
 
 app:
-	streamlit run app.py
+	$(PYTHON) -m streamlit run app.py
 
 test:
 	$(PYTHON) -m pytest tests/ -v --tb=short

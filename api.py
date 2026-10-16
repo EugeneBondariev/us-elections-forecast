@@ -12,7 +12,7 @@ from src.models.forecast import run_forecast
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     result = load_latest_forecast()
-    if result is None:
+    if result is None or len(result["districts"]) < 100:
         result = run_forecast()
         save_forecast(result)
     app.state.forecast = result
