@@ -29,7 +29,9 @@ def real_data():
 @pytest.fixture(scope="session")
 def forecast_result(real_data):
     from unittest.mock import patch
+
     import pandas as pd
+
     from src.models.forecast import run_forecast
     with patch("src.models.forecast.explain_districts", return_value=pd.DataFrame()):
         return run_forecast()

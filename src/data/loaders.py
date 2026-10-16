@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from pandera.typing import DataFrame
 
 from src.constants import (
     ECON_GROWTH,
@@ -15,8 +16,6 @@ from src.constants import (
     Col,
     Val,
 )
-from pandera.typing import DataFrame
-
 from src.data.validators import (
     ApprovalDataSchema,
     HouseDataSchema,

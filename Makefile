@@ -45,7 +45,7 @@ install:
 install-dev: install
 	$(PYTHON) -m pip install -r requirements-dev.txt
 
-push: typecheck test
+push: lint typecheck test
 	git push
 
 fetch:
@@ -58,7 +58,7 @@ typecheck:
 	$(PYTHON) -m mypy src/ api.py app.py
 
 lint:
-	$(PYTHON) -m ruff check .
+	$(PYTHON) -m ruff check . --fix
 
 freeze:
 	$(PYTHON) -m pip freeze > requirements-lock.txt

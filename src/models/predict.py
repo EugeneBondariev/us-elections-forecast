@@ -9,7 +9,7 @@ import mlflow.sklearn
 import numpy as np
 import pandas as pd
 
-from src.constants import Col, DEM_MAJORITY_SEATS
+from src.constants import DEM_MAJORITY_SEATS, Col
 from src.features.features import build_dataset, build_pred_2026
 from src.logging_config import setup_logging
 from src.models.model import (

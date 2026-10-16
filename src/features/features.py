@@ -6,6 +6,7 @@ from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
+from pandera.typing import DataFrame
 
 from src.constants import (
     PRES_PARTY,
@@ -23,8 +24,6 @@ from src.data.loaders import (
     load_open_seats,
     load_pres_lean,
 )
-from pandera.typing import DataFrame
-
 from src.data.validators import (
     ApprovalDataSchema,
     DemsRepsSchema,
