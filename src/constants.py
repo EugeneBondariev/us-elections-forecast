@@ -56,6 +56,7 @@ class Col(StrEnum):
     DISTRICT_INCUMBENT = "district_incumbent_party"
     DEM_WON = "dem_won"
     PRES_LEAN = "pres_lean"
+    PRES_YEAR = "pres_year"
     FUNDRAISING_DEM_SHARE = "fundraising_dem_share"
     LARGE_DONOR_DEM_SHARE = "large_donor_dem_share"
     PAC_DEM_SHARE         = "pac_dem_share"

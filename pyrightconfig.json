@@ -1,4 +1,5 @@
 {
   "reportMissingModuleSource": false,
-  "reportMissingImports": "warning"
+  "reportMissingImports": "warning",
+  "reportIncompatibleVariableOverride": "none"
 }
