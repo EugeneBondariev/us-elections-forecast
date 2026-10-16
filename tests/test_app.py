@@ -6,12 +6,12 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
+import pytest
+
+from src.constants import DEM_MAJORITY_SEATS, Col
 
 
-# Replace streamlit with a lightweight mock BEFORE app.py is imported.
-# cache_data is a passthrough so `load` stays a real callable.
-# tabs/columns return correctly-sized lists so tuple unpacking in app.py succeeds.
-def _make_column_mock():
+def _make_column_mock() -> MagicMock:
     # A bare MagicMock's .selectbox()/.checkbox() return an auto-generated child
     # MagicMock, which app.py then compares against real DataFrame columns
     # (e.g. `df["state_po"] == state_sel`). Newer pandas raises on that instead of
@@ -29,18 +29,14 @@ _st_mock.tabs.side_effect = lambda labels: [MagicMock() for _ in labels]
 _st_mock.columns.side_effect = lambda spec: [
     _make_column_mock() for _ in (range(spec) if isinstance(spec, int) else spec)
 ]
-# A bare MagicMock's .text_input() returns an auto-generated child MagicMock, which
-# is truthy - the Ask tab's `if query:` would then be True and call the real Groq
-# API at import time. Empty string keeps that branch untaken, like a user who hasn't
-# typed anything yet.
+# Empty string keeps the Ask-tab `if query:` branch untaken (real Groq API is not called).
 _st_mock.text_input.return_value = ""
-# Empty selection prevents the district detail panel from executing at import time.
+# False prevents the tab_tools `if st.button(...):` branch from launching subprocesses.
+_st_mock.button.return_value = False
+# Empty selection prevents the district detail panel from executing during app import.
 _mock_event = MagicMock()
 _mock_event.selection.rows = []
 _st_mock.dataframe.return_value = _mock_event
-sys.modules["streamlit"] = _st_mock
-
-from src.constants import DEM_MAJORITY_SEATS, Col  # noqa: E402
 
 _DISTRICTS = pd.DataFrame([
     {"label": "PA-7", Col.STATE: "PA", Col.DISTRICT: 7, "proba_dem": 0.60,
@@ -57,46 +53,52 @@ _FORECAST = {
     "districts": _DISTRICTS,
 }
 
-# Import app with all external I/O mocked so module-level code never hits disk or network:
-# - load_latest_forecast: skip DB read so we never fall through to run_forecast
-# - run_forecast: guard in case load_latest_forecast somehow returns None
-# - save_forecast: skip DB write (no state side-effects in tests)
-# - generate_narrative: skip Groq API call (GROQ_API_KEY may be set in dev environments)
-sys.modules.pop("app", None)
-with (
-    patch("src.data.database.load_latest_forecast", return_value=_FORECAST),
-    patch("src.data.database.save_forecast"),
-    patch("src.models.forecast.run_forecast", return_value=_FORECAST),
-    patch("src.visualization.narrative.generate_narrative", return_value=""),
-):
-    import app  # noqa: E402
+
+@pytest.fixture(scope="session")
+def app():
+    """Import app.py with all external I/O mocked.
+
+    Deferred to test-execution time (not collection) so that the heavy import chain
+    (lightgbm → shap → sklearn, ~5-8 s) doesn't inflate pytest --collect-only time.
+    """
+    sys.modules["streamlit"] = _st_mock
+    sys.modules.pop("app", None)
+    with (
+        patch("src.data.database.load_latest_forecast", return_value=_FORECAST),
+        patch("src.data.database.save_forecast"),
+        patch("src.models.forecast.run_forecast", return_value=_FORECAST),
+        patch("src.visualization.narrative.generate_narrative", return_value=""),
+    ):
+        import app as _app
+    return _app
 
 
 class TestAppImport:
-    def test_median_dem_is_int(self):
+    def test_median_dem_is_int(self, app) -> None:
         assert isinstance(app.median_dem, int)
 
-    def test_p_majority_bounded(self):
+    def test_p_majority_bounded(self, app) -> None:
         assert 0.0 <= app.p_majority <= 100.0
 
-    def test_n_competitive_non_negative(self):
+    def test_n_competitive_non_negative(self, app) -> None:
         assert app.n_competitive >= 0
 
-    def test_n_districts_matches_mock(self):
+    def test_n_districts_matches_mock(self, app) -> None:
         assert app.n_districts == 3
 
-    def test_majority_vline_uses_constant(self):
-        # DEM_MAJORITY_SEATS - 0.5 must have been passed; check the mock recorded it
+    def test_majority_vline_uses_constant(self, app) -> None:
+        # DEM_MAJORITY_SEATS - 0.5 must have been passed to add_vline; verify via mock
+        assert hasattr(app, "median_dem")  # confirms fixture ran and app was imported
         calls = str(_st_mock.mock_calls)
         assert str(DEM_MAJORITY_SEATS - 0.5) in calls
 
 
 class TestLoadFunction:
-    def test_returns_required_keys(self):
+    def test_returns_required_keys(self, app) -> None:
         with patch("app.run_forecast", return_value=_FORECAST):
             result = app.load()
         assert {"seats_sim", "districts", "n_districts"}.issubset(result)
 
-    def test_n_districts_value(self):
+    def test_n_districts_value(self, app) -> None:
         with patch("app.run_forecast", return_value=_FORECAST):
             assert app.load()["n_districts"] == 3
