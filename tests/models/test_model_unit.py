@@ -2,9 +2,10 @@
 Unit tests for src.models.model that run without any files in data/.
 All fixtures are synthetic hand-crafted DataFrames / arrays.
 """
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
-from unittest.mock import patch
 
 # ---------------------------------------------------------------------------
 # 1. WeightedPipeline routes sample_weight correctly
