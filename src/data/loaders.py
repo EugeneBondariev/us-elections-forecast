@@ -6,8 +6,23 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.constants import ECON_GROWTH, GENERIC_BALLOT, OPEN_SEATS_2026, PRES_PARTY, UNEMPLOYMENT, Col, Val
-from src.data.validators import validate_approval_data, validate_house_data
+from src.constants import (
+    ECON_GROWTH,
+    GENERIC_BALLOT,
+    OPEN_SEATS_2026,
+    PRES_PARTY,
+    UNEMPLOYMENT,
+    Col,
+    Val,
+)
+from pandera.typing import DataFrame
+
+from src.data.validators import (
+    ApprovalDataSchema,
+    HouseDataSchema,
+    validate_approval_data,
+    validate_house_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,72 +37,60 @@ __all__ = [
 ]
 
 
-def load_pres_lean(path_2008_2020: str | Path, path_2020_2024: str | Path) -> pd.DataFrame:
+def load_pres_lean(path_2008_2020: Path, path_2020_2024: Path) -> pd.DataFrame:
     """Parse presidential results by district from two Downballot CSVs.
 
     Returns long-format DataFrame: state_po, district, pres_year, pres_lean (Dem fraction 0-1).
     """
 
-    def _parse(s: str):
+    def _parse(s: str) -> tuple[str, int]:
         state, dist = str(s).strip().split("-")
         return state, 0 if dist == "AL" else int(dist)
 
-    df1 = pd.read_csv(
-        path_2008_2020,
-        skiprows=[0, 1],
-        header=None,
-        names=[
-            "dist", "inc", "party",
-            "biden_20", "trump_20",
-            "clinton_16", "trump_16",
-            "obama_12", "romney_12",
-            "obama_08", "mccain_08",
-        ],
-    )
-    df1 = df1.dropna(subset=["dist"])
-    parsed1 = df1["dist"].apply(_parse)
-    df1[Col.STATE] = [p[0] for p in parsed1]
-    df1[Col.DISTRICT] = [p[1] for p in parsed1]
+    def _load_and_parse(path: Path, skiprows: list[int], names: list[str]) -> pd.DataFrame:
+        df = pd.read_csv(path, skiprows=skiprows, header=None, names=names)
+        df = df.dropna(subset=["dist"])
+        parsed = df["dist"].apply(_parse)
+        df[Col.STATE] = [p[0] for p in parsed]
+        df[Col.DISTRICT] = [p[1] for p in parsed]
+        return df
 
-    df2 = pd.read_csv(
-        path_2020_2024,
-        skiprows=[0, 1, 2],
-        header=None,
-        names=[
-            "dist", "inc", "party",
-            "harris_24", "trump_24", "margin_24",
-            "biden_20b", "trump_20b", "margin_20",
-        ],
-    )
-    df2 = df2.dropna(subset=["dist"])
-    parsed2 = df2["dist"].apply(_parse)
-    df2[Col.STATE] = [p[0] for p in parsed2]
-    df2[Col.DISTRICT] = [p[1] for p in parsed2]
+    df1 = _load_and_parse(path_2008_2020, [0, 1], [
+        "dist", "inc", "party",
+        "biden_20", "trump_20", "clinton_16", "trump_16",
+        "obama_12", "romney_12", "obama_08", "mccain_08",
+    ])
+    df2 = _load_and_parse(path_2020_2024, [0, 1, 2], [
+        "dist", "inc", "party",
+        "harris_24", "trump_24", "margin_24",
+        "biden_20b", "trump_20b", "margin_20",
+    ])
 
     year_col_map = {"obama_08": 2008, "obama_12": 2012, "clinton_16": 2016, "biden_20": 2020}
-    df1_long = (
-        df1[[Col.STATE, Col.DISTRICT] + list(year_col_map.keys())]
-        .melt(id_vars=[Col.STATE, Col.DISTRICT], var_name="col_name", value_name="raw")
+    df1_long = df1[[Col.STATE, Col.DISTRICT] + list(year_col_map.keys())].melt(
+        id_vars=[Col.STATE, Col.DISTRICT], var_name="_col", value_name="_raw"
     )
-    df1_long["pres_year"] = df1_long["col_name"].map(year_col_map)
-    df1_long[Col.PRES_LEAN] = pd.to_numeric(df1_long["raw"], errors="coerce") / 100
+    df1_long[Col.PRES_YEAR] = df1_long["_col"].map(year_col_map)
+    df1_long[Col.PRES_LEAN] = pd.to_numeric(df1_long["_raw"], errors="coerce") / 100
     df1_long = df1_long.dropna(subset=[Col.PRES_LEAN])
 
     df2_long = df2[[Col.STATE, Col.DISTRICT, "harris_24"]].copy()
-    df2_long["pres_year"] = 2024
+    df2_long[Col.PRES_YEAR] = 2024
     df2_long[Col.PRES_LEAN] = pd.to_numeric(df2_long["harris_24"], errors="coerce") / 100
     df2_long = df2_long.dropna(subset=[Col.PRES_LEAN])
 
     result = pd.concat(
-        [df1_long[[Col.STATE, Col.DISTRICT, "pres_year", Col.PRES_LEAN]],
-         df2_long[[Col.STATE, Col.DISTRICT, "pres_year", Col.PRES_LEAN]]],
+        [
+            df1_long[[Col.STATE, Col.DISTRICT, Col.PRES_YEAR, Col.PRES_LEAN]],
+            df2_long[[Col.STATE, Col.DISTRICT, Col.PRES_YEAR, Col.PRES_LEAN]],
+        ],
         ignore_index=True,
     )
     logger.info("Loaded presidential lean: %d district-year records", len(result))
     return result
 
 
-def load_clean_house_data(path: str | Path) -> pd.DataFrame:
+def load_clean_house_data(path: Path) -> DataFrame[HouseDataSchema]:
     """Load MIT Election Lab house CSV and apply standard filters (general, no special/runoff)."""
     logger.info("Loading house data from %s", path)
     df = pd.read_csv(path, low_memory=False)
@@ -103,9 +106,19 @@ def load_clean_house_data(path: str | Path) -> pd.DataFrame:
         df = df[~df[col]]
 
     drop = [
-        "state", Col.STATE_FIPS, Col.STATE_CEN, Col.STATE_IC, Col.FUSION_TICKET,
-        Col.OFFICE, Col.MODE, Col.VERSION, Col.STAGE, Col.SPECIAL, Col.RUNOFF,
-        Col.UNOFFICIAL, Col.WRITE_IN,
+        "state",
+        Col.STATE_FIPS,
+        Col.STATE_CEN,
+        Col.STATE_IC,
+        Col.FUSION_TICKET,
+        Col.OFFICE,
+        Col.MODE,
+        Col.VERSION,
+        Col.STAGE,
+        Col.SPECIAL,
+        Col.RUNOFF,
+        Col.UNOFFICIAL,
+        Col.WRITE_IN,
     ]
     df = df.drop(columns=drop, errors="ignore")
     df = df[df[Col.PARTY].notna()]
@@ -130,12 +143,11 @@ def load_clean_house_data(path: str | Path) -> pd.DataFrame:
     df = df.reset_index(drop=True)
     logger.info("Loaded %d rows", len(df))
     validate_house_data(df)
-    return df
+    return df  # type: ignore[return-value]
 
 
-def load_cook_ratings(path: str | Path) -> pd.DataFrame:
+def load_cook_ratings(path: Path) -> pd.DataFrame:
     """Load Cook Political cook.csv; return empty DataFrame with correct columns if file is absent."""
-    path = Path(path)
     if not path.exists():
         logger.info("cook.csv not found at %s — skipping Cook blend", path)
         return pd.DataFrame(columns=[Col.STATE, Col.DISTRICT, Col.COOK_PROB])
@@ -144,7 +156,7 @@ def load_cook_ratings(path: str | Path) -> pd.DataFrame:
     return df[[Col.STATE, Col.DISTRICT, Col.COOK_PROB]]
 
 
-def load_approval(path: str | Path) -> pd.DataFrame:
+def load_approval(path: Path) -> DataFrame[ApprovalDataSchema]:
     """Load presidential approval TSV; sign-adjust so positive approval = Dem-favorable."""
     logger.info("Loading approval ratings from %s", path)
     approval = pd.read_csv(
@@ -164,7 +176,7 @@ def load_approval(path: str | Path) -> pd.DataFrame:
     sign = np.where(approval[Col.PRES_PARTY] == Val.DEMOCRAT, 1, -1)
     approval[Col.PRES_APPROVAL] = approval[Col.PRES_APPROVAL] * sign
     approval[Col.PRES_DISAPPROVAL] = approval[Col.PRES_DISAPPROVAL] * (-sign)
-    return approval[[Col.YEAR, Col.PRES_APPROVAL, Col.PRES_DISAPPROVAL]]
+    return approval[[Col.YEAR, Col.PRES_APPROVAL, Col.PRES_DISAPPROVAL]]  # type: ignore[return-value]
 
 
 def load_indicators() -> tuple[dict[int, float], dict[int, float]]:
@@ -180,8 +192,8 @@ def load_indicators() -> tuple[dict[int, float], dict[int, float]]:
         return dict(ECON_GROWTH), dict(UNEMPLOYMENT)
 
     df = pd.read_csv(path)
-    econ = dict(zip(df["year"].astype(int), df["econ_growth"].astype(float)))
-    unemp = dict(zip(df["year"].astype(int), df["unemployment"].astype(float)))
+    econ = dict(zip(df[Col.YEAR].astype(int), df[Col.ECON_GROWTH].astype(float)))
+    unemp = dict(zip(df[Col.YEAR].astype(int), df[Col.UNEMPLOYMENT].astype(float)))
 
     # Fill any years missing from the CSV with constants fallback
     for year, val in ECON_GROWTH.items():
@@ -206,7 +218,7 @@ def load_generic_ballot() -> dict[int, float]:
         return dict(GENERIC_BALLOT)
 
     df = pd.read_csv(path)
-    result = dict(zip(df["year"].astype(int), df["margin"].astype(float)))
+    result = dict(zip(df[Col.YEAR].astype(int), df["margin"].astype(float)))
 
     # Fill any years missing from the CSV with constants fallback
     for year, val in GENERIC_BALLOT.items():
@@ -232,9 +244,9 @@ def load_open_seats(year: int = 2026) -> set[tuple[str, int]]:
         logger.info("open_seats_2026.csv absent — using constants.py fallback")
         return set(OPEN_SEATS_2026)
 
-    df = pd.read_csv(path, dtype={"district": int})
+    df = pd.read_csv(path, dtype={Col.DISTRICT: int})
     seats: set[tuple[str, int]] = {
-        (str(row["state_po"]), int(row["district"])) for _, row in df.iterrows()
+        (str(row[Col.STATE]), int(row[Col.DISTRICT])) for _, row in df.iterrows()
     }
     logger.info("Loaded %d open seats from %s", len(seats), path)
     return seats

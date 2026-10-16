@@ -29,6 +29,8 @@ from typing import Any
 import pandas as pd
 import requests
 
+from src.constants import Col
+
 logger = logging.getLogger(__name__)
 
 __all__ = ["load_fundraising", "fetch_and_cache"]
@@ -51,7 +53,7 @@ _RAW_FIELDS = [
 ]
 
 
-def _fetch_year(api_key: str, year: int) -> list[dict]:
+def _fetch_year(api_key: str, year: int) -> list[dict[str, Any]]:
     records = []
     page = 1
     while True:
@@ -92,10 +94,10 @@ def _fetch_year(api_key: str, year: int) -> list[dict]:
             except ValueError:
                 district = 0
             record = {
-                "year": year,
-                "state_po": r.get("state"),
-                "district": district,
-                "party": r.get("party"),
+                Col.YEAR: year,
+                Col.STATE: r.get("state"),
+                Col.DISTRICT: district,
+                Col.PARTY: r.get("party"),
                 "candidate_id": r.get("candidate_id"),
                 "candidate_name": r.get("name"),
             }
@@ -113,11 +115,11 @@ def _fetch_year(api_key: str, year: int) -> list[dict]:
     return records
 
 
-def _save_raw(records: list[dict], raw_path: Path) -> None:
+def _save_raw(records: list[dict[str, Any]], raw_path: Path) -> None:
     if not records:
         return
     df = pd.DataFrame(records)
-    df = df[df["state_po"].notna()].sort_values(["year", "state_po", "district", "party"])
+    df = df[df[Col.STATE].notna()].sort_values([Col.YEAR, Col.STATE, Col.DISTRICT, Col.PARTY])
     raw_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(raw_path, index=False)
     logger.info("Raw fundraising saved → %s (%d rows)", raw_path, len(df))
@@ -132,23 +134,23 @@ def _top_candidate_per_group(df_party: pd.DataFrame) -> pd.DataFrame:
     one row via idxmax keeps every field internally consistent.
     """
     if df_party.empty:
-        return df_party[["year", "state_po", "district"] + _RAW_FIELDS]
-    idx = df_party.groupby(["year", "state_po", "district"])["receipts"].idxmax()
-    return df_party.loc[idx, ["year", "state_po", "district"] + _RAW_FIELDS].reset_index(drop=True)
+        return df_party[[Col.YEAR, Col.STATE, Col.DISTRICT] + _RAW_FIELDS]
+    idx = df_party.groupby([Col.YEAR, Col.STATE, Col.DISTRICT])["receipts"].idxmax()
+    return df_party.loc[idx, [Col.YEAR, Col.STATE, Col.DISTRICT] + _RAW_FIELDS].reset_index(drop=True)
 
 
-def _aggregate(records: list[dict]) -> pd.DataFrame:
+def _aggregate(records: list[dict[str, Any]]) -> pd.DataFrame:
     df = pd.DataFrame(records)
-    df = df[df["state_po"].notna()]
-    dem = _top_candidate_per_group(df[df["party"] == "DEM"]).rename(
+    df = df[df[Col.STATE].notna()]
+    dem = _top_candidate_per_group(df[df[Col.PARTY] == "DEM"]).rename(
         columns={f: f"dem_{f}" for f in _RAW_FIELDS}
     )
-    rep = _top_candidate_per_group(df[df["party"] == "REP"]).rename(
+    rep = _top_candidate_per_group(df[df[Col.PARTY] == "REP"]).rename(
         columns={f: f"rep_{f}" for f in _RAW_FIELDS}
     )
-    result = dem.merge(rep, on=["year", "state_po", "district"], how="outer").fillna(0)
+    result = dem.merge(rep, on=[Col.YEAR, Col.STATE, Col.DISTRICT], how="outer").fillna(0)
 
-    def _share(dem_col, rep_col):
+    def _share(dem_col: str, rep_col: str) -> pd.Series:
         total = result[dem_col] + result[rep_col]
         return (result[dem_col] / total.clip(lower=1)).where(total > 0, 0.5)
 
@@ -174,17 +176,17 @@ def _aggregate(records: list[dict]) -> pd.DataFrame:
     )
 
     return result[[
-        "year", "state_po", "district",
-        "fundraising_dem_share", "large_donor_dem_share",
-        "pac_dem_share", "spending_dem_share", "surplus_dem_share",
+        Col.YEAR, Col.STATE, Col.DISTRICT,
+        Col.FUNDRAISING_DEM_SHARE, Col.LARGE_DONOR_DEM_SHARE,
+        Col.PAC_DEM_SHARE, Col.SPENDING_DEM_SHARE, Col.SURPLUS_DEM_SHARE,
     ]]
 
 
 def fetch_and_cache(
-    cache_path: str | Path,
+    cache_path: Path,
     api_key: str,
     years: list[int] | None = None,
-    raw_path: str | Path | None = None,
+    raw_path: Path | None = None,
 ) -> pd.DataFrame:
     """Fetch House fundraising totals from FEC API and cache to CSV."""
     from src.paths import DataFile
@@ -224,7 +226,7 @@ def fetch_and_cache(
 
 
 def load_fundraising(
-    cache_path: str | Path,
+    cache_path: Path,
     api_key: str | None = None,
     years: list[int] | None = None,
 ) -> pd.DataFrame | None:
@@ -233,8 +235,6 @@ def load_fundraising(
     Returns None if no API key is provided and no cache exists — callers treat
     None as "feature unavailable" and skip fundraising columns.
     """
-    cache_path = Path(cache_path)
-
     if cache_path.exists():
         logger.info("Loading fundraising from cache: %s", cache_path)
         return pd.read_csv(cache_path)

@@ -89,7 +89,7 @@ def _fetch_html_table(url: str) -> pd.DataFrame:
     return _parse_html_table(resp.text)
 
 
-def _normalize_col(col) -> str:
+def _normalize_col(col: object) -> str:
     """Collapse whitespace and lowercase, so 'Unsure/NoData', 'Unsure/ NoData', and
     'Unsure / No Data' (all three appear across different UCSB president pages) match."""
     return re.sub(r"\s+", "", str(col)).lower()

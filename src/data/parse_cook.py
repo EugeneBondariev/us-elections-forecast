@@ -18,9 +18,11 @@ import logging
 import re
 import urllib.request
 from collections import Counter
+from typing import Any
 
 import pandas as pd
 
+from src.constants import Col
 from src.paths import DataFile
 
 logger = logging.getLogger(__name__)
@@ -126,7 +128,7 @@ def _fetch_html(url: str = RATINGS_URL) -> str:
         return resp.read().decode("utf-8")
 
 
-def parse(html: str) -> list[dict]:
+def parse(html: str) -> list[dict[str, Any]]:
     tables = pd.read_html(io.StringIO(html), flavor="lxml", header=[0, 1])
     result = _find_table(tables)
     if result is None:
@@ -148,10 +150,10 @@ def parse(html: str) -> list[dict]:
             continue
         state_po, district = parsed
         rows.append({
-            "state_po": state_po,
-            "district": district,
+            Col.STATE: state_po,
+            Col.DISTRICT: district,
             "rating": rating_key,
-            "cook_prob": COOK_PROB[rating_key],
+            Col.COOK_PROB: COOK_PROB[rating_key],
         })
     return rows
 
@@ -165,7 +167,7 @@ def main() -> None:
     seen: set[tuple[str, int]] = set()
     unique = []
     for row in rows:
-        key = (row["state_po"], row["district"])
+        key = (row[Col.STATE], row[Col.DISTRICT])
         if key not in seen:
             seen.add(key)
             unique.append(row)
@@ -173,7 +175,7 @@ def main() -> None:
     csv_path = DataFile.COOK
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     with csv_path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["state_po", "district", "rating", "cook_prob"])
+        writer = csv.DictWriter(f, fieldnames=[Col.STATE, Col.DISTRICT, "rating", Col.COOK_PROB])
         writer.writeheader()
         writer.writerows(unique)
 

@@ -8,6 +8,7 @@ Forecast persistence (used by api.py and /refresh):
     save_forecast(result)          — write latest forecast to DB, return run_id
     load_latest_forecast()         — read most recent forecast from DB, or None
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -20,6 +21,7 @@ import pandas as pd
 
 from src.constants import PRES_PARTY, Col, Val
 from src.paths import DataFile
+from src.types import ForecastResult
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +37,8 @@ CREATE TABLE IF NOT EXISTS forecast_runs (
 """
 
 
-def save_forecast(result: dict, db_path: Path = DataFile.DB) -> int:
+def save_forecast(result: ForecastResult, db_path: Path = DataFile.DB) -> int:
     """Persist a run_forecast() result dict to SQLite. Returns the new run_id."""
-    db_path = Path(db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
     try:
@@ -61,9 +62,8 @@ def save_forecast(result: dict, db_path: Path = DataFile.DB) -> int:
         conn.close()
 
 
-def load_latest_forecast(db_path: Path = DataFile.DB) -> dict | None:
+def load_latest_forecast(db_path: Path = DataFile.DB) -> ForecastResult | None:
     """Load the most recent saved forecast from SQLite. Returns None if none exists."""
-    db_path = Path(db_path)
     if not db_path.exists():
         return None
     conn = sqlite3.connect(db_path)
@@ -74,7 +74,7 @@ def load_latest_forecast(db_path: Path = DataFile.DB) -> dict | None:
                 "FROM forecast_runs ORDER BY run_id DESC LIMIT 1"
             ).fetchone()
         except sqlite3.OperationalError:
-            return None  # table not yet created
+            return None  # DB unreadable or table not yet created
         if row is None:
             return None
         run_id, run_at, n_districts, seats_sim_json, districts_json = row
@@ -88,9 +88,8 @@ def load_latest_forecast(db_path: Path = DataFile.DB) -> dict | None:
         conn.close()
 
 
-def load_house_from_db(db_path: str | Path) -> pd.DataFrame:
+def load_house_from_db(db_path: Path) -> pd.DataFrame:
     """Load and clean house data from SQLite — same output as load_clean_house_data."""
-    db_path = Path(db_path)
     logger.info("Loading house data from %s (table house_results)", db_path)
 
     conn = sqlite3.connect(db_path)
@@ -133,9 +132,8 @@ def load_house_from_db(db_path: str | Path) -> pd.DataFrame:
     return df
 
 
-def load_approval_from_db(db_path: str | Path) -> pd.DataFrame:
+def load_approval_from_db(db_path: Path) -> pd.DataFrame:
     """Load approval ratings from SQLite — same output as load_approval."""
-    db_path = Path(db_path)
     logger.info("Loading approval ratings from %s (table approval)", db_path)
 
     conn = sqlite3.connect(db_path)
