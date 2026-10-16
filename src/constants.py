@@ -7,7 +7,7 @@ from enum import StrEnum
 __all__ = [
     "Col", "Val",
     "DEM_MAJORITY_SEATS", "COOK_ALPHA", "COMPETITIVE_MARGIN",
-    "PRES_PARTY", "GENERIC_BALLOT", "ECON_GROWTH", "UNEMPLOYMENT",
+    "PRES_PARTY", "GENERIC_BALLOT", "GDP_2026_ESTIMATE",
     "REDISTRICTING_YEARS", "PRES_YEAR_FOR_HOUSE", "OPEN_SEATS_2026",
 ]
 
@@ -164,67 +164,10 @@ GENERIC_BALLOT = {
 # so in build_winners we flip sign when the president is Republican,
 # same convention as pres_approval.
 # Sources: FRED GDPC1 quarterly release; 2026 value is Q2 2026 advance estimate.
-ECON_GROWTH = {
-    1976:  4.9,   # Ford; strong recovery post-1975 recession
-    1978:  5.3,   # Carter; expansion
-    1980:  0.4,   # Carter; brief recovery after Q1-Q2 recession
-    1982: -1.9,   # Reagan; deep recession (double-dip)
-    1984:  6.5,   # Reagan; Morning in America boom
-    1986:  3.0,   # Reagan; steady expansion
-    1988:  4.4,   # Bush Sr campaign; strong
-    1990:  1.6,   # Bush Sr; slowing, Gulf War
-    1992:  3.8,   # Clinton campaign; recovery underway
-    1994:  4.1,   # Clinton midterm; strong growth
-    1996:  3.7,   # Clinton; robust expansion
-    1998:  4.7,   # Clinton; dot-com boom
-    2000:  3.8,   # Clinton; late expansion
-    2002:  1.7,   # Bush Jr; post-recession slow recovery
-    2004:  3.5,   # Bush Jr; expansion
-    2006:  2.5,   # Bush Jr; solid
-    2008: -0.3,   # Bush Jr; financial crisis beginning
-    2010:  3.2,   # Obama; recovery (from -4% trough)
-    2012:  2.5,   # Obama; steady but slow
-    2014:  2.7,   # Obama; solid
-    2016:  1.7,   # Obama; slowdown
-    2018:  3.1,   # Trump; tax-cut boost
-    2020: -2.7,   # Trump; COVID crash (Q3 rebound but still below YoY)
-    2022:  1.9,   # Biden; post-COVID, pre-recession fears
-    2024:  2.8,   # Biden; resilient despite rate hikes
-    2026:  2.2,   # Trump; Q3 2026 YoY (FRED GDPC1)
-}
-
-# October unemployment rate (FRED series UNRATE), % of labor force.
-# Sign convention: same flip as ECON_GROWTH applied in build_winners —
-# high unemployment under a Rep president is Dem-favorable (positive after flip).
-# Sources: FRED UNRATE monthly; 2026 value is September 2026 estimate.
-UNEMPLOYMENT = {
-    1976:  7.9,   # Ford; post-recession elevated
-    1978:  5.9,   # Carter; improving
-    1980:  7.5,   # Carter; recession surge
-    1982: 10.4,   # Reagan; double-dip peak
-    1984:  7.2,   # Reagan; falling but still high
-    1986:  7.0,   # Reagan; gradual decline
-    1988:  5.4,   # Bush Sr; near full employment
-    1990:  5.9,   # Bush Sr; rising, Gulf War
-    1992:  7.4,   # Bush Sr; high, election issue
-    1994:  5.7,   # Clinton; rapid improvement
-    1996:  5.2,   # Clinton; strong labor market
-    1998:  4.5,   # Clinton; dot-com boom
-    2000:  3.9,   # Clinton; historic low
-    2002:  5.7,   # Bush Jr; post-recession
-    2004:  5.5,   # Bush Jr; slowly improving
-    2006:  4.4,   # Bush Jr; solid
-    2008:  6.5,   # Bush Jr; financial crisis rising
-    2010:  9.6,   # Obama; near post-war peak
-    2012:  7.9,   # Obama; slow recovery
-    2014:  5.8,   # Obama; improving
-    2016:  4.9,   # Obama; near full employment
-    2018:  3.7,   # Trump; 50-year low
-    2020:  6.9,   # Trump; COVID, falling from April peak
-    2022:  3.7,   # Biden; historically tight labor market
-    2024:  4.1,   # Biden; slight uptick
-    2026:  4.2,   # Trump; Sep 2026 (FRED UNRATE)
-}
+# Q3 2026 YoY GDP growth estimate — used as fallback until FRED publishes the
+# advance GDP release (typically late October of election year). Replace with
+# the FRED value once available and re-run `make indicators`.
+GDP_2026_ESTIMATE = 2.2
 
 REDISTRICTING_YEARS = {1982, 1992, 2002, 2012, 2022}
 

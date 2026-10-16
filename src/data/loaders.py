@@ -8,11 +8,9 @@ import pandas as pd
 from pandera.typing import DataFrame
 
 from src.constants import (
-    ECON_GROWTH,
     GENERIC_BALLOT,
     OPEN_SEATS_2026,
     PRES_PARTY,
-    UNEMPLOYMENT,
     Col,
     Val,
 )
@@ -183,25 +181,19 @@ def load_approval(path: Path) -> DataFrame[ApprovalDataSchema]:
 def load_indicators() -> tuple[dict[int, float], dict[int, float]]:
     """Return (econ_growth_by_year, unemployment_by_year).
 
-    Uses data/interim/indicators.csv if present; falls back to constants dicts.
+    Uses data/interim/indicators.csv — run `make indicators` (requires FRED_API_KEY) to build it.
     """
     from src.paths import DataFile
 
     path = DataFile.INDICATORS
     if not path.exists():
-        logger.info("indicators.csv absent — using constants.py fallback")
-        return dict(ECON_GROWTH), dict(UNEMPLOYMENT)
+        raise FileNotFoundError(
+            f"{path} not found — run `make indicators` (requires FRED_API_KEY) to fetch it"
+        )
 
     df = pd.read_csv(path)
     econ = dict(zip(df[Col.YEAR].astype(int), df[Col.ECON_GROWTH].astype(float)))
     unemp = dict(zip(df[Col.YEAR].astype(int), df[Col.UNEMPLOYMENT].astype(float)))
-
-    # Fill any years missing from the CSV with constants fallback
-    for year, val in ECON_GROWTH.items():
-        econ.setdefault(year, val)
-    for year, val in UNEMPLOYMENT.items():
-        unemp.setdefault(year, val)
-
     logger.info("Loaded indicators: %d years from %s", len(df), path)
     return econ, unemp
 
