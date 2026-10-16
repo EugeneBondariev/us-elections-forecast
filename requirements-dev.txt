@@ -3,6 +3,7 @@
 mypy
 pandas-stubs
 types-requests
+pytest-testmon
 # Needed for make test-e2e only. Also run: playwright install chromium
 playwright~=1.0
 

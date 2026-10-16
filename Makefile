@@ -1,4 +1,4 @@
-.PHONY: help app test test-e2e typecheck lint analyze predict tune rag db indicators generic-ballot open-seats agent calibrate-sigma freeze install install-dev fetch validate push
+.PHONY: help app mlflow test test-fast test-e2e typecheck lint analyze predict tune rag db indicators generic-ballot open-seats agent calibrate-sigma freeze install install-dev fetch validate push
 
 PYTHON = python
 export PYTHONUNBUFFERED := 1
@@ -15,7 +15,8 @@ help:
 	@echo "  push             Run typecheck + test, then git push (only if both pass)"
 	@echo "  typecheck        Run mypy over src/, api.py and app.py"
 	@echo "  lint             Run ruff linter"
-	@echo "  test             Run the fast test suite (excludes e2e)"
+	@echo "  test             Run the full test suite (excludes e2e)"
+	@echo "  test-fast        Re-run only tests affected by file changes (pytest-testmon)"
 	@echo "  test-e2e         Run the real-browser Streamlit/API smoke tests (slow, opt-in -"
 	@echo "                   needs: pip install playwright && playwright install chromium)"
 	@echo ""
@@ -35,6 +36,7 @@ help:
 	@echo "Analysis & App:"
 	@echo "  analyze          Run all 6 diagnostic scripts (logs to logs/analysis/)"
 	@echo "  app              Start the Streamlit app"
+	@echo "  mlflow           Start the MLflow UI (models/mlflow.db)"
 	@echo "  rag              Build the ChromaDB RAG index from current forecast"
 	@echo "  agent            Run the LLM forecast agent (requires GROQ_API_KEY)"
 
@@ -66,8 +68,15 @@ freeze:
 app:
 	$(PYTHON) -m streamlit run app.py
 
+mlflow:
+	$(PYTHON) -c 'exec("import time,webbrowser,socket\nfor _ in range(30):\n  s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)\n  if s.connect_ex((\"127.0.0.1\",5000))==0:\n    s.close();break\n  s.close();time.sleep(0.5)\nwebbrowser.open(\"http://127.0.0.1:5000\")")' &
+	$(PYTHON) -m mlflow ui --backend-store-uri sqlite:///models/mlflow.db
+
 test:
 	$(PYTHON) -m pytest tests/ -v --tb=short
+
+test-fast:
+	$(PYTHON) -m pytest tests/ --testmon -v --tb=short
 
 test-e2e:
 	$(PYTHON) -m pytest tests/test_app_e2e.py -m e2e -v

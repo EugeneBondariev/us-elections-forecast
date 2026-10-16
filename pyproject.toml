@@ -12,7 +12,7 @@ include = ["src", "src.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q -m 'not e2e'"
+addopts = "-q --ignore=tests/test_app_e2e.py"
 markers = [
     "e2e: slow end-to-end tests that start real servers (Streamlit + FastAPI) and drive them with a real headless browser. Opt-in only (`make test-e2e`) - excluded from the default suite by addopts above. Needs `pip install -r requirements-dev.txt` and a one-time `playwright install chromium`.",
 ]
