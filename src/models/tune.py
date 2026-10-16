@@ -76,10 +76,21 @@ def main() -> None:
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
+    n_trials = 500
+
+    def _log_progress(study: optuna.Study, trial: optuna.trial.FrozenTrial) -> None:
+        if trial.number % 50 == 0 or trial.number == n_trials - 1:
+            logger.info("  Trial %3d/%d — best so far: %.4f", trial.number + 1, n_trials, study.best_value)
+
+    logger.info("Running %d trials...", n_trials)
     sampler = optuna.samplers.TPESampler(seed=42, n_startup_trials=50)
     pruner = optuna.pruners.MedianPruner(n_startup_trials=20)
     study = optuna.create_study(direction="maximize", sampler=sampler, pruner=pruner)
-    study.optimize(lambda trial: objective(trial, X, y, years), n_trials=500)
+    study.optimize(
+        lambda trial: objective(trial, X, y, years),
+        n_trials=n_trials,
+        callbacks=[_log_progress],
+    )
 
     best_params = study.best_params
     best_score = study.best_value

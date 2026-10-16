@@ -47,6 +47,8 @@ install:
 install-dev: install
 	$(PYTHON) -m pip install -r requirements-dev.txt
 
+pre-commit: lint typecheck test-fast
+
 push: lint typecheck test
 	git push
 
