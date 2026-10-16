@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import sys
+import types
 from datetime import datetime
 from pathlib import Path
 
@@ -68,4 +70,16 @@ def setup_logging(level: int = logging.INFO, log_dir: str = "logs/app") -> Path:
 
     logging.root.setLevel(level)
     logging.root.handlers = [console_handler, file_handler]
+
+    def _excepthook(
+        exc_type: type[BaseException],
+        exc_value: BaseException,
+        exc_tb: types.TracebackType | None,
+    ) -> None:
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_tb)
+            return
+        logging.root.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_tb))
+
+    sys.excepthook = _excepthook
     return log_path
