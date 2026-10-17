@@ -11,7 +11,8 @@ import mlflow.sklearn
 import numpy as np
 import pandas as pd
 
-from src.constants import DEM_MAJORITY_SEATS, Col
+from src.constants import COOK_ALPHA, DEM_MAJORITY_SEATS, Col
+from src.data.loaders import load_cook_ratings
 from src.features.features import build_dataset, build_pred_2026
 from src.logging_config import setup_logging
 from src.models.model import (
@@ -123,8 +124,6 @@ def main() -> None:
     X, y, years, winners = ds.X, ds.y, ds.years, ds.winners
     pres_lean, fundraising, dems_reps = ds.pres_lean, ds.fundraising, ds.dems_reps
 
-    cook_alpha = 0.35 if DataFile.COOK.exists() else 0.0
-
     # Without an explicit tracking URI, mlflow defaults to a sqlite db wherever the
     # cwd happens to be when this runs - which left a stray mlflow.db at the repo
     # root. models/ is the right home: this is training-run metadata (params,
@@ -136,7 +135,7 @@ def main() -> None:
     with mlflow.start_run():
         mlflow.log_param("n_features", X.shape[1])
         mlflow.log_param("n_train_samples", len(X))
-        mlflow.log_param("cook_alpha", cook_alpha)
+        mlflow.log_param("cook_alpha", COOK_ALPHA if DataFile.COOK.exists() else 0.0)
 
         wf = walk_forward_cv(X, y, years)
         _log_walk_forward(wf)
@@ -208,6 +207,29 @@ def main() -> None:
         )
         proba = pipeline.predict_proba(pred_2026)[:, 1]
 
+        district_ids = district_ids.copy()
+        district_ids["proba_dem"] = proba
+
+        # Blend in Cook Political Report ratings where available - same formula and
+        # same COOK_ALPHA weight as run_forecast() (src/models/forecast.py), so the
+        # CLI's own number matches what the live app/API actually serve instead of
+        # silently reporting the pre-blend model output.
+        cook = load_cook_ratings(DataFile.COOK)
+        if not cook.empty:
+            district_ids = district_ids.merge(
+                cook[[Col.STATE, Col.DISTRICT, Col.COOK_PROB]],
+                on=[Col.STATE, Col.DISTRICT],
+                how="left",
+            )
+            has_cook = district_ids[Col.COOK_PROB].notna()
+            district_ids["proba_dem"] = np.where(
+                has_cook,
+                (1 - COOK_ALPHA) * district_ids["proba_dem"]
+                + COOK_ALPHA * district_ids[Col.COOK_PROB].fillna(district_ids["proba_dem"]),
+                district_ids["proba_dem"],
+            )
+        proba = district_ids["proba_dem"].to_numpy()
+
         sim_params = load_simulation_params()
         mlflow.log_param("sigma_national", sim_params["sigma_national"])
         mlflow.log_param("sigma_district", sim_params["sigma_district"])
@@ -216,8 +238,6 @@ def main() -> None:
             sigma_national=sim_params["sigma_national"],
             sigma_district=sim_params["sigma_district"],
         )
-        district_ids = district_ids.copy()
-        district_ids["proba_dem"] = proba
         district_ids["label"] = district_ids.apply(
             lambda r: _label(r[Col.STATE], r[Col.DISTRICT]), axis=1
         )
