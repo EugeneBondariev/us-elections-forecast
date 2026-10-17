@@ -56,7 +56,8 @@ class DataFile:
     PRES_20_24 = RAW_DIR / "president-2020-2024-by-district.csv"
 
     # external/ — third-party supplementary data. Same immutability rule as raw/.
-    FUNDRAISING_RAW = EXTERNAL_DIR / "fundraising_raw.csv"
+    FUNDRAISING_RAW         = EXTERNAL_DIR / "fundraising_raw.csv"
+    GENERIC_BALLOT_RAW      = EXTERNAL_DIR / "generic_ballot_averages_raw.csv"
 
     # interim/ — first-pass transformations of raw/external data. APPROVAL belongs
     # here, not raw/, despite the filename: src/data/build_approval_history.py pools
