@@ -12,12 +12,9 @@ Run:
 from __future__ import annotations
 
 import csv
-import io
 import logging
 import re
 import urllib.request
-
-import pandas as pd
 
 from src.constants import OPEN_SEATS_2026
 from src.data.parse_cook import _STATE_ABBR
@@ -110,33 +107,65 @@ def _fetch_html() -> str:
         return resp.read().decode("utf-8")
 
 
-def _parse_open_seats_from_html(html: str) -> set[tuple[str, int]] | None:
-    """Extract open seats from Wikipedia HTML tables near the retirements section."""
-    try:
-        tables = pd.read_html(io.StringIO(html), flavor="lxml")
-    except Exception as exc:
-        logger.info("HTML table parse failed: %s", exc)
+_TITLE_RE = re.compile(
+    r"^(.+?)'s (?:(\d+)(?:st|nd|rd|th)|at-large) congressional district$"
+)
+
+
+def _parse_title_attr(title: str) -> tuple[str, int] | None:
+    """Parse an anchor's title attribute, e.g.:
+
+    "California's 11th congressional district"       -> ('CA', 11)
+    "South Dakota's at-large congressional district"  -> ('SD', 0)
+    """
+    m = _TITLE_RE.match(title)
+    if not m:
         return None
+    abbr = _STATE_ABBR.get(m.group(1).strip())
+    if not abbr:
+        return None
+    district = int(m.group(2)) if m.group(2) else 0
+    return (abbr, district)
 
+
+def _extract_section_list_html(html: str, heading_id: str) -> str | None:
+    """Return the HTML of the <ol>...</ol> list that follows the heading with this id.
+
+    The retirements lists render as a plain <ol><li>...</li></ol> block, but each <li>
+    also embeds a sibling data-mw attribute carrying the raw wikitext source for the
+    same entry (for VisualEditor) - that blob sits *before* the real <ol> and would
+    itself match any naive "find <ol>, grab everything to the next </ol>" scan if we
+    started searching too early, so this anchors on id="{heading_id}" (the rendered
+    heading itself, not its table-of-contents entry, which uses id="toc-{heading_id}"
+    instead) and only starts scanning for <ol> after that point.
+    """
+    heading_idx = html.find(f'id="{heading_id}"')
+    if heading_idx == -1:
+        return None
+    ol_start = html.find("<ol", heading_idx)
+    if ol_start == -1:
+        return None
+    ol_end = html.find("</ol>", ol_start)
+    if ol_end == -1:
+        return None
+    return html[ol_start : ol_end + len("</ol>")]
+
+
+def _parse_open_seats_from_html(html: str) -> set[tuple[str, int]] | None:
+    """Extract open seats from the Wikipedia "Retirements" section's Democratic/Republican
+    subsections - each a plain numbered list of "<State>'s Nth congressional district:
+    <Member> is retiring." entries. Pulls the district identity from each entry's anchor
+    `title` attribute (e.g. "California's 11th congressional district") rather than the
+    visible text, which is more fragile (names/dates/footnotes mixed in with the district
+    reference, interior entity characters, etc.)
+    """
     seats: set[tuple[str, int]] = set()
-    for df in tables:
-        # Look for tables with a district/constituency column
-        cols_lower = {str(c).lower(): c for c in df.columns}
-        dist_col = next(
-            (cols_lower[c] for c in cols_lower if "district" in c or "constituency" in c),
-            None,
-        )
-        if dist_col is None:
-            # Try first column if it looks like district names
-            first_col = df.columns[0]
-            sample = df[first_col].dropna().astype(str).head(5).tolist()
-            if any(re.search(r"\d+|at.large", s, re.IGNORECASE) for s in sample):
-                dist_col = first_col
-        if dist_col is None:
+    for heading_id in ("Democratic", "Republican"):
+        list_html = _extract_section_list_html(html, heading_id)
+        if list_html is None:
             continue
-
-        for val in df[dist_col].dropna().astype(str):
-            parsed = _parse_district(val)
+        for title in re.findall(r'title="([^"]*congressional district)"', list_html):
+            parsed = _parse_title_attr(title)
             if parsed and parsed[0] in _US_STATES:
                 seats.add(parsed)
 
@@ -174,15 +203,21 @@ def main() -> None:
         _write(set(OPEN_SEATS_2026))
         return
 
+    # Sanity bounds on the number of open seats found: too few suggests a parse that
+    # found nothing useful; too many suggests it matched something much broader than
+    # the retirements list (e.g. a full districts-results table - see git history for
+    # the bug this guards against, which silently "succeeded" with all 435 districts).
+    # ~60 is the real ballpark; 100 leaves headroom without being wide enough to miss
+    # a similar false-positive match in a future cycle.
     parsed: set[tuple[str, int]] | None = _parse_open_seats_from_html(html)
-    if not parsed or len(parsed) < 10:
+    if not parsed or not (10 <= len(parsed) <= 100):
         logger.info(
-            "Table parse found %d seats (too few) — trying text scan",
+            "Section-list parse found %d seats (outside expected range) — trying text scan",
             len(parsed) if parsed else 0,
         )
         parsed = _parse_open_seats_from_text(html)
 
-    if not parsed or len(parsed) < 10:
+    if not parsed or not (10 <= len(parsed) <= 100):
         logger.info(
             "Could not reliably parse open seats (%d found) — falling back to constants.py",
             len(parsed) if parsed else 0,
