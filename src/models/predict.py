@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import logging
 import os
 import tempfile
@@ -38,9 +40,15 @@ def _log_walk_forward(wf: pd.DataFrame) -> None:
     logger.info("Walk-forward validation (2000-2024):")
     logger.info("  %4s  %6s  %6s  %6s  %8s", "year", "actual", "pred", "error", "accuracy")
     for row in wf.itertuples(index=False):
-        logger.info("  %4d  %6d  %6d  %+6d  %7.1f%%",
-                    row.year, row.actual_dem, row.predicted_dem,
-                    row.seat_error, float(row.district_accuracy) * 100)  # type: ignore[arg-type]
+        accuracy_pct = float(row.district_accuracy) * 100  # type: ignore[arg-type]
+        logger.info(
+            "  %4d  %6d  %6d  %+6d  %7.1f%%",
+            row.year,
+            row.actual_dem,
+            row.predicted_dem,
+            row.seat_error,
+            accuracy_pct,
+        )
     logger.info("  Mean absolute seat error: %.1f", wf["seat_error"].abs().mean())
 
 
@@ -51,19 +59,25 @@ def _log_cv_summary(wf: pd.DataFrame, cv_accuracy: float) -> None:
 
 def _log_simulation(sim: np.ndarray, n_districts: int) -> None:
     logger.info("2026 seat projection (10,000 simulations):")
-    logger.info("  Median:           %d Dem / %d Rep",
-                int(np.median(sim)), n_districts - int(np.median(sim)))
-    logger.info("  68%% CI:           %d-%d Dem",
-                int(np.percentile(sim, 16)), int(np.percentile(sim, 84)))
-    logger.info("  95%% CI:           %d-%d Dem",
-                int(np.percentile(sim, 2.5)), int(np.percentile(sim, 97.5)))
+    logger.info(
+        "  Median:           %d Dem / %d Rep",
+        int(np.median(sim)),
+        n_districts - int(np.median(sim)),
+    )
+    logger.info(
+        "  68%% CI:           %d-%d Dem", int(np.percentile(sim, 16)), int(np.percentile(sim, 84))
+    )
+    logger.info(
+        "  95%% CI:           %d-%d Dem",
+        int(np.percentile(sim, 2.5)),
+        int(np.percentile(sim, 97.5)),
+    )
     logger.info("  P(Dem majority):  %.1f%%", (sim >= DEM_MAJORITY_SEATS).mean() * 100)
 
 
 def _log_competitive_districts(district_ids: pd.DataFrame) -> None:
     competitive = (
-        district_ids
-        .assign(closeness=lambda df: (df["proba_dem"] - 0.5).abs())
+        district_ids.assign(closeness=lambda df: (df["proba_dem"] - 0.5).abs())
         .sort_values("closeness")
         .head(15)
     )
@@ -81,10 +95,12 @@ def _log_feature_weights(pipeline: object, X_columns: pd.Index) -> None:
 
 def _log_feature_stability(fi: pd.DataFrame) -> None:
     logger.info("Feature importance stability (walk-forward 2000-2024):")
-    logger.info("  %-45s  %5s  %5s  %5s", "feature", "min%", "max%", "std")
-    for col in fi.columns:
-        logger.info("  %-45s  %5.1f  %5.1f  %5.1f",
-                    col, fi[col].min(), fi[col].max(), fi[col].std())
+    logger.info("  %-45s  %5s  %5s  %5s  %5s", "feature", "min%", "max%", "mean%", "std")
+    for col in fi.mean().sort_values(ascending=False).index:
+        logger.info(
+            "  %-45s  %5.1f  %5.1f  %5.1f  %5.1f",
+            col, fi[col].min(), fi[col].max(), fi[col].mean(), fi[col].std(),
+        )
 
 
 def _log_probabilistic_calibration(calib) -> None:
@@ -92,8 +108,11 @@ def _log_probabilistic_calibration(calib) -> None:
     logger.info("  %4s  %6s  %8s", "year", "brier", "log_loss")
     for row in calib.itertuples(index=False):
         logger.info("  %4d  %6.4f  %8.4f", row.year, row.brier_score, row.log_loss)
-    logger.info("  Mean Brier score: %.4f  |  Mean log loss: %.4f",
-                calib["brier_score"].mean(), calib["log_loss"].mean())
+    logger.info(
+        "  Mean Brier score: %.4f  |  Mean log loss: %.4f",
+        calib["brier_score"].mean(),
+        calib["log_loss"].mean(),
+    )
 
 
 def main() -> None:
@@ -122,13 +141,29 @@ def main() -> None:
         wf = walk_forward_cv(X, y, years)
         _log_walk_forward(wf)
         _log_cv_summary(wf, cross_validate(X, y))
+        # Higher fold counts drop accuracy (10-fold: 63%, 20-fold: 60%) because
+        # smaller test folds get dominated by individual wave-year variance rather
+        # than averaging across election cycles — not a signal worth acting on.
+        # _log_cv_summary(wf, cross_validate(X, y, cv=10))
+        # _log_cv_summary(wf, cross_validate(X, y, cv=20))
+        # 500-fold shoots back up to 91% due to total district-level leakage:
+        # each 13-row test set has its districts present ~24 times in training.
+        # _log_cv_summary(wf, cross_validate(X, y, cv=500))
 
         ci_results = bootstrap_ci(X, y, years)
         logger.info("Bootstrap 95%% CI (200 draws):")
-        logger.info("  Accuracy: %.4f [%.4f, %.4f]",
-                    ci_results["accuracy_mean"], ci_results["accuracy_low"], ci_results["accuracy_high"])
-        logger.info("  Seat error: %.1f [%.1f, %.1f]",
-                    ci_results["seat_error_mean"], ci_results["seat_error_low"], ci_results["seat_error_high"])
+        logger.info(
+            "  Accuracy: %.4f [%.4f, %.4f]",
+            ci_results["accuracy_mean"],
+            ci_results["accuracy_low"],
+            ci_results["accuracy_high"],
+        )
+        logger.info(
+            "  Seat error: %.1f [%.1f, %.1f]",
+            ci_results["seat_error_mean"],
+            ci_results["seat_error_low"],
+            ci_results["seat_error_high"],
+        )
         mlflow.log_metric("bootstrap_accuracy_mean", ci_results["accuracy_mean"])
         mlflow.log_metric("bootstrap_accuracy_low", ci_results["accuracy_low"])
         mlflow.log_metric("bootstrap_accuracy_high", ci_results["accuracy_high"])
@@ -150,19 +185,23 @@ def main() -> None:
         mlflow.log_metric("mean_abs_seat_error", wf["seat_error"].abs().mean())
 
         pipeline = train(X, y, sample_weight=compute_sample_weights(years))
-        mlflow.sklearn.log_model(
-            pipeline,
-            artifact_path="model",
-            registered_model_name="us-house-stacking-ensemble",
-            skops_trusted_types=[
-                "collections.OrderedDict",
-                "lightgbm.basic.Booster",
-                "lightgbm.sklearn.LGBMClassifier",
-                "sklearn.tree._tree.Tree",
-                "sklearn.utils._bunch.Bunch",
-                "src.models.model.WeightedPipeline",
-            ],
-        )
+        # redirect_stderr: MLflow's internal eprint() writes to sys.stderr when a
+        # registered model already exists; on Windows that raises OSError when stderr
+        # is a log file.
+        with contextlib.redirect_stderr(io.StringIO()):
+            mlflow.sklearn.log_model(
+                pipeline,
+                artifact_path="model",
+                registered_model_name="us-house-stacking-ensemble",
+                skops_trusted_types=[
+                    "collections.OrderedDict",
+                    "lightgbm.basic.Booster",
+                    "lightgbm.sklearn.LGBMClassifier",
+                    "sklearn.tree._tree.Tree",
+                    "sklearn.utils._bunch.Bunch",
+                    "src.models.model.WeightedPipeline",
+                ],
+            )
         logger.info("Model logged to MLflow registry as 'us-house-stacking-ensemble'")
         pred_2026, district_ids = build_pred_2026(
             winners, dems_reps, X.columns, pres_lean=pres_lean, fundraising=fundraising
@@ -177,6 +216,12 @@ def main() -> None:
             sigma_national=sim_params["sigma_national"],
             sigma_district=sim_params["sigma_district"],
         )
+        district_ids = district_ids.copy()
+        district_ids["proba_dem"] = proba
+        district_ids["label"] = district_ids.apply(
+            lambda r: _label(r[Col.STATE], r[Col.DISTRICT]), axis=1
+        )
+
         _log_simulation(sim, len(proba))
         narrative = generate_narrative(sim, district_ids, len(proba))
         if narrative:
@@ -195,11 +240,6 @@ def main() -> None:
 
         logger.info("MLflow run logged (experiment: us-house-forecast)")
 
-        district_ids = district_ids.copy()
-        district_ids["proba_dem"] = proba
-        district_ids["label"] = district_ids.apply(
-            lambda r: _label(r[Col.STATE], r[Col.DISTRICT]), axis=1
-        )
         _log_competitive_districts(district_ids)
         _log_feature_weights(pipeline, X.columns)
 
