@@ -152,8 +152,15 @@ def _aggregate(records: list[dict[str, Any]]) -> pd.DataFrame:
     result = dem.merge(rep, on=[Col.YEAR, Col.STATE, Col.DISTRICT], how="outer").fillna(0)
 
     def _share(dem_col: str, rep_col: str) -> pd.Series:
-        total = result[dem_col] + result[rep_col]
-        return (result[dem_col] / total.clip(lower=1)).where(total > 0, 0.5)
+        # FEC's raw receipts/disbursements/contributions figures can occasionally come
+        # back slightly negative (refunds or amendments exceeding the period's activity)
+        # even though total is still comfortably positive - clip each side to zero first
+        # so a negative numerator can't push the resulting share below 0 (and, since
+        # dem/rep are both >= 0 here, dem <= dem+rep guarantees the result stays <= 1 too).
+        dem_val = result[dem_col].clip(lower=0)
+        rep_val = result[rep_col].clip(lower=0)
+        total = dem_val + rep_val
+        return (dem_val / total.clip(lower=1)).where(total > 0, 0.5)
 
     result["fundraising_dem_share"] = _share("dem_receipts", "rep_receipts")
     result["large_donor_dem_share"] = _share(
