@@ -15,19 +15,16 @@ from src.constants import COOK_ALPHA, DEM_MAJORITY_SEATS, Col
 from src.data.loaders import load_cook_ratings
 from src.features.features import build_dataset, build_pred_2026
 from src.logging_config import setup_logging
-from src.models.model import (
+from src.models.evaluation import (
     bootstrap_ci,
-    compute_sample_weights,
     cross_validate,
-    feature_weights,
-    load_simulation_params,
-    simulate_blended,
-    train,
     walk_forward_calibration,
     walk_forward_cv,
     walk_forward_feature_importance,
     walk_forward_tossup_skew,
 )
+from src.models.model import compute_sample_weights, feature_weights, train
+from src.models.simulation import load_simulation_params, simulate_blended
 from src.paths import MODELS_DIR, DataFile
 from src.visualization.narrative import generate_narrative
 

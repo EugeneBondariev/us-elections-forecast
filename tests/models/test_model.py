@@ -1,10 +1,6 @@
 from src.features.features import build_pred_2026
-from src.models.model import (
-    build_calibrated_pipeline,
-    feature_weights,
-    train,
-    walk_forward_cv,
-)
+from src.models.evaluation import walk_forward_cv
+from src.models.model import build_calibrated_pipeline, feature_weights, train
 
 # --- existing ---
 

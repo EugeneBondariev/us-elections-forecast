@@ -12,7 +12,7 @@ import logging
 
 from src.features.features import build_dataset
 from src.logging_config import setup_logging
-from src.models.model import calibrate_simulation_params
+from src.models.simulation import calibrate_simulation_params
 from src.paths import DataFile
 
 logger = logging.getLogger(__name__)

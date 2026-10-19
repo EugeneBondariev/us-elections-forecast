@@ -6,13 +6,8 @@ import pandas as pd
 from src.constants import COOK_ALPHA, OPEN_SEATS_2026, Col
 from src.data.loaders import load_cook_ratings
 from src.features.features import build_dataset, build_pred_2026
-from src.models.model import (
-    compute_sample_weights,
-    explain_districts,
-    load_simulation_params,
-    simulate_blended,
-    train,
-)
+from src.models.model import compute_sample_weights, explain_districts, train
+from src.models.simulation import load_simulation_params, simulate_blended
 from src.paths import DataFile
 from src.types import ForecastResult
 

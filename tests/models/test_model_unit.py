@@ -41,7 +41,7 @@ def test_sample_weights_recency():
 # ---------------------------------------------------------------------------
 
 def test_simulate_election_shape():
-    from src.models.model import simulate_election
+    from src.models.simulation import simulate_election
 
     proba = np.array([0.3, 0.5, 0.7, 0.6, 0.4])
     result = simulate_election(proba, n=500, seed=0)
@@ -55,7 +55,7 @@ def test_simulate_election_shape():
 # ---------------------------------------------------------------------------
 
 def test_bayesian_simulate_shape():
-    from src.models.model import bayesian_simulate
+    from src.models.simulation import bayesian_simulate
 
     proba = np.full(10, 0.5)
     result = bayesian_simulate(proba, n=200, seed=1)
@@ -88,7 +88,7 @@ def test_feature_weights_sum():
 # ---------------------------------------------------------------------------
 
 def test_bootstrap_ci_keys():
-    from src.models.model import bootstrap_ci
+    from src.models.evaluation import bootstrap_ci
 
     np.random.seed(0)
     n = 100
@@ -111,7 +111,7 @@ def test_bootstrap_ci_keys():
 # ---------------------------------------------------------------------------
 
 def test_walk_forward_cv_toy():
-    from src.models.model import walk_forward_cv
+    from src.models.evaluation import walk_forward_cv
 
     np.random.seed(42)
     n = 200
@@ -169,7 +169,7 @@ def test_feature_weights_stacking_ensemble():
 # ---------------------------------------------------------------------------
 
 def test_simulate_election_deterministic():
-    from src.models.model import simulate_election
+    from src.models.simulation import simulate_election
 
     proba = np.array([0.3, 0.5, 0.7, 0.6, 0.4])
     r1 = simulate_election(proba, n=1000, seed=99)
@@ -199,7 +199,7 @@ def _make_walk_forward_frame(n_years=6, n_per_year=60, seed=0):
 # ---------------------------------------------------------------------------
 
 def test_walk_forward_probas_shapes():
-    from src.models.model import walk_forward_probas
+    from src.models.evaluation import walk_forward_probas
 
     X, y, years = _make_walk_forward_frame()
     folds = walk_forward_probas(X, y, years, start_test_year=2004)
@@ -214,7 +214,7 @@ def test_walk_forward_probas_shapes():
 # ---------------------------------------------------------------------------
 
 def test_walk_forward_calibration_columns_and_bounds():
-    from src.models.model import walk_forward_calibration
+    from src.models.evaluation import walk_forward_calibration
 
     X, y, years = _make_walk_forward_frame()
     calib = walk_forward_calibration(X, y, years, start_test_year=2004)
@@ -228,7 +228,7 @@ def test_walk_forward_calibration_columns_and_bounds():
 # ---------------------------------------------------------------------------
 
 def test_calibrate_national_sigma_falls_back_with_too_few_years():
-    from src.models.model import calibrate_national_sigma
+    from src.models.simulation import calibrate_national_sigma
 
     X, y, years = _make_walk_forward_frame(n_years=3)
     result = calibrate_national_sigma(X, y, years, start_test_year=2004, min_years=5)
@@ -241,7 +241,7 @@ def test_calibrate_national_sigma_falls_back_with_too_few_years():
 # ---------------------------------------------------------------------------
 
 def test_calibrate_national_sigma_returns_bounded_value_with_enough_years():
-    from src.models.model import calibrate_national_sigma
+    from src.models.simulation import calibrate_national_sigma
 
     X, y, years = _make_walk_forward_frame(n_years=8)
     result = calibrate_national_sigma(X, y, years, start_test_year=2002, n=200, min_years=3)
@@ -259,7 +259,7 @@ def test_calibrate_national_sigma_returns_bounded_value_with_enough_years():
 # ---------------------------------------------------------------------------
 
 def test_robust_std_resists_single_outlier():
-    from src.models.model import _robust_std
+    from src.models.simulation import _robust_std
 
     typical = [2.7, -16.4, 15.9, -9.9, -22.4, 11.8, -14.8, -1.1, 32.8, 2.1, 36.9, 9.2]
     with_outlier = typical + [-51.7]
@@ -277,7 +277,7 @@ def test_robust_std_resists_single_outlier():
 def test_robust_std_matches_plain_std_for_symmetric_normal_data():
     """Sanity check the 1.4826 scaling constant: for data with no outliers, the
     two measures should be in the same ballpark, not wildly different."""
-    from src.models.model import _robust_std
+    from src.models.simulation import _robust_std
 
     rng = np.random.RandomState(0)
     values = rng.normal(0, 10, 500)
@@ -289,7 +289,7 @@ def test_robust_std_matches_plain_std_for_symmetric_normal_data():
 # ---------------------------------------------------------------------------
 
 def test_load_simulation_params_defaults_when_file_absent(tmp_path, monkeypatch):
-    from src.models.model import load_simulation_params
+    from src.models.simulation import load_simulation_params
     from src.paths import DataFile
 
     monkeypatch.setattr(DataFile, "CALIBRATED_SIGMA", tmp_path / "nonexistent.json")
@@ -300,7 +300,7 @@ def test_load_simulation_params_defaults_when_file_absent(tmp_path, monkeypatch)
 def test_load_simulation_params_reads_calibrated_file(tmp_path, monkeypatch):
     import json
 
-    from src.models.model import load_simulation_params
+    from src.models.simulation import load_simulation_params
     from src.paths import DataFile
 
     path = tmp_path / "calibrated_sigma.json"
