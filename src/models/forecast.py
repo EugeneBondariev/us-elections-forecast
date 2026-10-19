@@ -10,7 +10,7 @@ from src.models.model import (
     compute_sample_weights,
     explain_districts,
     load_simulation_params,
-    simulate_election,
+    simulate_blended,
     train,
 )
 from src.paths import DataFile
@@ -62,10 +62,12 @@ def run_forecast() -> ForecastResult:
         )
 
     sim_params = load_simulation_params()
-    sim = simulate_election(
+    sim = simulate_blended(
         districts["proba_dem"].to_numpy(),
         sigma_national=sim_params["sigma_national"],
         sigma_district=sim_params["sigma_district"],
+        blend_weight=sim_params["blend_weight"],
+        concentration=sim_params["concentration"],
     )
     districts["label"] = np.where(
         districts[Col.DISTRICT] == 0,

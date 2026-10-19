@@ -21,7 +21,7 @@ from src.models.model import (
     cross_validate,
     feature_weights,
     load_simulation_params,
-    simulate_election,
+    simulate_blended,
     train,
     walk_forward_calibration,
     walk_forward_cv,
@@ -233,10 +233,14 @@ def main() -> None:
         sim_params = load_simulation_params()
         mlflow.log_param("sigma_national", sim_params["sigma_national"])
         mlflow.log_param("sigma_district", sim_params["sigma_district"])
-        sim = simulate_election(
+        mlflow.log_param("blend_weight", sim_params["blend_weight"])
+        mlflow.log_param("concentration", sim_params["concentration"])
+        sim = simulate_blended(
             proba,
             sigma_national=sim_params["sigma_national"],
             sigma_district=sim_params["sigma_district"],
+            blend_weight=sim_params["blend_weight"],
+            concentration=sim_params["concentration"],
         )
         district_ids["label"] = district_ids.apply(
             lambda r: _label(r[Col.STATE], r[Col.DISTRICT]), axis=1

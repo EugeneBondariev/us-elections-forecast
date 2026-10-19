@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -18,6 +18,8 @@ class ForecastResult(TypedDict):
 class SimParams(TypedDict):
     sigma_national: float
     sigma_district: float
+    blend_weight: float
+    concentration: float
 
 
 class CalibrationResult(TypedDict):
@@ -25,6 +27,8 @@ class CalibrationResult(TypedDict):
     sigma_district: float
     target_std: float
     n_years: int
+    blend_weight: NotRequired[float]
+    concentration: NotRequired[float]
 
 
 class BootstrapResult(TypedDict):
