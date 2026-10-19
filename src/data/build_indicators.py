@@ -23,7 +23,7 @@ import requests
 from dotenv import load_dotenv
 
 from src.constants import GDP_2026_ESTIMATE
-from src.paths import DataFile
+from src.paths import DataFile, ensure
 
 logger = logging.getLogger(__name__)
 
@@ -139,8 +139,7 @@ def main() -> None:
     import csv
 
     out_path = DataFile.INDICATORS
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with out_path.open("w", newline="", encoding="utf-8") as f:
+    with ensure(out_path).open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["year", "econ_growth", "unemployment"])
         writer.writeheader()
         writer.writerows(rows)

@@ -8,6 +8,8 @@ from pathlib import Path
 
 import colorlog
 
+from src.paths import ensure
+
 _OK_LEVEL = 21
 _SKIP_LEVEL = 22
 logging.addLevelName(_OK_LEVEL, "OK")
@@ -59,8 +61,7 @@ def setup_logging(level: int = logging.INFO, log_dir: str = "logs/app") -> Path:
     )
 
     log_path = Path(log_dir) / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler = logging.FileHandler(ensure(log_path), encoding="utf-8")
     file_handler.setFormatter(
         logging.Formatter(
             fmt="%(asctime)s  %(message)s",

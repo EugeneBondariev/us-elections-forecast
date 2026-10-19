@@ -17,6 +17,7 @@ from src.features.feature_significance import main as feature_significance
 from src.features.ols_analysis import main as ols
 from src.features.pca_analysis import main as pca
 from src.models.learning_curves import main as learning_curves
+from src.paths import ensure
 from src.visualization.calibration_analysis import main as calibration
 from src.visualization.shap_analysis import main as shap
 
@@ -37,8 +38,7 @@ class _Tee:
 
     def __init__(self, log_path: Path) -> None:
         self._terminal = sys.stdout
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        self._file = log_path.open("w", encoding="utf-8")
+        self._file = ensure(log_path).open("w", encoding="utf-8")
 
     def write(self, message: str) -> None:
         try:

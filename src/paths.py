@@ -26,7 +26,7 @@ from pathlib import Path
 
 __all__ = [
     "DATA_DIR", "RAW_DIR", "EXTERNAL_DIR", "INTERIM_DIR", "PROCESSED_DIR",
-    "MODELS_DIR", "REPORTS_DIR", "FIGURES_DIR", "DataFile",
+    "MODELS_DIR", "REPORTS_DIR", "FIGURES_DIR", "DataFile", "ensure",
 ]
 
 _ROOT = Path(__file__).parent.parent
@@ -39,13 +39,6 @@ PROCESSED_DIR = DATA_DIR / "processed"
 MODELS_DIR    = _ROOT / "models"
 REPORTS_DIR   = _ROOT / "reports"
 FIGURES_DIR   = REPORTS_DIR / "figures"
-
-# Created on import, not left to .gitkeep files or any one entry point, because
-# every script/test/the app/the API all import this module — so the directories
-# exist before anything else runs, regardless of whether `make` is installed or
-# src/data/fetch_data.py has been run yet. Cheap and idempotent (exist_ok=True).
-for _d in (RAW_DIR, EXTERNAL_DIR, INTERIM_DIR, PROCESSED_DIR, MODELS_DIR, REPORTS_DIR, FIGURES_DIR):
-    _d.mkdir(parents=True, exist_ok=True)
 
 
 class DataFile:
@@ -81,3 +74,9 @@ class DataFile:
 
     # config/ — committed tuned hyperparameters (not gitignored, reproducible).
     BEST_PARAMS = _ROOT / "config" / "best_params_lgbm.json"
+
+
+def ensure(path: Path) -> Path:
+    """Create parent directories and return the path unchanged."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path

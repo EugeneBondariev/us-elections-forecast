@@ -18,7 +18,7 @@ import urllib.request
 
 from src.constants import OPEN_SEATS_2026
 from src.data.parse_cook import _STATE_ABBR
-from src.paths import DataFile
+from src.paths import DataFile, ensure
 
 logger = logging.getLogger(__name__)
 
@@ -230,9 +230,8 @@ def main() -> None:
 
 def _write(seats: set[tuple[str, int]]) -> None:
     out_path = DataFile.OPEN_SEATS_CSV
-    out_path.parent.mkdir(parents=True, exist_ok=True)
     rows = sorted(seats)
-    with out_path.open("w", newline="", encoding="utf-8") as f:
+    with ensure(out_path).open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["state_po", "district"])
         writer.writeheader()
         for state_po, district in rows:

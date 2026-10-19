@@ -25,7 +25,7 @@ Run from project root:
 """
 import requests
 
-from src.paths import DataFile
+from src.paths import DataFile, ensure
 
 # sheet_id -> destination. Both are publicly exportable with no signup/consent gate.
 SOURCES = {
@@ -50,8 +50,7 @@ def fetch_and_save(sheet_id: str, dest) -> int:
     test written in advance). Writing raw bytes sidesteps any OS-specific translation.
     """
     content = _fetch_sheet_csv(sheet_id)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes(content)
+    ensure(dest).write_bytes(content)
     return content.count(b"\n")
 
 

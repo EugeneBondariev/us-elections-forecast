@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from src.models.forecast import run_forecast
-from src.paths import FIGURES_DIR, REPORTS_DIR
+from src.paths import FIGURES_DIR, REPORTS_DIR, ensure
 
 
 def main() -> None:
@@ -62,7 +62,7 @@ def main() -> None:
         shap_out = shap_df.copy()
         shap_out.insert(0, "label", districts["label"].to_numpy())
         shap_csv_path = REPORTS_DIR / "shap_values.csv"
-        shap_out.to_csv(shap_csv_path, index=False)
+        shap_out.to_csv(ensure(shap_csv_path), index=False)
         print(f"Saved: {shap_csv_path}")
 
 

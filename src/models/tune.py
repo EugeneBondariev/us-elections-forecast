@@ -17,7 +17,7 @@ from sklearn.preprocessing import StandardScaler
 
 from src.features.features import build_dataset
 from src.models.model import WeightedPipeline, compute_sample_weights
-from src.paths import MODELS_DIR, DataFile
+from src.paths import MODELS_DIR, DataFile, ensure
 
 logger = logging.getLogger(__name__)
 
@@ -98,11 +98,10 @@ def main() -> None:
     n_pruned = len([t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED])
     n_complete = len([t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE])
 
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_PATH, "w") as f:
+    with open(ensure(OUTPUT_PATH), "w") as f:
         json.dump(best_params, f, indent=2)
 
-    mlflow.set_tracking_uri(f"sqlite:///{MODELS_DIR / 'mlflow.db'}")
+    mlflow.set_tracking_uri(f"sqlite:///{ensure(MODELS_DIR / 'mlflow.db')}")
     mlflow.set_experiment("us-house-forecast")
     with mlflow.start_run(run_name="tune"):
         mlflow.log_metric("best_cv_accuracy", best_score)

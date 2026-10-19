@@ -29,7 +29,7 @@ import certifi
 import pandas as pd
 
 from src.constants import GENERIC_BALLOT
-from src.paths import DataFile
+from src.paths import DataFile, ensure
 
 logger = logging.getLogger(__name__)
 
@@ -199,8 +199,7 @@ def main() -> None:
 
     all_years = sorted(margins)
     out_path = DataFile.GENERIC_BALLOT_CSV
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with out_path.open("w", newline="", encoding="utf-8") as f:
+    with ensure(out_path).open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["year", "margin"])
         writer.writeheader()
         for year in all_years:

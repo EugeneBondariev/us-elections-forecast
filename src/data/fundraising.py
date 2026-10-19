@@ -30,6 +30,7 @@ import pandas as pd
 import requests
 
 from src.constants import Col
+from src.paths import ensure
 
 logger = logging.getLogger(__name__)
 
@@ -120,8 +121,7 @@ def _save_raw(records: list[dict[str, Any]], raw_path: Path) -> None:
         return
     df = pd.DataFrame(records)
     df = df[df[Col.STATE].notna()].sort_values([Col.YEAR, Col.STATE, Col.DISTRICT, Col.PARTY])
-    raw_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(raw_path, index=False)
+    df.to_csv(ensure(raw_path), index=False)
     logger.info("Raw fundraising saved → %s (%d rows)", raw_path, len(df))
 
 
@@ -227,8 +227,7 @@ def fetch_and_cache(
     else:
         result = new
 
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    result.to_csv(cache_path, index=False)
+    result.to_csv(ensure(cache_path), index=False)
     logger.info("Cached %d district-year records → %s", len(result), cache_path)
     return result
 

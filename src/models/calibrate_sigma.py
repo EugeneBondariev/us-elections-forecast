@@ -13,7 +13,7 @@ import logging
 from src.features.features import build_dataset
 from src.logging_config import setup_logging
 from src.models.simulation import calibrate_simulation_params
-from src.paths import DataFile
+from src.paths import DataFile, ensure
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,7 @@ def main() -> None:
     ds = build_dataset()
     result = calibrate_simulation_params(ds.X, ds.y, ds.years)
 
-    DataFile.CALIBRATED_SIGMA.parent.mkdir(parents=True, exist_ok=True)
-    with open(DataFile.CALIBRATED_SIGMA, "w") as f:
+    with open(ensure(DataFile.CALIBRATED_SIGMA), "w") as f:
         json.dump(result, f, indent=2)
 
     logger.info("Saved calibrated simulation params -> %s", DataFile.CALIBRATED_SIGMA)

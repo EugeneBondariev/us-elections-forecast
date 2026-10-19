@@ -9,12 +9,11 @@ import sqlite3
 import pandas as pd
 
 from src.constants import Col
-from src.paths import DataFile
+from src.paths import DataFile, ensure
 
 
 def main() -> None:
-    DataFile.DB.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DataFile.DB)
+    conn = sqlite3.connect(ensure(DataFile.DB))
     try:
         # Table: house_results
         print(f"Loading {DataFile.HOUSE} ...")

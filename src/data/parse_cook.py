@@ -23,7 +23,7 @@ from typing import Any
 import pandas as pd
 
 from src.constants import Col
-from src.paths import DataFile
+from src.paths import DataFile, ensure
 
 logger = logging.getLogger(__name__)
 
@@ -173,8 +173,7 @@ def main() -> None:
             unique.append(row)
 
     csv_path = DataFile.COOK
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-    with csv_path.open("w", newline="", encoding="utf-8") as f:
+    with ensure(csv_path).open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=[Col.STATE, Col.DISTRICT, "rating", Col.COOK_PROB])
         writer.writeheader()
         writer.writerows(unique)

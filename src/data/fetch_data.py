@@ -52,7 +52,10 @@ from pathlib import Path
 from typing import NotRequired, TypedDict
 
 from src.logging_config import log_fail, log_ok, log_skip
-from src.paths import DataFile  # importing this already creates data/raw etc. - see src/paths.py
+from src.paths import (  # importing this already creates data/raw etc. - see src/paths.py
+    DataFile,
+    ensure,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +85,7 @@ DOWNLOAD_SOURCES: dict[Path, dict[str, str]] = {
 
 def _download_and_verify(url: str, dest: Path, sha256_hex: str) -> bool:
     """Download url to dest, verify its SHA256 matches sha256_hex. Returns True on success."""
-    dest.parent.mkdir(parents=True, exist_ok=True)
+    ensure(dest)
     tmp = dest.with_name(dest.name + ".part")
     try:
         logger.info("Downloading %s from %s ...", dest.name, url)

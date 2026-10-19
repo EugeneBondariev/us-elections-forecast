@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 
 from src.constants import PRES_PARTY, Col, Val
-from src.paths import DataFile
+from src.paths import DataFile, ensure
 from src.types import ForecastResult
 
 logger = logging.getLogger(__name__)
@@ -39,8 +39,7 @@ CREATE TABLE IF NOT EXISTS forecast_runs (
 
 def save_forecast(result: ForecastResult, db_path: Path = DataFile.DB) -> int:
     """Persist a run_forecast() result dict to SQLite. Returns the new run_id."""
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(ensure(db_path))
     try:
         conn.execute(_CREATE_RUNS)
         cur = conn.execute(

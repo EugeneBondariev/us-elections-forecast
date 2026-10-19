@@ -45,7 +45,7 @@ from io import StringIO
 import pandas as pd
 import requests
 
-from src.paths import DataFile
+from src.paths import DataFile, ensure
 
 UCSB_BASE = "https://www.presidency.ucsb.edu/statistics/data"
 
@@ -214,8 +214,7 @@ def main() -> None:
 
     result = pd.DataFrame(selected)[["start", "end", "approve", "disapprove", "unsure"]]
 
-    DataFile.APPROVAL.parent.mkdir(parents=True, exist_ok=True)
-    result.to_csv(DataFile.APPROVAL, sep="\t", header=False, index=False)
+    result.to_csv(ensure(DataFile.APPROVAL), sep="\t", header=False, index=False)
     print(f"\nWrote {len(result)} row(s) to {DataFile.APPROVAL}")
 
     if missing:

@@ -25,7 +25,7 @@ from src.models.evaluation import (
 )
 from src.models.model import compute_sample_weights, feature_weights, train
 from src.models.simulation import load_simulation_params, simulate_blended
-from src.paths import MODELS_DIR, DataFile
+from src.paths import MODELS_DIR, DataFile, ensure
 from src.visualization.narrative import generate_narrative
 
 logger = logging.getLogger(__name__)
@@ -138,7 +138,7 @@ def main() -> None:
     # metrics), not "data" in the DS sense, same reasoning as calibrated_sigma.json
     # already living there (best_params_lgbm.json moved to config/ instead, since
     # unlike these it's committed rather than gitignored-and-regenerable).
-    mlflow.set_tracking_uri(f"sqlite:///{MODELS_DIR / 'mlflow.db'}")
+    mlflow.set_tracking_uri(f"sqlite:///{ensure(MODELS_DIR / 'mlflow.db')}")
     mlflow.set_experiment("us-house-forecast")
     with mlflow.start_run():
         mlflow.log_param("n_features", X.shape[1])
