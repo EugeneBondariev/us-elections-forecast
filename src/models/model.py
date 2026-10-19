@@ -43,6 +43,7 @@ __all__ = [
     "bayesian_simulate",
     "simulate_blended",
     "calibrate_simulation_params",
+    "walk_forward_tossup_skew",
     "bootstrap_ci",
 ]
 
@@ -288,6 +289,38 @@ def walk_forward_calibration(
                 "n_districts": len(actual),
             }
         )
+    return pd.DataFrame(rows)
+
+
+def walk_forward_tossup_skew(
+    X: pd.DataFrame,
+    y: pd.Series,
+    years: pd.Series,
+    tossup_threshold: float = 0.1,
+    start_test_year: int = 2000,
+) -> pd.DataFrame:
+    """Per-year toss-up district win rates from walk-forward predictions.
+
+    A toss-up is any district where |proba_dem - 0.5| <= tossup_threshold (default ±10%).
+    dem_pct near 50% = normal year; skewed 70-80% = national wave. Quantifies how
+    correlated toss-up outcomes were — a direct read on national vs. district forces.
+    """
+    folds = walk_forward_probas(X, y, years, start_test_year)
+    rows = []
+    for year, (proba, actual) in folds.items():
+        mask = np.abs(proba - 0.5) <= tossup_threshold
+        n_tossup = int(mask.sum())
+        if n_tossup == 0:
+            continue
+        dem_wins = int(actual[mask].sum())
+        dem_pct = dem_wins / n_tossup * 100
+        rows.append({
+            "year": year,
+            "n_tossup": n_tossup,
+            "dem_wins": dem_wins,
+            "dem_pct": round(dem_pct, 1),
+            "skew": round(dem_pct - 50.0, 1),
+        })
     return pd.DataFrame(rows)
 
 

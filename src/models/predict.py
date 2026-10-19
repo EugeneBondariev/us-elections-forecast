@@ -26,6 +26,7 @@ from src.models.model import (
     walk_forward_calibration,
     walk_forward_cv,
     walk_forward_feature_importance,
+    walk_forward_tossup_skew,
 )
 from src.paths import MODELS_DIR, DataFile
 from src.visualization.narrative import generate_narrative
@@ -104,6 +105,16 @@ def _log_feature_stability(fi: pd.DataFrame) -> None:
         )
 
 
+def _log_tossup_skew(ts: pd.DataFrame) -> None:
+    logger.info("Toss-up district skew (walk-forward 2000-2024, ±10%% of 50/50):")
+    logger.info("  %4s  %8s  %8s  %7s  %6s", "year", "n_tossup", "dem_wins", "dem_pct", "skew")
+    for row in ts.itertuples(index=False):
+        logger.info(
+            "  %4d  %8d  %8d  %6.1f%%  %+6.1f%%",
+            row.year, row.n_tossup, row.dem_wins, row.dem_pct, row.skew,
+        )
+
+
 def _log_probabilistic_calibration(calib) -> None:
     logger.info("Walk-forward probabilistic calibration (Brier score / log loss):")
     logger.info("  %4s  %6s  %8s", "year", "brier", "log_loss")
@@ -139,6 +150,7 @@ def main() -> None:
 
         wf = walk_forward_cv(X, y, years)
         _log_walk_forward(wf)
+        _log_tossup_skew(walk_forward_tossup_skew(X, y, years))
         _log_cv_summary(wf, cross_validate(X, y))
         # Higher fold counts drop accuracy (10-fold: 63%, 20-fold: 60%) because
         # smaller test folds get dominated by individual wave-year variance rather
