@@ -24,6 +24,11 @@ def main() -> None:
         sys.exit(1)
 
     combined = pd.read_csv(DataFile.SHAP_CSV)
+    if "proba_dem" not in combined.columns:
+        logger.error(
+            "SHAP CSV is in the old format (no proba_dem column) — re-run `make predict` to regenerate it."
+        )
+        sys.exit(1)
     meta_cols = ["label", "proba_dem"]
     shap_df = combined.drop(columns=meta_cols)
     districts = combined[meta_cols].copy()
@@ -52,10 +57,9 @@ def main() -> None:
         districts
         .assign(closeness=lambda df: (df["proba_dem"] - 0.5).abs())
         .sort_values("closeness")
-        .reset_index(drop=True)
     )
     label = competitive.iloc[0]["label"]
-    row_idx = competitive.index[0]
+    row_idx = competitive.index[0]  # original integer position, preserved from CSV read
     sv = shap_df.iloc[row_idx].sort_values(key=abs, ascending=False).head(8)
     fig2, ax2 = plt.subplots(figsize=(10, 5))
     bar_colors = ["#3366cc" if v > 0 else "#cc3333" for v in sv.values]

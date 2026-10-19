@@ -229,7 +229,7 @@ def calibrate_simulation_params(
             for proba, _ in folds.values()
         ]))
 
-    lo_c, hi_c = 1.0, 500.0
+    lo_c, hi_c = 2.0, 500.0
     for _ in range(25):
         mid = (lo_c + hi_c) / 2
         if _mean_bayesian_std(mid) < target_std:
@@ -241,6 +241,22 @@ def calibrate_simulation_params(
         "Calibrated concentration=%.1f (target seat-count std=%.2f from %d walk-forward years)",
         concentration, target_std, len(folds),
     )
+
+    if abs(concentration - 2.0) < 0.1:
+        logger.warning(
+            "Concentration hit search floor (%.1f) — Bayesian Beta draws cannot match "
+            "walk-forward variance regardless of per-district uncertainty. "
+            "Setting blend_weight=1.0 (pure correlated national-shock simulation).",
+            concentration,
+        )
+        return {
+            "sigma_national": sigma_national,
+            "sigma_district": sigma_district,
+            "target_std": round(target_std, 4),
+            "n_years": len(folds),
+            "blend_weight": 1.0,
+            "concentration": round(concentration, 1),
+        }
 
     # Step 3: blend_weight — 68% CI coverage criterion
     realized_seats = {year: int(actual.sum()) for year, (_, actual) in folds.items()}

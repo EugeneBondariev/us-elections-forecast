@@ -46,6 +46,12 @@ class WeightedPipeline(Pipeline):
             params["model__sample_weight"] = sample_weight
         return super().fit(X, y, **params)
 
+    def predict(self, X: object, **params: object) -> np.ndarray:  # pyright: ignore[reportIncompatibleMethodOverride]
+        return super().predict(X, **params)  # pyright: ignore[reportArgumentType, reportReturnType]
+
+    def predict_proba(self, X: object, **params: object) -> np.ndarray:  # pyright: ignore[reportIncompatibleMethodOverride]
+        return super().predict_proba(X, **params)  # pyright: ignore[reportArgumentType]
+
 
 def build_lr_pipeline() -> WeightedPipeline:
     """Logistic Regression pipeline with StandardScaler."""
