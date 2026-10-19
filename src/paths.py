@@ -72,6 +72,9 @@ class DataFile:
     # models/ — trained model artifacts (gitignored, regenerable).
     CALIBRATED_SIGMA = MODELS_DIR / "calibrated_sigma.json"
 
+    # reports/ — generated analysis outputs (gitignored, regenerable).
+    SHAP_CSV = REPORTS_DIR / "shap_values.csv"
+
     # config/ — committed tuned hyperparameters (not gitignored, reproducible).
     BEST_PARAMS = _ROOT / "config" / "best_params_lgbm.json"
 

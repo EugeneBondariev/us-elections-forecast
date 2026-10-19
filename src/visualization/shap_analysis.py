@@ -1,24 +1,39 @@
-"""SHAP analysis: compute and save per-district feature explanations."""
+"""SHAP analysis: load per-district feature explanations saved by predict.py.
+
+Reads reports/shap_values.csv (written by `make predict`) instead of retraining
+the model. Run via: python -m src.visualization.shap_analysis
+"""
+from __future__ import annotations
+
+import logging
+import sys
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from src.models.forecast import run_forecast
-from src.paths import FIGURES_DIR, REPORTS_DIR, ensure
+from src.paths import FIGURES_DIR, DataFile, ensure
+
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    print("Running forecast pipeline...")
-    result = run_forecast()
-    shap_df: pd.DataFrame = result["shap_values"]
-    districts: pd.DataFrame = result["districts"]
+    if not DataFile.SHAP_CSV.exists():
+        logger.error(
+            "SHAP CSV not found at %s — run `make predict` first.", DataFile.SHAP_CSV
+        )
+        sys.exit(1)
 
-    print(f"SHAP values computed for {len(shap_df)} districts, {shap_df.shape[1]} features")
+    combined = pd.read_csv(DataFile.SHAP_CSV)
+    meta_cols = ["label", "proba_dem"]
+    shap_df = combined.drop(columns=meta_cols)
+    districts = combined[meta_cols].copy()
+
+    logger.info("SHAP values loaded: %d districts, %d features", len(shap_df), shap_df.shape[1])
 
     mean_abs = shap_df.abs().mean().sort_values(ascending=False)
-    print("\nTop 10 features by mean |SHAP|:")
+    logger.info("Top 10 features by mean |SHAP|:")
     for feat, val in mean_abs.head(10).items():
-        print(f"  {feat:<45} {val:.4f}")
+        logger.info("  %-45s  %.4f", feat, val)
 
     # Global feature importance bar chart
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -27,44 +42,35 @@ def main() -> None:
     ax.set_xlabel("Mean |SHAP value|")
     ax.set_title("SHAP Feature Importance (LightGBM, 2026 prediction set)")
     fig.tight_layout()
-    out_path = FIGURES_DIR / "shap_importance.png"
-    fig.savefig(out_path, dpi=150)
-    print(f"\nSaved: {out_path}")
+    importance_path = ensure(FIGURES_DIR / "shap_importance.png")
+    fig.savefig(importance_path, dpi=150)
+    logger.info("Saved: %s", importance_path)
     plt.close(fig)
 
     # Most competitive district waterfall
-    if "label" in districts.columns:
-        competitive = (
-            districts
-            .assign(closeness=lambda df: (df["proba_dem"] - 0.5).abs())
-            .sort_values("closeness")
-            .reset_index(drop=True)
-        )
-        label = competitive.iloc[0]["label"]
-        row_idx = competitive.index[0]
-        if row_idx < len(shap_df):
-            sv = shap_df.iloc[row_idx].sort_values(key=abs, ascending=False).head(8)
-            fig2, ax2 = plt.subplots(figsize=(10, 5))
-            bar_colors = ["#3366cc" if v > 0 else "#cc3333" for v in sv.values]
-            ax2.barh(sv.index[::-1], sv.values[::-1], color=bar_colors[::-1])
-            ax2.axvline(0, color="black", linewidth=0.8)
-            ax2.set_xlabel("SHAP value (positive = Dem-favoring)")
-            ax2.set_title(f"SHAP waterfall — most competitive district: {label}")
-            fig2.tight_layout()
-            waterfall_path = FIGURES_DIR / "shap_waterfall.png"
-            fig2.savefig(waterfall_path, dpi=150)
-            print(f"Saved: {waterfall_path}")
-            plt.close(fig2)
-
-    # Save full SHAP table alongside this script's other diagnostic outputs -
-    # it's a derived artifact of running the analysis, not a data source.
-    if "label" in districts.columns:
-        shap_out = shap_df.copy()
-        shap_out.insert(0, "label", districts["label"].to_numpy())
-        shap_csv_path = REPORTS_DIR / "shap_values.csv"
-        shap_out.to_csv(ensure(shap_csv_path), index=False)
-        print(f"Saved: {shap_csv_path}")
+    competitive = (
+        districts
+        .assign(closeness=lambda df: (df["proba_dem"] - 0.5).abs())
+        .sort_values("closeness")
+        .reset_index(drop=True)
+    )
+    label = competitive.iloc[0]["label"]
+    row_idx = competitive.index[0]
+    sv = shap_df.iloc[row_idx].sort_values(key=abs, ascending=False).head(8)
+    fig2, ax2 = plt.subplots(figsize=(10, 5))
+    bar_colors = ["#3366cc" if v > 0 else "#cc3333" for v in sv.values]
+    ax2.barh(sv.index[::-1], sv.values[::-1], color=bar_colors[::-1])
+    ax2.axvline(0, color="black", linewidth=0.8)
+    ax2.set_xlabel("SHAP value (positive = Dem-favoring)")
+    ax2.set_title(f"SHAP waterfall — most competitive district: {label}")
+    fig2.tight_layout()
+    waterfall_path = ensure(FIGURES_DIR / "shap_waterfall.png")
+    fig2.savefig(waterfall_path, dpi=150)
+    logger.info("Saved: %s", waterfall_path)
+    plt.close(fig2)
 
 
 if __name__ == "__main__":
+    from src.logging_config import setup_logging
+    setup_logging()
     main()

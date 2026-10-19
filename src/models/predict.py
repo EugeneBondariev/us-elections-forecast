@@ -23,7 +23,7 @@ from src.models.evaluation import (
     walk_forward_feature_importance,
     walk_forward_tossup_skew,
 )
-from src.models.model import compute_sample_weights, feature_weights, train
+from src.models.model import compute_sample_weights, explain_districts, feature_weights, train
 from src.models.simulation import load_simulation_params, simulate_blended
 from src.paths import MODELS_DIR, DataFile, ensure
 from src.visualization.narrative import generate_narrative
@@ -254,6 +254,13 @@ def main() -> None:
         district_ids["label"] = district_ids.apply(
             lambda r: _label(r[Col.STATE], r[Col.DISTRICT]), axis=1
         )
+
+        shap_df = explain_districts(pipeline, pred_2026)
+        shap_out = shap_df.copy()
+        shap_out.insert(0, "proba_dem", district_ids["proba_dem"].to_numpy())
+        shap_out.insert(0, "label", district_ids["label"].to_numpy())
+        shap_out.to_csv(ensure(DataFile.SHAP_CSV), index=False)
+        logger.info("SHAP values saved -> %s", DataFile.SHAP_CSV)
 
         _log_simulation(sim, len(proba))
         narrative = generate_narrative(sim, district_ids, len(proba))
