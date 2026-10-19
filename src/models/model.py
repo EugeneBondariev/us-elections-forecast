@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "WeightedPipeline",
-    "build_pipeline",
+    "build_lr_pipeline",
     "build_gbm_pipeline",
     "build_rf_pipeline",
     "build_ensemble",
@@ -47,7 +47,7 @@ class WeightedPipeline(Pipeline):
         return super().fit(X, y, **params)
 
 
-def build_pipeline() -> WeightedPipeline:
+def build_lr_pipeline() -> WeightedPipeline:
     """Logistic Regression pipeline with StandardScaler."""
     return WeightedPipeline(
         [
@@ -114,7 +114,7 @@ def build_ensemble() -> VotingClassifier:
     """Soft-voting ensemble: average probabilities from LR, GBM, and RF."""
     return VotingClassifier(
         estimators=[
-            ("lr", build_pipeline()),
+            ("lr", build_lr_pipeline()),
             ("gbm", build_gbm_pipeline()),
             ("rf", build_rf_pipeline()),
         ],
@@ -126,7 +126,7 @@ def build_stacking_ensemble() -> StackingClassifier:
     """Stacking ensemble: LR meta-learner trained on OOF predictions from LR, GBM, RF."""
     return StackingClassifier(
         estimators=[
-            ("lr", build_pipeline()),
+            ("lr", build_lr_pipeline()),
             ("gbm", build_gbm_pipeline()),
             ("rf", build_rf_pipeline()),
         ],
@@ -138,7 +138,7 @@ def build_stacking_ensemble() -> StackingClassifier:
 
 def build_calibrated_pipeline() -> CalibratedClassifierCV:
     """Isotonic-calibrated LR pipeline (5-fold)."""
-    return CalibratedClassifierCV(build_pipeline(), method="isotonic", cv=5)
+    return CalibratedClassifierCV(build_lr_pipeline(), method="isotonic", cv=5)
 
 
 def compute_sample_weights(years: pd.Series, half_life: int = 4) -> np.ndarray:

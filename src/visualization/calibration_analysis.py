@@ -6,7 +6,7 @@ from sklearn.metrics import brier_score_loss
 from sklearn.model_selection import cross_val_predict
 
 from src.features.features import build_dataset
-from src.models.model import build_calibrated_pipeline, build_pipeline
+from src.models.model import build_calibrated_pipeline, build_lr_pipeline
 from src.paths import FIGURES_DIR
 
 
@@ -15,7 +15,7 @@ def main() -> None:
     X, y = ds.X, ds.y
 
     print("Computing cross-validated probabilities (cv=5)...")
-    proba_raw = cross_val_predict(build_pipeline(), X, y, cv=5, method="predict_proba")[:, 1]
+    proba_raw = cross_val_predict(build_lr_pipeline(), X, y, cv=5, method="predict_proba")[:, 1]
     proba_cal = cross_val_predict(build_calibrated_pipeline(), X, y, cv=5, method="predict_proba")[:, 1]
 
     brier_raw = brier_score_loss(y, proba_raw)

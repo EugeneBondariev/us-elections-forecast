@@ -16,7 +16,7 @@ import pandas as pd
 from sklearn.metrics import brier_score_loss, log_loss
 from sklearn.model_selection import cross_val_score
 
-from src.models.model import build_pipeline, compute_sample_weights, feature_weights
+from src.models.model import build_lr_pipeline, compute_sample_weights, feature_weights
 from src.types import BootstrapResult
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ __all__ = [
 def cross_validate(X: pd.DataFrame, y: pd.Series, cv: int = 5) -> float:
     """Return mean stratified CV accuracy for the base LR pipeline."""
     logger.info("Running %d-fold cross-validation", cv)
-    return cross_val_score(build_pipeline(), X, y, cv=cv).mean()
+    return cross_val_score(build_lr_pipeline(), X, y, cv=cv).mean()
 
 
 def walk_forward_cv(
@@ -54,7 +54,7 @@ def walk_forward_cv(
         test_idx = years[years == test_year].index
         if len(train_idx) == 0 or len(test_idx) == 0:
             continue
-        pipeline = build_pipeline()
+        pipeline = build_lr_pipeline()
         w = compute_sample_weights(years.loc[train_idx])
         pipeline.fit(X.loc[train_idx], y.loc[train_idx], sample_weight=w)
         preds = pipeline.predict(X.loc[test_idx])
@@ -84,7 +84,7 @@ def walk_forward_feature_importance(
         train_idx = years[years < test_year].index
         if len(train_idx) == 0:
             continue
-        pipeline = build_pipeline()
+        pipeline = build_lr_pipeline()
         pipeline.fit(X.loc[train_idx], y.loc[train_idx])
         rows.append({"year": test_year, **feature_weights(pipeline, X.columns)})
     return pd.DataFrame(rows).set_index("year")
@@ -107,7 +107,7 @@ def walk_forward_probas(
         test_idx = years[years == test_year].index
         if len(train_idx) == 0 or len(test_idx) == 0:
             continue
-        pipeline = build_pipeline()
+        pipeline = build_lr_pipeline()
         w = compute_sample_weights(years.loc[train_idx])
         pipeline.fit(X.loc[train_idx], y.loc[train_idx], sample_weight=w)
         proba = pipeline.predict_proba(X.loc[test_idx])[:, 1]
@@ -197,7 +197,7 @@ def bootstrap_ci(
         train_idx = years[years < test_year].index
         if len(train_idx) == 0:
             continue
-        pipe = build_pipeline()
+        pipe = build_lr_pipeline()
         w = compute_sample_weights(years.loc[train_idx])
         pipe.fit(X.loc[train_idx], y.loc[train_idx], sample_weight=w)
         pipelines[test_year] = (pipe, years[years == test_year].index)

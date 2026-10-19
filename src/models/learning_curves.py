@@ -5,7 +5,7 @@ import numpy as np
 from sklearn.model_selection import learning_curve
 
 from src.features.features import build_dataset
-from src.models.model import build_gbm_pipeline, build_pipeline
+from src.models.model import build_gbm_pipeline, build_lr_pipeline
 from src.paths import FIGURES_DIR
 
 
@@ -36,7 +36,7 @@ def main() -> None:
 
     print("Computing LR learning curve...")
     ts_lr, tr_lr, cv_lr = learning_curve(
-        build_pipeline(), X, y,
+        build_lr_pipeline(), X, y,
         train_sizes=train_sizes_frac, cv=5, scoring="accuracy", n_jobs=-1,
     )
 

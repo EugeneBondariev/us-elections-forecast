@@ -12,12 +12,12 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 
 def test_weighted_pipeline_accepts_sample_weight():
-    from src.models.model import build_pipeline
+    from src.models.model import build_lr_pipeline
 
     X = pd.DataFrame({"a": [1, 2, 3, 4, 5], "b": [5, 4, 3, 2, 1]}, dtype=float)
     y = pd.Series([0, 0, 1, 1, 1])
     w = np.array([1.0, 1.0, 2.0, 2.0, 2.0])
-    pipe = build_pipeline()
+    pipe = build_lr_pipeline()
     pipe.fit(X, y, sample_weight=w)  # must not raise
     assert pipe.predict(X).shape == (5,)
 
@@ -69,12 +69,12 @@ def test_bayesian_simulate_shape():
 # ---------------------------------------------------------------------------
 
 def test_feature_weights_sum():
-    from src.models.model import build_pipeline, feature_weights
+    from src.models.model import build_lr_pipeline, feature_weights
 
     np.random.seed(42)
     X = pd.DataFrame(np.random.randn(50, 3), columns=["a", "b", "c"])
     y = pd.Series((X["a"] + np.random.randn(50) * 0.1 > 0).astype(int))
-    pipe = build_pipeline()
+    pipe = build_lr_pipeline()
     pipe.fit(X, y)
     fw = feature_weights(pipe, X.columns)
     assert set(fw.keys()) == {"a", "b", "c"}

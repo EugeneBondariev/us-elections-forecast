@@ -27,7 +27,7 @@ jobs:
       - name: Verify imports
         run: |
           python -c "
-          from src.models.model import build_pipeline, build_stacking_ensemble, bootstrap_ci, explain_districts
+          from src.models.model import build_lr_pipeline, build_stacking_ensemble, explain_districts
           from src.features.features import build_feature_matrix, build_winners
           from src.models.forecast import run_forecast
           from src.data.loaders import load_clean_house_data
