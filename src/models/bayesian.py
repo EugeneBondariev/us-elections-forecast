@@ -36,6 +36,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -200,11 +201,11 @@ class BayesianElectionModel:
         """ArviZ parameter summary for national-level parameters and feature coefficients."""
         import arviz as az
 
-        return az.summary(  # type: ignore[return-value]
+        return cast(pd.DataFrame, az.summary(
             self._trace,
             var_names=["alpha_national", "sigma_alpha", "beta"],
             round_to=4,
-        )
+        ))
 
     def save(self, path: Path) -> None:
         """Persist trace (.nc) and metadata (.json) alongside it."""
