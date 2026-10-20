@@ -294,7 +294,7 @@ def test_load_simulation_params_defaults_when_file_absent(tmp_path, monkeypatch)
 
     monkeypatch.setattr(DataFile, "CALIBRATED_SIGMA", tmp_path / "nonexistent.json")
     result = load_simulation_params()
-    assert result == {"sigma_national": 0.25, "sigma_district": 0.15, "blend_weight": 0.5, "concentration": 15.0}
+    assert result == {"sigma_national": 0.25, "sigma_district": 0.15, "blend_weight": 0.5, "concentration": 15.0, "hetero_k": 1.0}
 
 
 def test_load_simulation_params_reads_calibrated_file(tmp_path, monkeypatch):
@@ -308,4 +308,5 @@ def test_load_simulation_params_reads_calibrated_file(tmp_path, monkeypatch):
     monkeypatch.setattr(DataFile, "CALIBRATED_SIGMA", path)
 
     result = load_simulation_params()
-    assert result == {"sigma_national": 0.4, "sigma_district": 0.15, "blend_weight": 0.75, "concentration": 30.0}
+    # Old JSON without hetero_k must fall back to default 1.0
+    assert result == {"sigma_national": 0.4, "sigma_district": 0.15, "blend_weight": 0.75, "concentration": 30.0, "hetero_k": 1.0}

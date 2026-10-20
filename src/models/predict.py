@@ -128,7 +128,7 @@ def main() -> None:
     log_path = setup_logging()
     logger.info("Run log: %s", log_path)
 
-    ds = build_dataset()
+    ds = build_dataset(min_train_year=1994)
     X, y, years, winners = ds.X, ds.y, ds.years, ds.winners
     pres_lean, fundraising, dems_reps = ds.pres_lean, ds.fundraising, ds.dems_reps
 
@@ -244,12 +244,14 @@ def main() -> None:
         mlflow.log_param("sigma_district", sim_params["sigma_district"])
         mlflow.log_param("blend_weight", sim_params["blend_weight"])
         mlflow.log_param("concentration", sim_params["concentration"])
+        mlflow.log_param("hetero_k", sim_params.get("hetero_k", 1.0))
         sim = simulate_blended(
             proba,
             sigma_national=sim_params["sigma_national"],
             sigma_district=sim_params["sigma_district"],
             blend_weight=sim_params["blend_weight"],
             concentration=sim_params["concentration"],
+            hetero_k=sim_params.get("hetero_k", 1.0),
         )
         district_ids["label"] = district_ids.apply(
             lambda r: _label(r[Col.STATE], r[Col.DISTRICT]), axis=1

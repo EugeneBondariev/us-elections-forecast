@@ -8,6 +8,7 @@ calibrate_simulation_params: data-driven calibration of all four parameters
 
 Run calibration: python -m src.models.calibrate_sigma
 """
+
 from __future__ import annotations
 
 import json
@@ -35,9 +36,10 @@ def _robust_std(values: np.ndarray) -> float:
     """Median absolute deviation, scaled by 1.4826 to be std-equivalent under
     normality - unlike plain std, a single extreme value can't dominate it, since
     it's built from the median rather than squared deviations from the mean."""
+    _MAD_TO_STD = 0.6745  # MAD / sigma for a normal distribution
     values = np.asarray(values, dtype=float)
-    mad = np.median(np.abs(values - np.median(values)))
-    return float(1.4826 * mad)
+    mad = np.median(np.abs(values - float(np.median(values))))
+    return float(mad / _MAD_TO_STD)
 
 
 def simulate_election(
@@ -46,15 +48,22 @@ def simulate_election(
     seed: int = 42,
     sigma_national: float = 0.25,
     sigma_district: float = 0.15,
+    hetero_k: float = 1.0,
 ) -> np.ndarray:
-    """Monte Carlo simulation with correlated national + independent district shocks (logit space)."""
+    """Monte Carlo simulation with correlated national + independent district shocks (logit space).
+
+    hetero_k scales per-district noise by competitiveness: sigma_i = sigma_district * (1 + k * c)
+    where c = 1 - |2p - 1| (1 at p=0.5, 0 at safe seats). k=0 is homoskedastic.
+    """
     rng = np.random.default_rng(seed)
     proba = np.clip(proba, 1e-6, 1 - 1e-6)
     logits = np.log(proba / (1 - proba))
-    national_shocks = rng.normal(0, sigma_national, (n, 1))
-    district_shocks = rng.normal(0, sigma_district, (n, len(proba)))
+    national_shocks = rng.normal(loc=0, scale=sigma_national, size=(n, 1))
+    competitiveness = 1.0 - np.abs(2.0 * proba - 1.0)  # 1 at p=0.5, 0 at extremes
+    sigma_d = sigma_district * (1.0 + hetero_k * competitiveness)  # shape (D,)
+    district_shocks = rng.normal(loc=0, scale=sigma_d, size=(n, len(proba)))
     adjusted_proba = 1 / (1 + np.exp(-(logits + national_shocks + district_shocks)))
-    return rng.binomial(1, adjusted_proba).sum(axis=1)
+    return rng.binomial(n=1, p=adjusted_proba).sum(axis=1)
 
 
 def bayesian_simulate(
@@ -73,9 +82,9 @@ def bayesian_simulate(
     rng = np.random.default_rng(seed)
     proba = np.clip(proba, 1e-6, 1 - 1e-6)
     alpha = proba * concentration
-    beta_param = (1 - proba) * concentration
-    sampled_p = rng.beta(alpha, beta_param, size=(n, len(proba)))
-    return rng.binomial(1, sampled_p).sum(axis=1)
+    beta = (1 - proba) * concentration
+    sampled_p = rng.beta(a=alpha, b=beta, size=(n, len(proba)))
+    return rng.binomial(n=1, p=sampled_p).sum(axis=1)
 
 
 def simulate_blended(
@@ -86,6 +95,7 @@ def simulate_blended(
     sigma_national: float = 0.25,
     sigma_district: float = 0.15,
     concentration: float = 15.0,
+    hetero_k: float = 1.0,
 ) -> np.ndarray:
     """Blend simulate_election and bayesian_simulate.
 
@@ -97,18 +107,32 @@ def simulate_blended(
     n_bayes = n - n_corr
     logger.info(
         "Blended simulation: %d draws (%d districts, %.0f%% correlated / %.0f%% Bayesian)",
-        n, len(proba), blend_weight * 100, (1 - blend_weight) * 100,
+        n,
+        len(proba),
+        blend_weight * 100,
+        (1 - blend_weight) * 100,
     )
     parts: list[np.ndarray] = []
     if n_corr > 0:
-        parts.append(simulate_election(
-            proba, n=n_corr, seed=seed,
-            sigma_national=sigma_national, sigma_district=sigma_district,
-        ))
+        parts.append(
+            simulate_election(
+                proba,
+                n=n_corr,
+                seed=seed,
+                sigma_national=sigma_national,
+                sigma_district=sigma_district,
+                hetero_k=hetero_k,
+            )
+        )
     if n_bayes > 0:
-        parts.append(bayesian_simulate(
-            proba, n=n_bayes, seed=seed + 1, concentration=concentration,
-        ))
+        parts.append(
+            bayesian_simulate(
+                proba,
+                n=n_bayes,
+                seed=seed + 1,
+                concentration=concentration,
+            )
+        )
     return np.concatenate(parts) if len(parts) > 1 else parts[0]
 
 
@@ -117,7 +141,10 @@ def calibrate_national_sigma(
     y: pd.Series,
     years: pd.Series,
     sigma_district: float = 0.15,
+    hetero_k: float = 1.0,
     start_test_year: int = 2000,
+    exclude_years: frozenset[int] = frozenset({2002}),
+    recency_decay: float = 0.85,
     n: int = 2000,
     seed: int = 42,
     min_years: int = 3,
@@ -134,18 +161,18 @@ def calibrate_national_sigma(
     parameters jointly, so district-level noise stays at its prior default and only
     the aggregate/national component is data-driven.
 
-    The spread itself is a robust measure (median absolute deviation, scaled by
-    1.4826 to be std-equivalent under normality), not a plain standard deviation.
-    With only ~13 walk-forward years, a single historically unusual miss can swing
-    a plain std enormously - e.g. 2002's -51.7 seat error (the model, trained only
-    on 1984-2000, badly over-predicted right after that cycle's redistricting) is
-    roughly 1.5x any other year's miss and alone pushed a plain-std target high
-    enough to pin sigma_national at its search ceiling (confirmed empirically: hit
-    exactly 1.0 every time against real data). A robust spread still reflects that
-    2002 was a bad year without letting one outlier set the uncertainty band every
-    other, more typical year gets simulated with.
+    exclude_years removes structurally broken years from the error distribution —
+    by default 2002, where the model was trained only on pre-redistricting data and
+    missed by -51.7 seats, a model coverage failure rather than genuine electoral
+    variance. recency_decay exponentially down-weights older walk-forward years so
+    the calibration better reflects modern partisan conditions.
     """
     folds = walk_forward_probas(X, y, years, start_test_year)
+    if exclude_years:
+        dropped = sorted(exclude_years & set(folds))
+        if dropped:
+            logger.info("Excluding years from sigma calibration: %s", dropped)
+        folds = {yr: v for yr, v in folds.items() if yr not in exclude_years}
     if len(folds) < min_years:
         logger.warning(
             "Only %d walk-forward years available (<%d) — keeping default sigma_national",
@@ -159,22 +186,33 @@ def calibrate_national_sigma(
             "n_years": len(folds),
         }
 
-    realized_errors = np.array([actual.sum() - proba.sum() for proba, actual in folds.values()])
-    target_std = _robust_std(realized_errors)
+    fold_years = list(folds.keys())
+    max_year = max(fold_years)
+    weights = np.array([recency_decay ** (max_year - yr) for yr in fold_years])
+    weights /= weights.sum()
 
-    def _mean_simulated_std(sigma_national: float) -> float:
-        stds = [
+    realized_errors = np.array([actual.sum() - proba.sum() for proba, actual in folds.values()])
+    w_mean = float(np.average(realized_errors, weights=weights))
+    target_std = float(np.sqrt(np.average((realized_errors - w_mean) ** 2, weights=weights)))
+
+    def _weighted_simulated_std(sigma_national: float) -> float:
+        stds = np.array([
             simulate_election(
-                proba, n=n, seed=seed, sigma_national=sigma_national, sigma_district=sigma_district
+                proba,
+                n=n,
+                seed=seed,
+                sigma_national=sigma_national,
+                sigma_district=sigma_district,
+                hetero_k=hetero_k,
             ).std()
             for proba, _ in folds.values()
-        ]
-        return float(np.mean(stds))
+        ])
+        return float(np.average(stds, weights=weights))
 
     lo, hi = 0.01, 1.0
     for _ in range(25):
         mid = (lo + hi) / 2
-        if _mean_simulated_std(mid) < target_std:
+        if _weighted_simulated_std(mid) < target_std:
             lo = mid
         else:
             hi = mid
@@ -199,7 +237,10 @@ def calibrate_simulation_params(
     y: pd.Series,
     years: pd.Series,
     sigma_district: float = 0.15,
+    hetero_k: float = 1.0,
     start_test_year: int = 2000,
+    exclude_years: frozenset[int] = frozenset({2002}),
+    recency_decay: float = 0.85,
     n: int = 2000,
     seed: int = 42,
 ) -> CalibrationResult:
@@ -214,32 +255,50 @@ def calibrate_simulation_params(
        years (the correct frequentist interval calibration criterion).
     """
     base = calibrate_national_sigma(
-        X, y, years,
-        sigma_district=sigma_district, start_test_year=start_test_year, n=n, seed=seed,
+        X,
+        y,
+        years,
+        sigma_district=sigma_district,
+        hetero_k=hetero_k,
+        start_test_year=start_test_year,
+        exclude_years=exclude_years,
+        recency_decay=recency_decay,
+        n=n,
+        seed=seed,
     )
     sigma_national = base["sigma_national"]
     target_std = base["target_std"]
 
     folds = walk_forward_probas(X, y, years, start_test_year)
+    if exclude_years:
+        folds = {yr: v for yr, v in folds.items() if yr not in exclude_years}
+
+    fold_years = list(folds.keys())
+    max_year = max(fold_years)
+    weights = np.array([recency_decay ** (max_year - yr) for yr in fold_years])
+    weights /= weights.sum()
 
     # Step 2: concentration — higher → tighter Beta → lower std
-    def _mean_bayesian_std(conc: float) -> float:
-        return float(np.mean([
+    def _weighted_bayesian_std(conc: float) -> float:
+        stds = np.array([
             bayesian_simulate(proba, n=n, seed=seed, concentration=conc).std()
             for proba, _ in folds.values()
-        ]))
+        ])
+        return float(np.average(stds, weights=weights))
 
     lo_c, hi_c = 2.0, 500.0
     for _ in range(25):
         mid = (lo_c + hi_c) / 2
-        if _mean_bayesian_std(mid) < target_std:
+        if _weighted_bayesian_std(mid) < target_std:
             hi_c = mid  # too tight, need lower concentration
         else:
             lo_c = mid  # too loose, need higher concentration
     concentration = (lo_c + hi_c) / 2
     logger.info(
         "Calibrated concentration=%.1f (target seat-count std=%.2f from %d walk-forward years)",
-        concentration, target_std, len(folds),
+        concentration,
+        target_std,
+        len(folds),
     )
 
     if abs(concentration - 2.0) < 0.1:
@@ -256,31 +315,39 @@ def calibrate_simulation_params(
             "n_years": len(folds),
             "blend_weight": 1.0,
             "concentration": round(concentration, 1),
+            "hetero_k": hetero_k,
         }
 
-    # Step 3: blend_weight — 68% CI coverage criterion
+    # Step 3: blend_weight — weighted 68% CI coverage criterion (recent years count more)
     realized_seats = {year: int(actual.sum()) for year, (_, actual) in folds.items()}
     best_weight, best_gap, best_coverage = 0.5, float("inf"), 0.0
 
     for w_int in range(0, 21):
         w = round(w_int / 20, 2)
-        covered = 0
-        for year, (proba, _) in folds.items():
+        weighted_covered = 0.0
+        for (year, (proba, _)), wt in zip(folds.items(), weights):
             sim = simulate_blended(
-                proba, n=n, seed=seed, blend_weight=w,
-                sigma_national=sigma_national, sigma_district=sigma_district,
+                proba,
+                n=n,
+                seed=seed,
+                blend_weight=w,
+                sigma_national=sigma_national,
+                sigma_district=sigma_district,
                 concentration=concentration,
+                hetero_k=hetero_k,
             )
             if int(np.percentile(sim, 16)) <= realized_seats[year] <= int(np.percentile(sim, 84)):
-                covered += 1
-        coverage = covered / len(folds)
+                weighted_covered += float(wt)
+        coverage = weighted_covered  # weights already sum to 1
         gap = abs(coverage - 0.68)
         if gap < best_gap:
             best_gap, best_weight, best_coverage = gap, w, coverage
 
     logger.info(
         "Calibrated blend_weight=%.2f (68%% CI coverage=%.1f%% across %d walk-forward years)",
-        best_weight, best_coverage * 100, len(folds),
+        best_weight,
+        best_coverage * 100,
+        len(folds),
     )
     return {
         "sigma_national": sigma_national,
@@ -289,6 +356,7 @@ def calibrate_simulation_params(
         "n_years": len(folds),
         "blend_weight": round(best_weight, 2),
         "concentration": round(concentration, 1),
+        "hetero_k": hetero_k,
     }
 
 
@@ -310,5 +378,12 @@ def load_simulation_params() -> SimParams:
             sigma_district=float(params.get("sigma_district", 0.15)),
             blend_weight=float(params.get("blend_weight", 0.5)),
             concentration=float(params.get("concentration", 15.0)),
+            hetero_k=float(params.get("hetero_k", 1.0)),
         )
-    return SimParams(sigma_national=0.25, sigma_district=0.15, blend_weight=0.5, concentration=15.0)
+    return SimParams(
+        sigma_national=0.25,
+        sigma_district=0.15,
+        blend_weight=0.5,
+        concentration=15.0,
+        hetero_k=1.0,
+    )

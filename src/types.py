@@ -20,6 +20,7 @@ class SimParams(TypedDict):
     sigma_district: float
     blend_weight: float
     concentration: float
+    hetero_k: NotRequired[float]  # competitive-district noise scaling; defaults to 1.0
 
 
 class CalibrationResult(TypedDict):
@@ -29,6 +30,7 @@ class CalibrationResult(TypedDict):
     n_years: int
     blend_weight: NotRequired[float]
     concentration: NotRequired[float]
+    hetero_k: NotRequired[float]
 
 
 class BootstrapResult(TypedDict):
