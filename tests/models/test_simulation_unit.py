@@ -202,3 +202,143 @@ def test_load_simulation_params_default_hetero_k(tmp_path, monkeypatch):
         assert result.get("hetero_k", 1.0) == 1.0
     finally:
         src.paths.DataFile.CALIBRATED_SIGMA = original.CALIBRATED_SIGMA  # type: ignore[attr-defined]
+
+
+# ---------------------------------------------------------------------------
+# 10. bayesian_simulate: shape and value range
+# ---------------------------------------------------------------------------
+
+def test_bayesian_simulate_shape_and_range():
+    from src.models.simulation import bayesian_simulate
+
+    proba = np.array([0.3, 0.5, 0.7])
+    result = bayesian_simulate(proba, n=100, seed=0)
+    assert result.shape == (100,)
+    assert result.min() >= 0
+    assert result.max() <= len(proba)
+
+
+# ---------------------------------------------------------------------------
+# 11. bayesian_simulate: high concentration reduces variance
+# ---------------------------------------------------------------------------
+
+def test_bayesian_simulate_high_concentration_reduces_variance():
+    from src.models.simulation import bayesian_simulate
+
+    proba = np.full(30, 0.5)
+    low_conc = bayesian_simulate(proba, n=2000, seed=0, concentration=2.0)
+    high_conc = bayesian_simulate(proba, n=2000, seed=0, concentration=100.0)
+    assert high_conc.std() < low_conc.std(), (
+        f"Expected high-concentration std ({high_conc.std():.3f}) "
+        f"< low-concentration std ({low_conc.std():.3f})"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 12. simulate_blended: pure Bayesian branch (blend_weight=0.0)
+# ---------------------------------------------------------------------------
+
+def test_simulate_blended_pure_bayesian():
+    from src.models.simulation import simulate_blended
+
+    n_districts = 20
+    proba = np.full(n_districts, 0.5)
+    result = simulate_blended(proba, n=200, seed=0, blend_weight=0.0)
+    assert result.shape == (200,)
+    assert result.min() >= 0
+    assert result.max() <= n_districts
+
+
+# ---------------------------------------------------------------------------
+# 13. simulate_blended: half-and-half returns exactly n samples
+# ---------------------------------------------------------------------------
+
+def test_simulate_blended_half_half_returns_n_samples():
+    from src.models.simulation import simulate_blended
+
+    proba = np.array([0.4, 0.5, 0.6, 0.7])
+    result = simulate_blended(proba, n=400, seed=0, blend_weight=0.5)
+    assert result.shape == (400,)
+
+
+# ---------------------------------------------------------------------------
+# 14. _robust_std: constant array yields zero
+# ---------------------------------------------------------------------------
+
+def test_robust_std_near_zero_for_constant():
+    from src.models.simulation import _robust_std
+
+    assert _robust_std(np.ones(10)) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# 15. _robust_std: resistant to a single extreme outlier
+# ---------------------------------------------------------------------------
+
+def test_robust_std_outlier_resistance():
+    from src.models.simulation import _robust_std
+
+    base = np.zeros(20)
+    base[-1] = 1000.0
+    robust = _robust_std(base)
+    plain = float(np.std(base))
+    assert robust < plain / 10, (
+        f"Expected _robust_std ({robust:.3f}) << np.std ({plain:.3f})"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 16. calibrate_simulation_params: expected keys and valid blend_weight
+# ---------------------------------------------------------------------------
+
+def test_calibrate_simulation_params_returns_expected_keys():
+    from unittest.mock import patch
+
+    from src.models.simulation import calibrate_simulation_params
+
+    proba = np.full(5, 0.5)
+    fake_folds = {
+        2004: (proba, np.array([1, 1, 1, 0, 0], dtype=float)),
+        2006: (proba, np.array([0, 0, 1, 1, 1], dtype=float)),
+        2008: (proba, np.array([1, 1, 0, 0, 1], dtype=float)),
+        2010: (proba, np.array([0, 1, 1, 0, 0], dtype=float)),
+    }
+
+    with patch("src.models.simulation.walk_forward_probas", return_value=fake_folds):
+        result = calibrate_simulation_params(
+            pd.DataFrame(),
+            pd.Series(dtype=float),
+            pd.Series(dtype=int),
+            n=50,
+            seed=0,
+        )
+
+    for key in ("sigma_national", "blend_weight", "concentration", "n_years"):
+        assert key in result, f"Missing key: {key}"
+    blend = result.get("blend_weight", -1.0)
+    assert 0.0 <= blend <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# 17. load_simulation_params: absent file falls back to defaults
+# ---------------------------------------------------------------------------
+
+def test_load_simulation_params_absent_file_uses_defaults(tmp_path, monkeypatch):
+    import src.paths as paths_mod
+    from src.models.simulation import load_simulation_params
+
+    nonexistent = tmp_path / "nonexistent.json"
+
+    class _FakeDataFile:
+        CALIBRATED_SIGMA = nonexistent
+
+    monkeypatch.setattr(paths_mod, "DataFile", _FakeDataFile)
+    import src.paths
+    src.paths.DataFile.CALIBRATED_SIGMA = nonexistent  # type: ignore[attr-defined]
+    try:
+        result = load_simulation_params()
+        assert result["sigma_national"] == 0.25
+        assert result["blend_weight"] == 0.5
+        assert result["concentration"] == 15.0
+    finally:
+        src.paths.DataFile.CALIBRATED_SIGMA = paths_mod.DataFile.CALIBRATED_SIGMA  # type: ignore[attr-defined]

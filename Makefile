@@ -1,4 +1,4 @@
-.PHONY: help app mlflow test test-fast test-e2e typecheck lint analyze predict tune rag db indicators generic-ballot open-seats agent calibrate-sigma freeze install install-dev fetch validate push
+.PHONY: help app mlflow test test-fast test-e2e coverage typecheck lint analyze predict tune rag db indicators generic-ballot open-seats census candidate-quality poll-aggregation pipeline agent calibrate-sigma freeze install install-dev fetch validate push
 
 PYTHON = python
 export PYTHONUNBUFFERED := 1
@@ -17,6 +17,7 @@ help:
 	@echo "  lint             Run ruff linter"
 	@echo "  test             Run the full test suite (excludes e2e)"
 	@echo "  test-fast        Re-run only tests affected by file changes (pytest-testmon)"
+	@echo "  coverage         Run tests with coverage; open htmlcov/index.html to explore"
 	@echo "  test-e2e         Run the real-browser Streamlit/API smoke tests (slow, opt-in -"
 	@echo "                   needs: pip install playwright && playwright install chromium)"
 	@echo ""
@@ -26,9 +27,13 @@ help:
 	@echo "  indicators       Fetch latest economic indicators from FRED"
 	@echo "  generic-ballot   Fetch generic ballot history (FiveThirtyEight + Wikipedia)"
 	@echo "  open-seats       Fetch 2026 open-seat list from Wikipedia"
+	@echo "  census           Fetch ACS 5-year demographics from Census Bureau API"
+	@echo "  candidate-quality  Score candidates from FEC history + TF-IDF NLP"
+	@echo "  poll-aggregation   Aggregate generic ballot polls with house-effects correction"
 	@echo "  db               Build the SQLite forecast database"
 	@echo ""
 	@echo "Model:"
+	@echo "  pipeline         Full run: fetch all data + retrain model (run once, then make app)"
 	@echo "  predict          Train model + MLflow logging + 2026 forecast"
 	@echo "  tune             Optuna hyperparameter tuning for LightGBM"
 	@echo "  calibrate-sigma  Calibrate Monte Carlo sigma_national from walk-forward residuals"
@@ -52,6 +57,8 @@ pre-commit: lint typecheck test-fast
 push: lint typecheck test
 	git push
 
+pipeline: fetch census poll-aggregation candidate-quality predict
+
 fetch:
 	$(PYTHON) -m src.data.fetch_data
 
@@ -73,6 +80,10 @@ app:
 mlflow:
 	$(PYTHON) -c 'exec("import time,webbrowser,socket\nfor _ in range(30):\n  s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)\n  if s.connect_ex((\"127.0.0.1\",5000))==0:\n    s.close();break\n  s.close();time.sleep(0.5)\nwebbrowser.open(\"http://127.0.0.1:5000\")")' &
 	$(PYTHON) -m mlflow ui --backend-store-uri sqlite:///models/mlflow.db
+
+coverage:
+	$(PYTHON) -m pytest tests/ --cov=src --cov-report=html --cov-report=term-missing -q
+	@echo "HTML report: htmlcov/index.html"
 
 test:
 	$(PYTHON) -m pytest tests/ -v --tb=short
@@ -109,6 +120,15 @@ generic-ballot:
 
 open-seats:
 	$(PYTHON) -m src.data.build_open_seats
+
+census:
+	$(PYTHON) -m src.data.census
+
+candidate-quality:
+	$(PYTHON) -m src.data.candidate_nlp
+
+poll-aggregation:
+	$(PYTHON) -m src.data.poll_aggregation
 
 agent:
 	$(PYTHON) -m src.visualization.forecast_agent

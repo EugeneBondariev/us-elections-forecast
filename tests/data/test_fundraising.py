@@ -2,13 +2,16 @@
 all tests operate on hand-crafted in-memory records."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 
-from src.data.fundraising import _RAW_FIELDS, _aggregate, _top_candidate_per_group
+from src.data.fundraising import _RAW_FIELDS, _aggregate, _save_raw, _top_candidate_per_group
+from src.types import FECCandidateRecord
 
 
 def _record(party: str, candidate_id: str, receipts: float, disbursements: float,
-            year: int = 2024, state_po: str = "CA", district: int = 1) -> dict:
+            year: int = 2024, state_po: str = "CA", district: int = 1) -> FECCandidateRecord:
     return {
         "year": year, "state_po": state_po, "district": district, "party": party,
         "candidate_id": candidate_id, "candidate_name": candidate_id,
@@ -80,3 +83,64 @@ class TestAggregate:
         result = _aggregate(records)
         row = result.iloc[0]
         assert row["fundraising_dem_share"] == 1.0
+
+
+class TestAggregateNegativeClipping:
+    def test_negative_receipts_clipped_to_zero(self) -> None:
+        """DEM receipts=-50 clips to 0; share is 0/(0+100)=0.0, not negative."""
+        records = [
+            _record("DEM", "A", receipts=-50.0, disbursements=0.0),
+            _record("REP", "B", receipts=100.0, disbursements=0.0),
+        ]
+        result = _aggregate(records)
+        assert result.iloc[0]["fundraising_dem_share"] == 0.0
+
+
+class TestSaveRaw:
+    def test_writes_sortable_csv(self, tmp_path: Path) -> None:
+        records: list[FECCandidateRecord] = [
+            _record("DEM", "A", receipts=100.0, disbursements=20.0, year=2022, state_po="TX", district=7),
+            _record("REP", "B", receipts=80.0,  disbursements=15.0, year=2020, state_po="CA", district=1),
+            _record("DEM", "C", receipts=60.0,  disbursements=10.0, year=2022, state_po="CA", district=3),
+        ]
+        out = tmp_path / "out.csv"
+        _save_raw(records=records, raw_path=out)
+        assert out.exists()
+        df = pd.read_csv(out)
+        assert "year" in df.columns
+        assert "state_po" in df.columns
+        assert "district" in df.columns
+        # Sorted by year then state_po then district: 2020/CA/1, 2022/CA/3, 2022/TX/7
+        assert list(df["year"]) == [2020, 2022, 2022]
+        assert list(df["state_po"]) == ["CA", "CA", "TX"]
+
+
+class TestLoadFundraising:
+    def test_no_cache_no_key_returns_none(self, tmp_path: Path, monkeypatch: object) -> None:
+        from src.data.fundraising import load_fundraising
+
+        monkeypatch.delenv("FEC_API_KEY", raising=False)
+        monkeypatch.delenv("DATA_GOV_API_KEY", raising=False)
+        result = load_fundraising(
+            cache_path=tmp_path / "missing.csv",
+            api_key=None,
+        )
+        assert result is None
+
+    def test_cache_hit_returns_dataframe(self, tmp_path: Path) -> None:
+        from src.data.fundraising import load_fundraising
+
+        cache = tmp_path / "fundraising.csv"
+        pd.DataFrame({
+            "year": [2020, 2022, 2024],
+            "state_po": ["CA", "TX", "FL"],
+            "district": [1, 2, 3],
+            "fundraising_dem_share": [0.5, 0.6, 0.4],
+            "large_donor_dem_share": [0.5, 0.6, 0.4],
+            "pac_dem_share": [0.5, 0.6, 0.4],
+            "spending_dem_share": [0.5, 0.6, 0.4],
+            "surplus_dem_share": [0.5, 0.6, 0.4],
+        }).to_csv(cache, index=False)
+        result = load_fundraising(cache_path=cache)
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 3

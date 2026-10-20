@@ -24,3 +24,10 @@ groq~=1.0
 python-dotenv~=1.0
 pytest~=8.0
 ruff~=0.17
+# Bayesian hierarchical model (install: pip install pymc arviz  or  conda install -c conda-forge pymc)
+pymc~=5.0
+arviz~=0.17
+# NLP candidate quality (install: pip install spacy sentence-transformers
+#   then: python -m spacy download en_core_web_sm)
+spacy~=3.7
+sentence-transformers~=3.0

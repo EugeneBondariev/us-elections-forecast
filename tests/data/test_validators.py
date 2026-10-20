@@ -2,6 +2,8 @@
 Unit tests for src.data.validators. All fixtures are synthetic hand-crafted
 DataFrames — no files in data/ needed.
 """
+from __future__ import annotations
+
 import pandas as pd
 import pytest
 
@@ -130,3 +132,130 @@ def test_validate_approval_coverage_duplicate_year_raises():
     df = pd.DataFrame({Col.YEAR: [1976, 1976, 1980]})   # 1976 twice
     with pytest.raises(ValueError, match="duplicate"):
         validate_approval_coverage(df, required_years={1976, 1980})
+
+
+# ---------------------------------------------------------------------------
+# validate_census
+# ---------------------------------------------------------------------------
+
+class TestValidateCensus:
+    def test_valid_passes(self) -> None:
+        from src.constants import Col
+        from src.data.validators import validate_census
+
+        n = 450
+        df = pd.DataFrame({
+            Col.STATE:            ["CA"] * n,
+            Col.DISTRICT:         (list(range(54)) * (n // 54 + 1))[:n],
+            Col.PCT_BACHELOR_PLUS: [0.3] * n,
+            Col.PCT_NON_WHITE:     [0.4] * n,
+            Col.MEDIAN_INCOME:     [60_000.0] * n,
+            Col.MEDIAN_AGE:        [38.0] * n,
+        })
+        result = validate_census(df)
+        assert result is df
+
+    def test_too_few_rows_raises_ValueError(self) -> None:
+        from src.constants import Col
+        from src.data.validators import validate_census
+
+        df = pd.DataFrame({
+            Col.STATE:            ["CA"] * 5,
+            Col.DISTRICT:         list(range(5)),
+            Col.PCT_BACHELOR_PLUS: [0.3] * 5,
+            Col.PCT_NON_WHITE:     [0.4] * 5,
+            Col.MEDIAN_INCOME:     [60_000.0] * 5,
+            Col.MEDIAN_AGE:        [38.0] * 5,
+        })
+        with pytest.raises(ValueError, match="too small"):
+            validate_census(df)
+
+    def test_pct_out_of_range_raises_SchemaErrors(self) -> None:
+        import pandera.pandas as pa
+
+        from src.constants import Col
+        from src.data.validators import validate_census
+
+        n = 450
+        pct_values = [0.3] * n
+        pct_values[0] = 1.5   # out of [0, 1]
+        df = pd.DataFrame({
+            Col.STATE:            ["CA"] * n,
+            Col.DISTRICT:         (list(range(54)) * (n // 54 + 1))[:n],
+            Col.PCT_BACHELOR_PLUS: pct_values,
+            Col.PCT_NON_WHITE:     [0.4] * n,
+            Col.MEDIAN_INCOME:     [60_000.0] * n,
+            Col.MEDIAN_AGE:        [38.0] * n,
+        })
+        with pytest.raises(pa.errors.SchemaErrors):
+            validate_census(df)
+
+
+# ---------------------------------------------------------------------------
+# validate_candidate_quality
+# ---------------------------------------------------------------------------
+
+class TestValidateCandidateQuality:
+    def test_valid_passes(self) -> None:
+        from src.constants import Col
+        from src.data.validators import validate_candidate_quality
+
+        df = pd.DataFrame({
+            Col.YEAR:                  [2018, 2020, 2022],
+            Col.STATE:                 ["CA", "TX", "NY"],
+            Col.DISTRICT:              [1, 2, 3],
+            Col.CANDIDATE_QUALITY:     [0.55, 0.48, 0.60],
+            Col.EXPERIENCE_CYCLES_DEM: [2, 0, 3],
+            Col.EXPERIENCE_CYCLES_REP: [1, 4, 0],
+        })
+        result = validate_candidate_quality(df)
+        assert result is df
+
+    def test_invalid_quality_share_raises(self) -> None:
+        import pandera.pandas as pa
+
+        from src.constants import Col
+        from src.data.validators import validate_candidate_quality
+
+        df = pd.DataFrame({
+            Col.YEAR:                  [2018],
+            Col.STATE:                 ["CA"],
+            Col.DISTRICT:              [1],
+            Col.CANDIDATE_QUALITY:     [1.5],   # > 1, violates [0, 1]
+            Col.EXPERIENCE_CYCLES_DEM: [2],
+            Col.EXPERIENCE_CYCLES_REP: [1],
+        })
+        with pytest.raises(pa.errors.SchemaErrors):
+            validate_candidate_quality(df)
+
+
+# ---------------------------------------------------------------------------
+# validate_poll_aggregates
+# ---------------------------------------------------------------------------
+
+class TestValidatePollAggregates:
+    def test_valid_passes(self) -> None:
+        from src.constants import Col
+        from src.data.validators import validate_poll_aggregates
+
+        df = pd.DataFrame({
+            Col.YEAR:                 [2006, 2010, 2018, 2022],
+            Col.GENERIC_BALLOT:       [7.0, -9.0, 7.0, -1.0],
+            Col.GENERIC_BALLOT_SIGMA: [1.5, 2.0, 1.2, 1.8],
+        })
+        result = validate_poll_aggregates(df)
+        assert result is df
+
+    def test_out_of_range_margin_raises(self) -> None:
+        import pandera.pandas as pa
+
+        from src.constants import Col
+        from src.data.validators import validate_poll_aggregates
+
+        df = pd.DataFrame({
+            Col.YEAR:                 [2018],
+            Col.GENERIC_BALLOT:       [50.0],   # > 30, violates [-30, 30]
+            Col.GENERIC_BALLOT_SIGMA: [1.5],
+        })
+        with pytest.raises(pa.errors.SchemaErrors):
+            validate_poll_aggregates(df)
