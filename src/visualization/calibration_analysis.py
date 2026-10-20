@@ -11,12 +11,14 @@ from src.paths import FIGURES_DIR
 
 
 def main() -> None:
-    ds = build_dataset()
+    ds = build_dataset(min_train_year=1994)
     X, y = ds.X, ds.y
 
     print("Computing cross-validated probabilities (cv=5)...")
     proba_raw = cross_val_predict(build_lr_pipeline(), X, y, cv=5, method="predict_proba")[:, 1]
-    proba_cal = cross_val_predict(build_calibrated_pipeline(), X, y, cv=5, method="predict_proba")[:, 1]
+    proba_cal = cross_val_predict(build_calibrated_pipeline(), X, y, cv=5, method="predict_proba")[
+        :, 1
+    ]
 
     brier_raw = brier_score_loss(y, proba_raw)
     brier_cal = brier_score_loss(y, proba_cal)
@@ -29,7 +31,9 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(7, 6))
     ax.plot([0, 1], [0, 1], "k--", label="Perfect calibration", linewidth=1)
     ax.plot(mean_raw, frac_raw, "o-", color="#e67e22", label=f"Raw LR (Brier={brier_raw:.4f})")
-    ax.plot(mean_cal, frac_cal, "s-", color="#2980b9", label=f"Calibrated LR (Brier={brier_cal:.4f})")
+    ax.plot(
+        mean_cal, frac_cal, "s-", color="#2980b9", label=f"Calibrated LR (Brier={brier_cal:.4f})"
+    )
     ax.set_xlabel("Mean predicted probability")
     ax.set_ylabel("Fraction of positives (actual Dem wins)")
     ax.set_title("Reliability diagram — LR calibration")

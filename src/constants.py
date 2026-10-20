@@ -9,6 +9,7 @@ __all__ = [
     "DEM_MAJORITY_SEATS", "COOK_ALPHA", "COMPETITIVE_MARGIN",
     "PRES_PARTY", "GENERIC_BALLOT", "GDP_2026_ESTIMATE",
     "REDISTRICTING_YEARS", "PRES_YEAR_FOR_HOUSE", "OPEN_SEATS_2026",
+    "STATE_TO_REGION",
 ]
 
 
@@ -46,6 +47,7 @@ class Col(StrEnum):
     VOTE_SHARE = "vote_share"
     PRES_APPROVAL = "pres_approval"
     PRES_DISAPPROVAL = "pres_disapproval"
+    NET_PRES_APPROVAL = "net_pres_approval"
     PRES_PARTY = "pres_party"
     GENERIC_BALLOT = "generic_ballot"
     PREV_WINNER = "prev_winner"
@@ -198,6 +200,27 @@ OPEN_SEATS_2026: set[tuple[str, int]] = {
     ("SC", 1), ("SC", 5), ("SD", 0), ("TN", 6),
     ("TX", 8), ("TX", 10), ("TX", 19), ("TX", 21), ("TX", 22), ("TX", 38),
     ("UT", 4), ("WA", 4), ("WI", 7), ("WY", 0),
+}
+
+STATE_TO_REGION: dict[str, str] = {
+    # Northeast
+    "CT": "Northeast", "DE": "Northeast", "MA": "Northeast", "MD": "Northeast",
+    "ME": "Northeast", "NH": "Northeast", "NJ": "Northeast", "NY": "Northeast",
+    "PA": "Northeast", "RI": "Northeast", "VT": "Northeast",
+    # South
+    "AL": "South", "AR": "South", "FL": "South", "GA": "South",
+    "KY": "South", "LA": "South", "MS": "South", "NC": "South",
+    "OK": "South", "SC": "South", "TN": "South", "TX": "South",
+    "VA": "South", "WV": "South",
+    # Midwest
+    "IA": "Midwest", "IL": "Midwest", "IN": "Midwest", "KS": "Midwest",
+    "MI": "Midwest", "MN": "Midwest", "MO": "Midwest", "ND": "Midwest",
+    "NE": "Midwest", "OH": "Midwest", "SD": "Midwest", "WI": "Midwest",
+    # Mountain
+    "AZ": "Mountain", "CO": "Mountain", "ID": "Mountain", "MT": "Mountain",
+    "NM": "Mountain", "NV": "Mountain", "UT": "Mountain", "WY": "Mountain",
+    # Pacific
+    "AK": "Pacific", "CA": "Pacific", "HI": "Pacific", "OR": "Pacific", "WA": "Pacific",
 }
 
 if datetime.datetime.now().year > 2026:

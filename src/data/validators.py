@@ -144,7 +144,7 @@ class FeatureMatrixSchema(pa.DataFrameModel):
     prev_dem_vote_share: Series[float] = pa.Field(
         ge=0, le=1, nullable=True, alias=Col.PREV_DEM_SHARE
     )
-    pres_approval: Series[float] = pa.Field(alias=Col.PRES_APPROVAL)
+    net_pres_approval: Series[float] = pa.Field(alias=Col.NET_PRES_APPROVAL)
 
     class Config:
         coerce = True

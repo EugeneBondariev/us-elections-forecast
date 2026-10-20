@@ -12,6 +12,7 @@ from src.constants import (
     PRES_PARTY,
     PRES_YEAR_FOR_HOUSE,
     REDISTRICTING_YEARS,
+    STATE_TO_REGION,
     Col,
     Val,
 )
@@ -68,6 +69,9 @@ _DROP_COLS = [
     Col.TOTAL_VOTES,
     Col.VOTE_SHARE,
     Col.DEM_WON,
+    # Replaced by net_pres_approval (approval + disapproval, both already sign-flipped)
+    Col.PRES_APPROVAL,
+    Col.PRES_DISAPPROVAL,
 ]
 
 
@@ -248,9 +252,11 @@ def build_feature_matrix(winners: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series
     w[Col.DEM_WON] = (w[Col.PARTY] == Val.DEMOCRAT).astype(int)
     w = w[w[Col.DISTRICT_INCUMBENT].isin([Val.DEMOCRAT, Val.REPUBLICAN])]
     w[Col.INC_X_BALLOT] = w[Col.IS_INCUMBENT] * w[Col.GENERIC_BALLOT]
+    w[Col.NET_PRES_APPROVAL] = w[Col.PRES_APPROVAL] + w[Col.PRES_DISAPPROVAL]
+    w["region"] = w[Col.STATE].map(STATE_TO_REGION)
     w = pd.get_dummies(
         w,
-        columns=[Col.NATION_INCUMBENT, Col.DISTRICT_INCUMBENT, Col.STATE],
+        columns=[Col.NATION_INCUMBENT, Col.DISTRICT_INCUMBENT, "region"],
         drop_first=True,
     )
 
@@ -265,7 +271,7 @@ def build_feature_matrix(winners: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series
     return X, y, years
 
 
-def build_dataset() -> DatasetResult:
+def build_dataset(min_train_year: int | None = None) -> DatasetResult:
     """Load all pipeline inputs and return a DatasetResult with every component.
 
     All callers can destructure only what they need:
@@ -273,6 +279,11 @@ def build_dataset() -> DatasetResult:
         X, y = ds.X, ds.y                          # simple analysis scripts
         X, y, years = ds.X, ds.y, ds.years         # walk-forward / CV
         ds.dems_reps / ds.pres_lean / ds.fundraising  for build_pred_2026
+
+    min_train_year: if set, drop rows from X/y/years where year < min_train_year.
+        Feature engineering (rolling lean, trend) still uses the full history so
+        early-cycle features remain accurate. Only the rows exposed to the model
+        are trimmed. Typical value: 1994 (modern partisan alignment era).
     """
     df = load_clean_house_data(DataFile.HOUSE)
     top_candidates = get_top_candidate_per_party(df)
@@ -291,6 +302,10 @@ def build_dataset() -> DatasetResult:
     winners = build_winners(top_candidates, dems_reps, approval, pres_lean, fundraising)
     winners = add_incumbency_features(winners, df)
     X, y, years = build_feature_matrix(winners)
+    if min_train_year is not None:
+        mask = years >= min_train_year
+        X, y, years = X.loc[mask], y.loc[mask], years.loc[mask]
+        logger.info("Filtered to min_train_year=%d: %d rows remaining", min_train_year, len(X))
     return DatasetResult(
         X=X,
         y=y,
@@ -375,6 +390,7 @@ def build_pred_2026(
     pred = pred.merge(prev_share_2026, on=[Col.STATE, Col.DISTRICT], how="left")
     pred[Col.PREV_DEM_SHARE] = pred[Col.PREV_DEM_SHARE].fillna(pred[Col.PREV_DEM_SHARE].median())
     pred[Col.INC_X_BALLOT] = pred[Col.IS_INCUMBENT] * pred[Col.GENERIC_BALLOT]
+    pred[Col.NET_PRES_APPROVAL] = pred[Col.PRES_APPROVAL] + pred[Col.PRES_DISAPPROVAL]
     if pres_lean is not None and Col.PRES_LEAN in list(feature_columns):
         lean_2026 = (
             pres_lean[pres_lean["pres_year"].isin([2020, 2024])]
@@ -403,9 +419,10 @@ def build_pred_2026(
             for c in available:
                 pred[c] = pred[c].fillna(0.5)
 
+    pred["region"] = pred[Col.STATE].map(STATE_TO_REGION)
     pred = pd.get_dummies(
         pred,
-        columns=[Col.NATION_INCUMBENT, Col.DISTRICT_INCUMBENT, Col.STATE],
+        columns=[Col.NATION_INCUMBENT, Col.DISTRICT_INCUMBENT, "region"],
         drop_first=True,
     )
     pred = pred.reindex(columns=feature_columns, fill_value=0)

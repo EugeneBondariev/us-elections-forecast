@@ -124,3 +124,158 @@ def test_build_feature_matrix_no_data_leakage():
         # All rows that come from district 1 or 3 should have the Rep flag = 1
         # (we can't assert row-level without district info after dummies, so check shape)
         assert X[rep_col].isin([0, 1]).all()
+
+
+# ---------------------------------------------------------------------------
+# 4. Regional dummies: no state_po_XX columns; region_ columns present
+# ---------------------------------------------------------------------------
+
+def _make_multiregion_winners() -> pd.DataFrame:
+    """Synthetic winners table spanning 4 regions (Pacific, South, Midwest, Northeast)."""
+    from src.constants import Col, Val
+    rows = []
+    # one district per state-region pair so we get actual region variety
+    state_dist = [("CA", 1), ("TX", 2), ("IL", 3), ("NY", 4)]
+    for year in [2000, 2002, 2004]:
+        for state, dist in state_dist:
+            party = Val.DEMOCRAT if dist % 2 == 0 else Val.REPUBLICAN
+            rows.append({
+                Col.YEAR: year,         Col.STATE: state,     Col.DISTRICT: dist,
+                Col.PARTY: party,
+                Col.CANDIDATE_VOTES: 100, Col.TOTAL_VOTES: 180, Col.VOTE_SHARE: 100 / 180,
+                Col.DEM_LEAN: 0.5,      Col.DEM_LEAN_TREND: 0.0, Col.PREV_DEM_SHARE: 0.5,
+                Col.PRES_APPROVAL: 10.0, Col.PRES_DISAPPROVAL: -40.0,
+                Col.GENERIC_BALLOT: 5.0,
+                Col.ECON_GROWTH: 2.0,   Col.UNEMPLOYMENT: 5.0,
+                Col.IS_INCUMBENT: 1.0,  Col.REDISTRICTING: 0,
+            })
+    return pd.DataFrame(rows)
+
+
+def test_no_state_dummies_in_feature_matrix():
+    """After switching to regional dummies, no state_po_XX column should appear in X."""
+    from src.features.features import build_feature_matrix
+
+    winners = _make_multiregion_winners()
+    X, _, _ = build_feature_matrix(winners)
+
+    state_cols = [c for c in X.columns if c.startswith("state_po_")]
+    assert state_cols == [], f"Unexpected state dummies found: {state_cols}"
+
+
+def test_region_dummies_in_feature_matrix():
+    """Region dummies should appear in X (with drop_first=True, at least one column)."""
+    from src.features.features import build_feature_matrix
+
+    winners = _make_multiregion_winners()
+    X, _, _ = build_feature_matrix(winners)
+
+    region_cols = [c for c in X.columns if c.startswith("region_")]
+    assert len(region_cols) >= 1, "Expected at least one region_ dummy column"
+    # All region dummy values must be 0 or 1
+    assert X[region_cols].isin([0, 1]).all().all()
+
+
+def test_state_to_region_covers_all_50_states():
+    """Every US state abbreviation must appear exactly once in STATE_TO_REGION."""
+    from src.constants import STATE_TO_REGION
+
+    all_50 = {
+        "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+        "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+        "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+        "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+        "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+    }
+    missing = all_50 - set(STATE_TO_REGION.keys())
+    extra = set(STATE_TO_REGION.keys()) - all_50
+    assert not missing, f"States missing from STATE_TO_REGION: {sorted(missing)}"
+    assert not extra, f"Non-states in STATE_TO_REGION: {sorted(extra)}"
+
+    valid_regions = {"Northeast", "South", "Midwest", "Mountain", "Pacific"}
+    bad = {s: r for s, r in STATE_TO_REGION.items() if r not in valid_regions}
+    assert not bad, f"Unknown region values: {bad}"
+
+
+# ---------------------------------------------------------------------------
+# 5. min_train_year: rows before the cutoff are excluded from X/y/years
+# ---------------------------------------------------------------------------
+
+def _make_multiyear_winners_for_filter() -> pd.DataFrame:
+    """Synthetic winners with years 2000/2002/2004 across two states."""
+    from src.constants import Col, Val
+    rows = []
+    state_dist = [("CA", 1), ("TX", 2)]
+    for year in [2000, 2002, 2004]:
+        for state, dist in state_dist:
+            party = Val.DEMOCRAT if dist % 2 == 0 else Val.REPUBLICAN
+            rows.append({
+                Col.YEAR: year,         Col.STATE: state,     Col.DISTRICT: dist,
+                Col.PARTY: party,
+                Col.CANDIDATE_VOTES: 100, Col.TOTAL_VOTES: 180, Col.VOTE_SHARE: 100 / 180,
+                Col.DEM_LEAN: 0.5,      Col.DEM_LEAN_TREND: 0.0, Col.PREV_DEM_SHARE: 0.5,
+                Col.PRES_APPROVAL: 10.0, Col.PRES_DISAPPROVAL: -40.0,
+                Col.GENERIC_BALLOT: 5.0,
+                Col.ECON_GROWTH: 2.0,   Col.UNEMPLOYMENT: 5.0,
+                Col.IS_INCUMBENT: 1.0,  Col.REDISTRICTING: 0,
+            })
+    return pd.DataFrame(rows)
+
+
+def test_min_train_year_filters_rows():
+    """Rows with year < min_train_year must not appear in X after filtering."""
+    from src.features.features import build_feature_matrix
+
+    winners = _make_multiyear_winners_for_filter()
+    X_all, y_all, years_all = build_feature_matrix(winners)
+
+    # Apply min_train_year=2004 filter as build_dataset does
+    mask = years_all >= 2004
+    X_filt = X_all.loc[mask]
+    y_filt = y_all.loc[mask]
+    years_filt = years_all.loc[mask]
+
+    assert set(years_filt.unique()) == {2004}, f"Expected only 2004, got {set(years_filt.unique())}"
+    assert len(X_filt) < len(X_all), "Filtered dataset must be smaller than unfiltered"
+    assert len(X_filt) == len(y_filt) == len(years_filt)
+
+
+def test_min_train_year_none_keeps_all_rows():
+    """With min_train_year=None (default), all rows are retained."""
+    from src.features.features import build_feature_matrix
+
+    winners = _make_multiyear_winners_for_filter()
+    _, _, years = build_feature_matrix(winners)
+
+    # No filter applied — year 2000 is dropped by build_feature_matrix (no prior incumbent),
+    # but 2002 and 2004 must be present.
+    assert {2002, 2004}.issubset(set(years.unique()))
+
+
+# ---------------------------------------------------------------------------
+# 6. net_pres_approval: replaces separate approval/disapproval columns in X
+# ---------------------------------------------------------------------------
+
+def test_net_pres_approval_in_feature_matrix():
+    """net_pres_approval must be in X; pres_approval and pres_disapproval must not."""
+    from src.features.features import build_feature_matrix
+
+    winners = _make_minimal_winners()
+    X, _, _ = build_feature_matrix(winners)
+
+    assert "net_pres_approval" in X.columns, "net_pres_approval missing from X"
+    assert "pres_approval" not in X.columns, "pres_approval should be dropped (net replaces it)"
+    assert "pres_disapproval" not in X.columns, "pres_disapproval should be dropped (net replaces it)"
+
+
+def test_net_pres_approval_value():
+    """net_pres_approval = pres_approval + pres_disapproval (both already sign-flipped)."""
+    from src.features.features import build_feature_matrix
+
+    winners = _make_minimal_winners()  # approval=10.0, disapproval=-40.0 in fixture
+    X, _, _ = build_feature_matrix(winners)
+
+    expected_net = 10.0 + (-40.0)  # = -30.0
+    assert (X["net_pres_approval"] == expected_net).all(), (
+        f"Expected net_pres_approval={expected_net}, got {X['net_pres_approval'].unique()}"
+    )

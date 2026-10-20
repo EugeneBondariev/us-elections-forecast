@@ -48,7 +48,7 @@ class TestBuildFeatureMatrix:
 
     def test_expected_columns(self, real_data):
         required = {
-            Col.DEM_LEAN, Col.DEM_LEAN_TREND, Col.PRES_APPROVAL, Col.PRES_DISAPPROVAL,
+            Col.DEM_LEAN, Col.DEM_LEAN_TREND, Col.NET_PRES_APPROVAL,
             Col.GENERIC_BALLOT, Col.IS_INCUMBENT, Col.REDISTRICTING,
             Col.PREV_DEM_SHARE, Col.INC_X_BALLOT,
             Col.ECON_GROWTH, Col.UNEMPLOYMENT,
