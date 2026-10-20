@@ -50,17 +50,22 @@ class TestBuildFeatureMatrix:
         required = {
             Col.DEM_LEAN, Col.DEM_LEAN_TREND, Col.NET_PRES_APPROVAL,
             Col.GENERIC_BALLOT, Col.IS_INCUMBENT, Col.REDISTRICTING,
-            Col.PREV_DEM_SHARE, Col.INC_X_BALLOT,
+            Col.INC_X_BALLOT,
             Col.ECON_GROWTH, Col.UNEMPLOYMENT,
             Col.STATE_PARTISAN_LEAN,
             "nation_incumbent_party_REPUBLICAN", "district_incumbent_party_REPUBLICAN",
         }
         assert required.issubset(set(real_data["X"].columns))
 
+    def test_dropped_collinear_columns(self, real_data):
+        """prev_dem_vote_share and spending_dem_share must be excluded (high VIF)."""
+        assert Col.PREV_DEM_SHARE not in real_data["X"].columns
+        assert Col.SPENDING_DEM_SHARE not in real_data["X"].columns
+
     def test_y_vote_share_continuous(self, real_data):
         yvs = real_data["y_vote_share"]
         assert yvs.dtype == float or str(yvs.dtype).startswith("float")
-        assert yvs.dropna().between(0, 1).all()  # NaN allowed for uncontested races
+        assert yvs.between(0, 1).all()  # uncontested races imputed to 0.85 / 0.15
         assert len(yvs) == len(real_data["y"])
 
     def test_returns_years(self, real_data):

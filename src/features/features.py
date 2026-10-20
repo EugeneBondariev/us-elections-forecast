@@ -74,6 +74,10 @@ _DROP_COLS = [
     # Replaced by net_pres_approval (approval + disapproval, both already sign-flipped)
     Col.PRES_APPROVAL,
     Col.PRES_DISAPPROVAL,
+    # VIF ~26: redundant with dem_lean (rolling mean already incorporates this)
+    Col.PREV_DEM_SHARE,
+    # VIF ~182: spending is a lagging echo of fundraising; keep fundraising_dem_share
+    Col.SPENDING_DEM_SHARE,
 ]
 
 
@@ -274,7 +278,14 @@ def build_feature_matrix(
         [str(c) for c in X.columns]
     )  # StrEnum → plain str for sklearn compatibility
     y = w[Col.DEM_WON][X.index]
-    y_vote_share = w[Col.DEM_VOTE_SHARE][X.index]
+    y_vote_share = w[Col.DEM_VOTE_SHARE][X.index].copy()
+    # Uncontested races have no two-party vote share. Impute a plausible value so the
+    # regressor sees the full range of district competitiveness. 0.85/0.15 reflects the
+    # typical two-party share when a major-party candidate runs unopposed.
+    uncontested_dem = y_vote_share.isna() & (y == 1)
+    uncontested_rep = y_vote_share.isna() & (y == 0)
+    y_vote_share.loc[uncontested_dem] = 0.85
+    y_vote_share.loc[uncontested_rep] = 0.15
     years = w[Col.YEAR][X.index]
     logger.info("Feature matrix: %d rows, %d features", len(X), len(X.columns))
     validate_feature_matrix(X)

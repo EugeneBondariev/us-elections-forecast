@@ -142,9 +142,6 @@ class FeatureMatrixSchema(pa.DataFrameModel):
     """Schema for the feature matrix X before model training."""
 
     dem_lean: Series[float] = pa.Field(nullable=True, alias=Col.DEM_LEAN)
-    prev_dem_vote_share: Series[float] = pa.Field(
-        ge=0, le=1, nullable=True, alias=Col.PREV_DEM_SHARE
-    )
     net_pres_approval: Series[float] = pa.Field(alias=Col.NET_PRES_APPROVAL)
     state_partisan_lean: Series[float] = pa.Field(nullable=True, alias=Col.STATE_PARTISAN_LEAN)
 
