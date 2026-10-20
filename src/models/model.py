@@ -162,6 +162,7 @@ class VoteShareRegressor:
         self._scaler: StandardScaler | None = None
         self._lgbm: LGBMRegressor | None = None
         self.feature_importances_: np.ndarray | None = None
+        self._bootstrap: list[tuple[StandardScaler, LGBMRegressor]] = []
 
     def fit(
         self,
@@ -171,7 +172,6 @@ class VoteShareRegressor:
     ) -> VoteShareRegressor:
         params = {k: v for k, v in _gbm_params().items()}
         params["verbose"] = -1
-        # Uncontested races have no two-party vote share; exclude them from regression
         y_arr = np.asarray(y_vote_share, dtype=float)
         mask = ~np.isnan(y_arr)
         X_fit = X.iloc[mask] if isinstance(X, pd.DataFrame) else X[mask]
@@ -183,6 +183,53 @@ class VoteShareRegressor:
         self._lgbm.fit(X_scaled, y_fit, sample_weight=sw_fit)
         self.feature_importances_ = self._lgbm.feature_importances_
         return self
+
+    def fit_bootstrap(
+        self,
+        X: pd.DataFrame,
+        y_vote_share: pd.Series,
+        years: pd.Series,
+        n_bootstrap: int = 50,
+        sample_weight: np.ndarray | None = None,
+    ) -> VoteShareRegressor:
+        """Fit year-block bootstrap models for predict_ci(). Resamples election years
+        (not rows) with replacement so within-year correlation is preserved."""
+        unique_years = np.array(sorted(years.unique()))
+        rng = np.random.default_rng(seed=42)
+        params = {k: v for k, v in _gbm_params().items()}
+        params["verbose"] = -1
+        self._bootstrap = []
+        for _ in range(n_bootstrap):
+            boot_years = rng.choice(unique_years, size=len(unique_years), replace=True)
+            row_idx = np.where(years.isin(boot_years))[0]
+            X_b = X.iloc[row_idx]
+            y_b = np.asarray(y_vote_share.iloc[row_idx]).astype(float)
+            sw_b = sample_weight[row_idx] if sample_weight is not None else None
+            nan_idx = np.where(~np.isnan(y_b))[0]
+            X_fit = X_b.iloc[nan_idx]
+            y_fit = y_b[nan_idx]
+            sw_fit = sw_b[nan_idx] if sw_b is not None else None
+            if len(y_fit) == 0:
+                continue
+            scaler = StandardScaler()
+            lgbm = LGBMRegressor(**params)
+            lgbm.fit(scaler.fit_transform(X_fit), y_fit, sample_weight=sw_fit)
+            self._bootstrap.append((scaler, lgbm))
+        return self
+
+    def predict_ci(
+        self, X: pd.DataFrame, alpha: float = 0.05
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return (lo, hi) vote-share CI at (1-alpha) coverage using bootstrap models."""
+        if not self._bootstrap:
+            raise RuntimeError("Call fit_bootstrap() before predict_ci()")
+        preds = np.column_stack([
+            np.clip(np.asarray(lgbm.predict(scaler.transform(X)), dtype=float), 0.0, 1.0)
+            for scaler, lgbm in self._bootstrap
+        ])
+        lo = np.percentile(preds, 100 * alpha / 2, axis=1)
+        hi = np.percentile(preds, 100 * (1 - alpha / 2), axis=1)
+        return lo, hi
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)

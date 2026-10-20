@@ -6,7 +6,7 @@ import pandas as pd
 from src.constants import COOK_ALPHA, OPEN_SEATS_2026, Col
 from src.data.loaders import load_cook_ratings
 from src.features.features import build_dataset, build_pred_2026
-from src.models.model import compute_sample_weights, explain_districts, train
+from src.models.model import VoteShareRegressor, compute_sample_weights, explain_districts, train
 from src.models.simulation import load_simulation_params, simulate_blended
 from src.paths import DataFile
 from src.types import ForecastResult
@@ -26,7 +26,8 @@ def run_forecast() -> ForecastResult:
     X, y, years, winners = ds.X, ds.y, ds.years, ds.winners
     pres_lean, fundraising, dems_reps = ds.pres_lean, ds.fundraising, ds.dems_reps
 
-    pipeline = train(X, y, sample_weight=compute_sample_weights(years))
+    weights = compute_sample_weights(years)
+    pipeline = train(X, y, sample_weight=weights, y_vote_share=ds.y_vote_share)
     pred_2026, district_ids = build_pred_2026(
         winners, dems_reps, X.columns, pres_lean=pres_lean, fundraising=fundraising
     )
@@ -35,6 +36,12 @@ def run_forecast() -> ForecastResult:
 
     districts = district_ids.copy()
     districts["proba_dem"] = proba
+
+    if isinstance(pipeline, VoteShareRegressor):
+        pipeline.fit_bootstrap(X, ds.y_vote_share, years, sample_weight=weights)
+        ci_lo, ci_hi = pipeline.predict_ci(pred_2026)
+        districts["ci_lo"] = ci_lo
+        districts["ci_hi"] = ci_hi
 
     cook = load_cook_ratings(DataFile.COOK)
     if not cook.empty:

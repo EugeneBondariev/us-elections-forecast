@@ -411,3 +411,71 @@ def test_jackknife_ci_absent_when_not_requested():
 
     assert "sigma_low" not in result
     assert "sigma_high" not in result
+
+
+# ---------------------------------------------------------------------------
+# 19. VoteShareRegressor.fit_bootstrap / predict_ci: shape, bounds, raises
+# ---------------------------------------------------------------------------
+
+def test_vote_share_regressor_predict_ci_shape():
+    import numpy as np
+    import pandas as pd
+
+    from src.models.model import VoteShareRegressor
+
+    rng = np.random.RandomState(0)
+    n = 80
+    X = pd.DataFrame(rng.randn(n, 3), columns=["a", "b", "c"])
+    y_vs = pd.Series(np.clip(X["a"] * 0.2 + 0.5, 0.0, 1.0))
+    years = pd.Series([2000] * 20 + [2002] * 20 + [2004] * 20 + [2006] * 20)
+
+    reg = VoteShareRegressor().fit(X, y_vs)
+    reg.fit_bootstrap(X, y_vs, years, n_bootstrap=10)
+    lo, hi = reg.predict_ci(X)
+
+    assert lo.shape == (n,)
+    assert hi.shape == (n,)
+    assert (lo >= 0).all() and (hi <= 1).all()
+    assert (lo <= hi).all()
+
+
+def test_vote_share_regressor_predict_ci_raises_without_bootstrap():
+    import numpy as np
+    import pandas as pd
+
+    from src.models.model import VoteShareRegressor
+
+    X = pd.DataFrame(np.random.randn(10, 2), columns=["a", "b"])
+    y_vs = pd.Series(np.full(10, 0.5))
+    reg = VoteShareRegressor().fit(X, y_vs)
+
+    import pytest
+    with pytest.raises(RuntimeError, match="fit_bootstrap"):
+        reg.predict_ci(X)
+
+
+def test_vote_share_regressor_ci_nonzero_width():
+    """Bootstrap CI must have nonzero width — different years produce different models."""
+    from unittest.mock import patch
+
+    import numpy as np
+    import pandas as pd
+
+    from src.models.model import VoteShareRegressor
+
+    rng = np.random.RandomState(1)
+    n_per_year = 30
+    n_years = 4
+    years = pd.Series(sum([[2000 + 2 * i] * n_per_year for i in range(n_years)], []))
+    n = len(years)
+    X = pd.DataFrame({"lean": rng.randn(n)})
+    y_vs = pd.Series(np.clip(X["lean"] * 0.3 + 0.5, 0.0, 1.0))
+
+    _small = {"min_child_samples": 1, "n_estimators": 50, "verbose": -1}
+    with patch("src.models.model._gbm_params", return_value=_small):
+        reg = VoteShareRegressor().fit(X, y_vs)
+        reg.fit_bootstrap(X, y_vs, years, n_bootstrap=20)
+
+    X_test = pd.DataFrame({"lean": [0.0, 0.5, -0.5]})
+    lo, hi = reg.predict_ci(X_test)
+    assert (hi > lo).all(), "CI width must be strictly positive"
