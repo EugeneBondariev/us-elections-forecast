@@ -55,9 +55,11 @@ _RAW_FIELDS = [
 
 
 def _fetch_year(api_key: str, year: int) -> list[dict[str, Any]]:
-    records = []
+    records: list[dict[str, Any]] = []
     page = 1
+    pages_total: int | None = None
     while True:
+        data: dict[str, Any] | None = None
         for attempt in range(3):
             try:
                 fec_params: dict[str, Any] = {
@@ -79,9 +81,16 @@ def _fetch_year(api_key: str, year: int) -> list[dict[str, Any]]:
                 logger.warning("FEC API error year=%d page=%d attempt=%d: %s", year, page, attempt + 1, exc)
                 if attempt == 2:
                     logger.error("Giving up on year=%d page=%d after 3 attempts", year, page)
-                    data = None
                 time.sleep(2 ** attempt)
+
         if data is None:
+            if pages_total is not None and page <= pages_total:
+                logger.warning(
+                    "  %d: INCOMPLETE — gave up at page %d/%d, only %d records collected",
+                    year, page, pages_total, len(records),
+                )
+            else:
+                logger.warning("  %d: INCOMPLETE — failed on first page, no records collected", year)
             break
 
         results = data.get("results", [])
@@ -106,8 +115,8 @@ def _fetch_year(api_key: str, year: int) -> list[dict[str, Any]]:
                 record[field] = float(r.get(field) or 0)
             records.append(record)
 
-        pages = data.get("pagination", {}).get("pages", 1)
-        if page >= pages:
+        pages_total = data.get("pagination", {}).get("pages", 1)
+        if pages_total is None or page >= pages_total:
             break
         page += 1
         time.sleep(0.12)
