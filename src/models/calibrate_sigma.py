@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 def main() -> None:
     setup_logging()
     ds = build_dataset()
-    result = calibrate_simulation_params(ds.X, ds.y, ds.years)
+    result = calibrate_simulation_params(ds.X, ds.y, ds.years, compute_ci=True)
 
     with open(ensure(DataFile.CALIBRATED_SIGMA), "w") as f:
         json.dump(result, f, indent=2)
@@ -34,6 +34,11 @@ def main() -> None:
     logger.info("  blend_weight   = %.2f", result.get("blend_weight", float("nan")))
     logger.info("  target seat-count std = %.2f (from %d walk-forward years)",
                 result["target_std"], result["n_years"])
+    if "sigma_low" in result:
+        logger.info(
+            "  jackknife 95%% CI for sigma_national: [%.4f, %.4f]",
+            result.get("sigma_low"), result.get("sigma_high"),
+        )
 
 
 if __name__ == "__main__":

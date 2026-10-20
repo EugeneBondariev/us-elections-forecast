@@ -31,6 +31,8 @@ class CalibrationResult(TypedDict):
     blend_weight: NotRequired[float]
     concentration: NotRequired[float]
     hetero_k: NotRequired[float]
+    sigma_low: NotRequired[float]
+    sigma_high: NotRequired[float]
 
 
 class BootstrapResult(TypedDict):

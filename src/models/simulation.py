@@ -148,6 +148,7 @@ def calibrate_national_sigma(
     n: int = 2000,
     seed: int = 42,
     min_years: int = 3,
+    compute_ci: bool = False,
 ) -> CalibrationResult:
     """Pick sigma_national so the Monte Carlo seat-count spread matches the
     *empirical* spread of realized walk-forward national seat errors, instead of
@@ -224,12 +225,65 @@ def calibrate_national_sigma(
         target_std,
         len(folds),
     )
-    return {
+
+    result: CalibrationResult = {
         "sigma_national": round(sigma_national, 4),
         "sigma_district": sigma_district,
         "target_std": round(target_std, 4),
         "n_years": len(folds),
     }
+
+    if compute_ci and len(folds) >= 4:
+        # Leave-one-year-out jackknife: rerun binary search with each year dropped once.
+        # Uses n=500 (lighter) since jackknife runs len(folds) full calibrations.
+        jk_sigmas: list[float] = []
+        fold_items = list(folds.items())
+        for leave_out in range(len(fold_items)):
+            jk_folds = {yr: v for i, (yr, v) in enumerate(fold_items) if i != leave_out}
+            jk_years = list(jk_folds.keys())
+            max_yr_jk = max(jk_years)
+            jk_weights = np.array([recency_decay ** (max_yr_jk - yr) for yr in jk_years])
+            jk_weights /= jk_weights.sum()
+            jk_errors = np.array(
+                [actual.sum() - proba.sum() for proba, actual in jk_folds.values()]
+            )
+            jk_mean = float(np.average(jk_errors, weights=jk_weights))
+            jk_target = float(
+                np.sqrt(np.average((jk_errors - jk_mean) ** 2, weights=jk_weights))
+            )
+
+            def _jk_std(s: float, _jf: dict = jk_folds, _jw: np.ndarray = jk_weights) -> float:
+                stds = np.array([
+                    simulate_election(
+                        proba, n=500, seed=seed,
+                        sigma_national=s, sigma_district=sigma_district, hetero_k=hetero_k,
+                    ).std()
+                    for proba, _ in _jf.values()
+                ])
+                return float(np.average(stds, weights=_jw))
+
+            lo_jk, hi_jk = 0.01, 1.0
+            for _ in range(15):
+                mid_jk = (lo_jk + hi_jk) / 2
+                if _jk_std(mid_jk) < jk_target:
+                    lo_jk = mid_jk
+                else:
+                    hi_jk = mid_jk
+            jk_sigmas.append((lo_jk + hi_jk) / 2)
+
+        n_jk = len(jk_sigmas)
+        jk_arr = np.array(jk_sigmas)
+        jk_var = (n_jk - 1) / n_jk * float(np.sum((jk_arr - jk_arr.mean()) ** 2))
+        jk_se = float(np.sqrt(jk_var))
+        result["sigma_low"] = round(max(0.01, sigma_national - 1.96 * jk_se), 4)
+        result["sigma_high"] = round(sigma_national + 1.96 * jk_se, 4)
+        logger.info(
+            "  Jackknife 95%% CI for sigma_national: [%.4f, %.4f]",
+            result["sigma_low"],
+            result["sigma_high"],
+        )
+
+    return result
 
 
 def calibrate_simulation_params(
@@ -243,6 +297,7 @@ def calibrate_simulation_params(
     recency_decay: float = 0.85,
     n: int = 2000,
     seed: int = 42,
+    compute_ci: bool = False,
 ) -> CalibrationResult:
     """Calibrate all four Monte Carlo parameters from walk-forward residuals.
 
@@ -265,6 +320,7 @@ def calibrate_simulation_params(
         recency_decay=recency_decay,
         n=n,
         seed=seed,
+        compute_ci=compute_ci,
     )
     sigma_national = base["sigma_national"]
     target_std = base["target_std"]
@@ -308,7 +364,7 @@ def calibrate_simulation_params(
             "Setting blend_weight=1.0 (pure correlated national-shock simulation).",
             concentration,
         )
-        return {
+        floor_result: CalibrationResult = {
             "sigma_national": sigma_national,
             "sigma_district": sigma_district,
             "target_std": round(target_std, 4),
@@ -317,6 +373,10 @@ def calibrate_simulation_params(
             "concentration": round(concentration, 1),
             "hetero_k": hetero_k,
         }
+        if "sigma_low" in base:
+            floor_result["sigma_low"] = base.get("sigma_low", float("nan"))
+            floor_result["sigma_high"] = base.get("sigma_high", float("nan"))
+        return floor_result
 
     # Step 3: blend_weight — weighted 68% CI coverage criterion (recent years count more)
     realized_seats = {year: int(actual.sum()) for year, (_, actual) in folds.items()}
@@ -349,7 +409,7 @@ def calibrate_simulation_params(
         best_coverage * 100,
         len(folds),
     )
-    return {
+    full_result: CalibrationResult = {
         "sigma_national": sigma_national,
         "sigma_district": sigma_district,
         "target_std": round(target_std, 4),
@@ -358,6 +418,10 @@ def calibrate_simulation_params(
         "concentration": round(concentration, 1),
         "hetero_k": hetero_k,
     }
+    if "sigma_low" in base:
+        full_result["sigma_low"] = base.get("sigma_low", float("nan"))
+        full_result["sigma_high"] = base.get("sigma_high", float("nan"))
+    return full_result
 
 
 def load_simulation_params() -> SimParams:
