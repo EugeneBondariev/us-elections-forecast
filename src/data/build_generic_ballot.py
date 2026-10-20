@@ -68,7 +68,7 @@ def _fetch_538() -> tuple[dict[int, float], str]:
         logger.info("FiveThirtyEight fetch failed: %s — falling back to constants.py", exc)
         return {y: GENERIC_BALLOT[y] for y in ELECTION_YEARS_538 if y in GENERIC_BALLOT}, "constants.py"
 
-    DataFile.GENERIC_BALLOT_RAW.write_text(raw, encoding="utf-8")
+    ensure(DataFile.GENERIC_BALLOT_RAW).write_text(raw, encoding="utf-8")
     logger.info("Saved raw 538 generic ballot to %s", DataFile.GENERIC_BALLOT_RAW)
 
     try:
