@@ -24,20 +24,20 @@ class TestBuildDemsReps:
         # Increasing share 0.4→0.8; dem_lean for 1984 must equal mean(0.4,0.5,0.6,0.7)=0.55,
         # not 0.6 which would happen if the current year (0.8) leaked in.
         shares = {1976: 0.4, 1978: 0.5, 1980: 0.6, 1982: 0.7, 1984: 0.8}
-        dr = build_dems_reps(self._make_party_votes(shares))
+        dr = build_dems_reps(self._make_party_votes(shares))  # type: ignore[arg-type]
         row = dr[(dr[Col.STATE] == "CA") & (dr[Col.YEAR] == 1984)]
         assert pytest.approx(row[Col.DEM_LEAN].values[0], abs=1e-6) == 0.55
 
     def test_dem_lean_trend_slope(self):
         # Linearly increasing share → trend slope should be 0.1 per election
         shares = {1976: 0.4, 1978: 0.5, 1980: 0.6, 1982: 0.7, 1984: 0.8}
-        dr = build_dems_reps(self._make_party_votes(shares))
+        dr = build_dems_reps(self._make_party_votes(shares))  # type: ignore[arg-type]
         row = dr[(dr[Col.STATE] == "CA") & (dr[Col.YEAR] == 1984)]
         assert pytest.approx(row[Col.DEM_LEAN_TREND].values[0], abs=1e-6) == 0.1
 
     def test_dem_lean_trend_flat_is_zero(self):
         shares = {1976: 0.6, 1978: 0.6, 1980: 0.6, 1982: 0.6, 1984: 0.6}
-        dr = build_dems_reps(self._make_party_votes(shares))
+        dr = build_dems_reps(self._make_party_votes(shares))  # type: ignore[arg-type]
         row = dr[(dr[Col.STATE] == "CA") & (dr[Col.YEAR] == 1984)]
         assert pytest.approx(row[Col.DEM_LEAN_TREND].values[0], abs=1e-6) == 0.0
 
@@ -58,9 +58,10 @@ class TestBuildFeatureMatrix:
         assert required.issubset(set(real_data["X"].columns))
 
     def test_dropped_collinear_columns(self, real_data):
-        """prev_dem_vote_share and spending_dem_share must be excluded (high VIF)."""
-        assert Col.PREV_DEM_SHARE not in real_data["X"].columns
+        """spending_dem_share must be excluded (near-identical to fundraising, VIF ~182).
+        prev_dem_vote_share is retained — high VIF does not degrade tree model accuracy."""
         assert Col.SPENDING_DEM_SHARE not in real_data["X"].columns
+        assert Col.PREV_DEM_SHARE in real_data["X"].columns
 
     def test_y_vote_share_continuous(self, real_data):
         yvs = real_data["y_vote_share"]

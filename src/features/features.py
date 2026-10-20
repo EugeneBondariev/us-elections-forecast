@@ -74,9 +74,10 @@ _DROP_COLS = [
     # Replaced by net_pres_approval (approval + disapproval, both already sign-flipped)
     Col.PRES_APPROVAL,
     Col.PRES_DISAPPROVAL,
-    # VIF ~26: redundant with dem_lean (rolling mean already incorporates this)
-    Col.PREV_DEM_SHARE,
-    # VIF ~182: spending is a lagging echo of fundraising; keep fundraising_dem_share
+    # VIF ~182: spending is a lagging echo of fundraising; keep fundraising_dem_share.
+    # Note: high VIF alone is not sufficient reason to drop a feature from a tree model —
+    # VIF measures linear coefficient instability, not tree split quality. prev_dem_vote_share
+    # (VIF ~26) was restored after removal caused sigma_national to jump from ~0.35 to 0.67.
     Col.SPENDING_DEM_SHARE,
 ]
 
