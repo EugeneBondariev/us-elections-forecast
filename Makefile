@@ -1,4 +1,4 @@
-.PHONY: help app mlflow test test-fast test-e2e coverage typecheck lint analyze predict tune rag db indicators generic-ballot open-seats census candidate-quality poll-aggregation pipeline agent calibrate-sigma freeze install install-dev fetch validate push
+.PHONY: help app mlflow test test-fast test-e2e coverage typecheck lint analyze predict tune rag db indicators generic-ballot open-seats census candidate-quality poll-aggregation district-analytics gerrymandering speech-sentiment pipeline agent calibrate-sigma freeze install install-dev fetch validate push
 
 PYTHON = python
 export PYTHONUNBUFFERED := 1
@@ -30,6 +30,9 @@ help:
 	@echo "  census           Fetch ACS 5-year demographics from Census Bureau API"
 	@echo "  candidate-quality  Score candidates from FEC history + TF-IDF NLP"
 	@echo "  poll-aggregation   Aggregate generic ballot polls with house-effects correction"
+	@echo "  district-analytics  Win streak + swing volatility via SQLite window functions"
+	@echo "  gerrymandering     Download TIGER shapefiles + compute Polsby-Popper compactness"
+	@echo "  speech-sentiment   Congress.gov bill titles + VADER sentiment (requires CONGRESS_API_KEY)"
 	@echo "  db               Build the SQLite forecast database"
 	@echo ""
 	@echo "Model:"
@@ -57,7 +60,7 @@ pre-commit: lint typecheck test-fast
 push: lint typecheck test
 	git push
 
-pipeline: fetch census poll-aggregation candidate-quality predict
+pipeline: fetch census poll-aggregation candidate-quality district-analytics gerrymandering predict
 
 fetch:
 	$(PYTHON) -m src.data.fetch_data
@@ -129,6 +132,15 @@ candidate-quality:
 
 poll-aggregation:
 	$(PYTHON) -m src.data.poll_aggregation
+
+gerrymandering:
+	$(PYTHON) -m src.data.gerrymandering
+
+district-analytics:
+	$(PYTHON) -m src.data.analytics
+
+speech-sentiment:
+	$(PYTHON) -m src.data.speech_sentiment
 
 agent:
 	$(PYTHON) -m src.visualization.forecast_agent

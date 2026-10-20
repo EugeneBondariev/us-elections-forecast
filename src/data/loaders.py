@@ -35,6 +35,9 @@ __all__ = [
     "load_open_seats",
     "load_census",
     "load_candidate_quality",
+    "load_district_analytics",
+    "load_gerrymandering",
+    "load_speech_sentiment",
 ]
 
 
@@ -275,6 +278,48 @@ def load_candidate_quality() -> pd.DataFrame | None:
     df = pd.read_csv(path, dtype={Col.DISTRICT: int, Col.YEAR: int})
     from src.data.validators import validate_candidate_quality
     validate_candidate_quality(df)
+    return df
+
+
+def load_district_analytics() -> pd.DataFrame | None:
+    """Load SQL-derived win_streak/swing_volatility features; return None if absent."""
+    from src.paths import DataFile
+
+    path = DataFile.DISTRICT_ANALYTICS
+    if not path.exists():
+        logger.info("district_analytics.csv absent — win_streak/swing_volatility will be skipped")
+        return None
+    df = pd.read_csv(path, dtype={Col.DISTRICT: int, Col.YEAR: int})
+    from src.data.validators import validate_district_analytics
+    validate_district_analytics(df)
+    return df
+
+
+def load_gerrymandering() -> pd.DataFrame | None:
+    """Load Polsby-Popper compactness features; return None if absent."""
+    from src.paths import DataFile
+
+    path = DataFile.GERRYMANDERING
+    if not path.exists():
+        logger.info("gerrymandering.csv absent — compactness features will be skipped")
+        return None
+    df = pd.read_csv(path, dtype={Col.DISTRICT: int})
+    from src.data.validators import validate_gerrymandering
+    validate_gerrymandering(df)
+    return df
+
+
+def load_speech_sentiment() -> pd.DataFrame | None:
+    """Load Congress.gov speech sentiment features; return None if absent."""
+    from src.paths import DataFile
+
+    path = DataFile.SPEECH_SENTIMENT
+    if not path.exists():
+        logger.info("speech_sentiment.csv absent — sentiment features will be skipped")
+        return None
+    df = pd.read_csv(path, dtype={Col.DISTRICT: int})
+    from src.data.validators import validate_speech_sentiment
+    validate_speech_sentiment(df)
     return df
 
 

@@ -217,6 +217,9 @@ def main() -> None:
             winners, dems_reps, X.columns,
             pres_lean=pres_lean, fundraising=fundraising,
             census=ds.census, candidate_quality=ds.candidate_quality,
+            district_analytics=ds.district_analytics,
+            gerrymandering=ds.gerrymandering,
+            speech_sentiment=ds.speech_sentiment,
         )
         proba = pipeline.predict_proba(pred_2026)[:, 1]
 

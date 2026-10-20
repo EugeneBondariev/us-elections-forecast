@@ -81,6 +81,15 @@ class Col(StrEnum):
     EXPERIENCE_CYCLES_REP = "experience_cycles_rep"
     # Poll aggregation
     GENERIC_BALLOT_SIGMA = "generic_ballot_sigma"
+    # SQL district analytics (lagged, no leakage)
+    WIN_STREAK = "win_streak"
+    SWING_VOLATILITY = "swing_volatility"
+    # Geospatial compactness (Census TIGER shapefiles)
+    POLSBY_POPPER = "polsby_popper"
+    DISTRICT_AREA_KM2 = "district_area_km2"
+    # NLP speech sentiment (Congress.gov API, 2026 cycle only)
+    SPEECH_SENTIMENT = "speech_sentiment"
+    SPEECH_COUNT = "speech_count"
 
 
 class Val(StrEnum):

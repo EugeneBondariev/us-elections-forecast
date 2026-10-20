@@ -31,3 +31,8 @@ arviz~=0.17
 #   then: python -m spacy download en_core_web_sm)
 spacy~=3.7
 sentence-transformers~=3.0
+# SQL district analytics — stdlib sqlite3, no extra package needed
+# Geospatial compactness (install: pip install geopandas)
+geopandas~=1.0
+# NLP speech sentiment — VADER lexicon (install: pip install vaderSentiment)
+vaderSentiment~=3.3

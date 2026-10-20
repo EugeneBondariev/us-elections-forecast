@@ -21,11 +21,14 @@ from src.data.loaders import (
     load_candidate_quality,
     load_census,
     load_clean_house_data,
+    load_district_analytics,
     load_generic_ballot,
+    load_gerrymandering,
     load_indicators,
     load_open_seats,
     load_poll_sigma,
     load_pres_lean,
+    load_speech_sentiment,
 )
 from src.data.validators import (
     ApprovalDataSchema,
@@ -64,6 +67,9 @@ class DatasetResult(NamedTuple):
     census: pd.DataFrame | None
     candidate_quality: pd.DataFrame | None
     poll_sigma: dict[int, float]
+    district_analytics: pd.DataFrame | None
+    gerrymandering: pd.DataFrame | None
+    speech_sentiment: pd.DataFrame | None
 
 
 _DROP_COLS = [
@@ -148,6 +154,8 @@ def build_winners(
     fundraising: pd.DataFrame | None = None,
     census: pd.DataFrame | None = None,
     candidate_quality: pd.DataFrame | None = None,
+    district_analytics: pd.DataFrame | None = None,
+    gerrymandering: pd.DataFrame | None = None,
 ) -> DataFrame[WinnersSchema]:
     """Build winners table by merging top candidates with structural and economic features."""
     logger.info("Building winners table")
@@ -226,6 +234,30 @@ def build_winners(
         for c in [Col.EXPERIENCE_CYCLES_DEM, Col.EXPERIENCE_CYCLES_REP]:
             if c in winners.columns:
                 winners[c] = winners[c].fillna(0)
+    if district_analytics is not None:
+        _an_cols = [Col.WIN_STREAK, Col.SWING_VOLATILITY]
+        available_an = [c for c in _an_cols if c in district_analytics.columns]
+        winners = winners.merge(
+            district_analytics[[Col.YEAR, Col.STATE, Col.DISTRICT] + available_an],
+            on=[Col.YEAR, Col.STATE, Col.DISTRICT],
+            how="left",
+        )
+        if Col.WIN_STREAK in winners.columns:
+            winners[Col.WIN_STREAK] = winners[Col.WIN_STREAK].fillna(0).astype(int)
+        if Col.SWING_VOLATILITY in winners.columns:
+            winners[Col.SWING_VOLATILITY] = winners[Col.SWING_VOLATILITY].fillna(
+                winners[Col.SWING_VOLATILITY].median()
+            )
+    if gerrymandering is not None:
+        _geo_cols = [Col.POLSBY_POPPER, Col.DISTRICT_AREA_KM2]
+        available_geo = [c for c in _geo_cols if c in gerrymandering.columns]
+        winners = winners.merge(
+            gerrymandering[[Col.STATE, Col.DISTRICT] + available_geo],
+            on=[Col.STATE, Col.DISTRICT],
+            how="left",
+        )
+        for c in available_geo:
+            winners[c] = winners[c].fillna(winners[c].median())
     return winners  # type: ignore[return-value]
 
 
@@ -353,6 +385,9 @@ def build_dataset(min_train_year: int | None = None) -> DatasetResult:
     census = load_census()
     candidate_quality = load_candidate_quality()
     poll_sigma = load_poll_sigma()
+    district_analytics = load_district_analytics()
+    gerrymandering = load_gerrymandering()
+    speech_sentiment = load_speech_sentiment()
     winners = build_winners(
         top_candidates=top_candidates,
         dems_reps=dems_reps,
@@ -361,6 +396,8 @@ def build_dataset(min_train_year: int | None = None) -> DatasetResult:
         fundraising=fundraising,
         census=census,
         candidate_quality=candidate_quality,
+        district_analytics=district_analytics,
+        gerrymandering=gerrymandering,
     )
     winners = add_incumbency_features(winners, df)
     X, y, y_vote_share, years = build_feature_matrix(winners)
@@ -382,6 +419,9 @@ def build_dataset(min_train_year: int | None = None) -> DatasetResult:
         census=census,
         candidate_quality=candidate_quality,
         poll_sigma=poll_sigma,
+        district_analytics=district_analytics,
+        gerrymandering=gerrymandering,
+        speech_sentiment=speech_sentiment,
     )
 
 
@@ -398,6 +438,9 @@ def build_pred_2026(
     unemployment_2026: float | None = None,
     census: pd.DataFrame | None = None,
     candidate_quality: pd.DataFrame | None = None,
+    district_analytics: pd.DataFrame | None = None,
+    gerrymandering: pd.DataFrame | None = None,
+    speech_sentiment: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Returns (pred_features, district_ids) where district_ids labels each row."""
     logger.info("Building 2026 prediction features")
@@ -513,6 +556,44 @@ def build_pred_2026(
             for c in [Col.EXPERIENCE_CYCLES_DEM, Col.EXPERIENCE_CYCLES_REP]:
                 if c in pred.columns:
                     pred[c] = pred[c].fillna(0)
+    # district_analytics: use 2024 values as the inertia signal going into 2026
+    if district_analytics is not None:
+        _an_cols = [c for c in [Col.WIN_STREAK, Col.SWING_VOLATILITY] if c in list(feature_columns)]
+        if _an_cols:
+            an_2026 = district_analytics[district_analytics[Col.YEAR] == 2024][
+                [Col.STATE, Col.DISTRICT] + _an_cols
+            ]
+            pred = pred.merge(an_2026, on=[Col.STATE, Col.DISTRICT], how="left")
+            if Col.WIN_STREAK in pred.columns:
+                pred[Col.WIN_STREAK] = pred[Col.WIN_STREAK].fillna(0).astype(int)
+            if Col.SWING_VOLATILITY in pred.columns:
+                pred[Col.SWING_VOLATILITY] = pred[Col.SWING_VOLATILITY].fillna(
+                    pred[Col.SWING_VOLATILITY].median()
+                )
+    # gerrymandering: static geometry — same values for 2026 as for training
+    if gerrymandering is not None:
+        _geo_cols = [c for c in [Col.POLSBY_POPPER, Col.DISTRICT_AREA_KM2] if c in list(feature_columns)]
+        if _geo_cols:
+            pred = pred.merge(
+                gerrymandering[[Col.STATE, Col.DISTRICT] + _geo_cols],
+                on=[Col.STATE, Col.DISTRICT],
+                how="left",
+            )
+            for c in _geo_cols:
+                pred[c] = pred[c].fillna(pred[c].median())
+    # speech_sentiment: 2026-cycle Congress.gov data, no historical equivalent
+    if speech_sentiment is not None:
+        _sp_cols = [c for c in [Col.SPEECH_SENTIMENT, Col.SPEECH_COUNT] if c in list(feature_columns)]
+        if _sp_cols:
+            pred = pred.merge(
+                speech_sentiment[[Col.STATE, Col.DISTRICT] + _sp_cols],
+                on=[Col.STATE, Col.DISTRICT],
+                how="left",
+            )
+            if Col.SPEECH_SENTIMENT in pred.columns:
+                pred[Col.SPEECH_SENTIMENT] = pred[Col.SPEECH_SENTIMENT].fillna(0.0)
+            if Col.SPEECH_COUNT in pred.columns:
+                pred[Col.SPEECH_COUNT] = pred[Col.SPEECH_COUNT].fillna(0).astype(int)
     pred = pd.get_dummies(
         pred,
         columns=[Col.NATION_INCUMBENT, Col.DISTRICT_INCUMBENT],

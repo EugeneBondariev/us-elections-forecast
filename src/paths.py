@@ -69,6 +69,15 @@ class DataFile:
     CENSUS             = INTERIM_DIR / "census_acs.csv"
     CANDIDATE_QUALITY  = INTERIM_DIR / "candidate_quality.csv"
     POLL_AGGREGATES    = INTERIM_DIR / "poll_aggregates.csv"
+    GERRYMANDERING     = INTERIM_DIR / "gerrymandering.csv"
+    DISTRICT_ANALYTICS = INTERIM_DIR / "district_analytics.csv"
+    SPEECH_SENTIMENT   = INTERIM_DIR / "speech_sentiment.csv"
+
+    # external/ — Congress.gov member list cache (raw API response, no transformation)
+    CONGRESS_MEMBERS_CACHE = EXTERNAL_DIR / "congress_members_119.json"
+
+    # external/ — Census TIGER/Line shapefile zip (raw geometry, no transformation)
+    TIGER_SHAPEFILE    = EXTERNAL_DIR / "tl_2022_us_cd118.zip"
 
     # processed/ — derived artifacts the app/API read at runtime. Safe to delete.
     DB     = PROCESSED_DIR / "elections.db"

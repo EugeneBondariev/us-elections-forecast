@@ -42,6 +42,12 @@ __all__ = [
     "validate_census",
     "validate_candidate_quality",
     "validate_poll_aggregates",
+    "GerrymanderingSchema",
+    "validate_gerrymandering",
+    "SpeechSentimentSchema",
+    "validate_speech_sentiment",
+    "DistrictAnalyticsSchema",
+    "validate_district_analytics",
 ]
 
 logger = logging.getLogger(__name__)
@@ -265,6 +271,39 @@ class PollAggregatesSchema(pa.DataFrameModel):
         strict = False
 
 
+class GerrymanderingSchema(pa.DataFrameModel):
+    """Polsby-Popper compactness scores from Census TIGER shapefiles."""
+
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
+    polsby_popper: Series[float] = pa.Field(ge=0.0, le=1.0)
+    district_area_km2: Series[float] = pa.Field(ge=0.0)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
+def validate_gerrymandering(df: pd.DataFrame, min_rows: int = 400) -> pd.DataFrame:
+    """Validate gerrymandering compactness features. Raises on failure."""
+    if len(df) < min_rows:
+        raise ValueError(
+            f"Gerrymandering data too small: {len(df)} rows (expected >= {min_rows}; "
+            "check the TIGER shapefile fetch captured all districts)"
+        )
+    try:
+        GerrymanderingSchema.validate(df, lazy=True)
+        logger.info("Gerrymandering validation passed (%d districts)", len(df))
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "Gerrymandering validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
+        )
+        raise
+    return df
+
+
 def validate_house_data(df: pd.DataFrame) -> pd.DataFrame:
     """Validate raw house data. Raises pandera.errors.SchemaErrors on failure."""
     try:
@@ -450,6 +489,62 @@ def validate_poll_aggregates(df: pd.DataFrame) -> pd.DataFrame:
         logger.error(
             "Poll aggregates validation FAILED: %d issue(s)\n%s",
             len(e.failure_cases), e.failure_cases.head(10).to_string(),
+        )
+        raise
+    return df
+
+
+class SpeechSentimentSchema(pa.DataFrameModel):
+    """Per-district VADER sentiment and bill activity from Congress.gov (2026 cycle only)."""
+
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
+    speech_sentiment: Series[float] = pa.Field(ge=-1.0, le=1.0)
+    speech_count: Series[int] = pa.Field(ge=0)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
+def validate_speech_sentiment(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate Congress.gov speech sentiment features. Raises on failure."""
+    try:
+        SpeechSentimentSchema.validate(df, lazy=True)
+        logger.info("Speech sentiment validation passed (%d districts)", len(df))
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "Speech sentiment validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases), e.failure_cases.head(10).to_string(),
+        )
+        raise
+    return df
+
+
+class DistrictAnalyticsSchema(pa.DataFrameModel):
+    """Per-district-year inertia features from SQLite window queries on election history."""
+
+    year: Series[int] = pa.Field(ge=1976, le=2030, alias=Col.YEAR)
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
+    win_streak: Series[int] = pa.Field(ge=0, le=20)
+    swing_volatility: Optional[Series[float]] = pa.Field(ge=0.0, nullable=True)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
+def validate_district_analytics(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate district analytics features. Raises on failure."""
+    try:
+        DistrictAnalyticsSchema.validate(df, lazy=True)
+        logger.info("District analytics validation passed (%d rows)", len(df))
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "District analytics validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
         )
         raise
     return df
