@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 
 from src.data.speech_sentiment import (
     build_speech_features,
@@ -28,6 +29,9 @@ def _make_member(
         "name": "Test Member",
         "partyName": "Democratic",
     }
+
+
+vader = pytest.importorskip("vaderSentiment", reason="vaderSentiment not installed")
 
 
 class TestScoreSentiment:
