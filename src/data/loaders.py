@@ -31,7 +31,10 @@ __all__ = [
     "load_approval",
     "load_indicators",
     "load_generic_ballot",
+    "load_poll_sigma",
     "load_open_seats",
+    "load_census",
+    "load_candidate_quality",
 ]
 
 
@@ -201,9 +204,21 @@ def load_indicators() -> tuple[dict[int, float], dict[int, float]]:
 def load_generic_ballot() -> dict[int, float]:
     """Return year→margin dict (Dem minus Rep percentage points).
 
-    Uses data/interim/generic_ballot.csv if present; falls back to constants.
+    Preference order:
+      1. data/interim/poll_aggregates.csv  (from poll_aggregation.py — house-effects corrected)
+      2. data/interim/generic_ballot.csv   (simple poll average)
+      3. constants.GENERIC_BALLOT          (hardcoded fallback)
     """
     from src.paths import DataFile
+
+    poll_agg_path = DataFile.POLL_AGGREGATES
+    if poll_agg_path.exists():
+        df = pd.read_csv(poll_agg_path)
+        result = dict(zip(df[Col.YEAR].astype(int), df[Col.GENERIC_BALLOT].astype(float)))
+        for year, val in GENERIC_BALLOT.items():
+            result.setdefault(year, float(val))
+        logger.info("Loaded generic ballot from poll aggregates: %d years", len(result))
+        return result
 
     path = DataFile.GENERIC_BALLOT_CSV
     if not path.exists():
@@ -212,13 +227,55 @@ def load_generic_ballot() -> dict[int, float]:
 
     df = pd.read_csv(path)
     result = dict(zip(df[Col.YEAR].astype(int), df["margin"].astype(float)))
-
-    # Fill any years missing from the CSV with constants fallback
     for year, val in GENERIC_BALLOT.items():
         result.setdefault(year, float(val))
-
     logger.info("Loaded generic ballot: %d years from %s", len(df), path)
     return result
+
+
+def load_poll_sigma() -> dict[int, float]:
+    """Return year→sigma dict from poll_aggregates.csv, or empty dict if absent."""
+    from src.paths import DataFile
+
+    path = DataFile.POLL_AGGREGATES
+    if not path.exists():
+        logger.info("poll_aggregates.csv absent — no sigma available")
+        return {}
+
+    df = pd.read_csv(path)
+    result = dict(zip(df[Col.YEAR].astype(int), df[Col.GENERIC_BALLOT_SIGMA].astype(float)))
+    logger.info("Loaded poll sigma: %d years from %s", len(result), path)
+    return result
+
+
+def load_census() -> pd.DataFrame | None:
+    """Load ACS census features from disk; return None if file is absent."""
+    from src.paths import DataFile
+
+    path = DataFile.CENSUS
+    if not path.exists():
+        logger.info("census_acs.csv absent — census features will be skipped")
+        return None
+
+    df = pd.read_csv(path, dtype={Col.DISTRICT: int})
+    from src.data.validators import validate_census
+    validate_census(df)
+    return df
+
+
+def load_candidate_quality() -> pd.DataFrame | None:
+    """Load candidate quality features from disk; return None if file is absent."""
+    from src.paths import DataFile
+
+    path = DataFile.CANDIDATE_QUALITY
+    if not path.exists():
+        logger.info("candidate_quality.csv absent — candidate quality features will be skipped")
+        return None
+
+    df = pd.read_csv(path, dtype={Col.DISTRICT: int, Col.YEAR: int})
+    from src.data.validators import validate_candidate_quality
+    validate_candidate_quality(df)
+    return df
 
 
 def load_open_seats(year: int = 2026) -> set[tuple[str, int]]:

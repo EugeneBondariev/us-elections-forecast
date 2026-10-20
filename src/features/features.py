@@ -18,10 +18,13 @@ from src.constants import (
 from src.data.fundraising import load_fundraising
 from src.data.loaders import (
     load_approval,
+    load_candidate_quality,
+    load_census,
     load_clean_house_data,
     load_generic_ballot,
     load_indicators,
     load_open_seats,
+    load_poll_sigma,
     load_pres_lean,
 )
 from src.data.validators import (
@@ -58,6 +61,9 @@ class DatasetResult(NamedTuple):
     dems_reps: DataFrame[DemsRepsSchema]
     pres_lean: pd.DataFrame | None
     fundraising: pd.DataFrame | None
+    census: pd.DataFrame | None
+    candidate_quality: pd.DataFrame | None
+    poll_sigma: dict[int, float]
 
 
 _DROP_COLS = [
@@ -140,6 +146,8 @@ def build_winners(
     approval: DataFrame[ApprovalDataSchema],
     pres_lean: pd.DataFrame | None = None,
     fundraising: pd.DataFrame | None = None,
+    census: pd.DataFrame | None = None,
+    candidate_quality: pd.DataFrame | None = None,
 ) -> DataFrame[WinnersSchema]:
     """Build winners table by merging top candidates with structural and economic features."""
     logger.info("Building winners table")
@@ -197,6 +205,27 @@ def build_winners(
         )
         for c in available:
             winners[c] = winners[c].fillna(0.5)
+    if census is not None:
+        _census_cols = [Col.PCT_BACHELOR_PLUS, Col.PCT_NON_WHITE, Col.MEDIAN_INCOME, Col.MEDIAN_AGE]
+        winners = winners.merge(
+            census[[Col.STATE, Col.DISTRICT] + _census_cols],
+            on=[Col.STATE, Col.DISTRICT],
+            how="left",
+        )
+        for c in _census_cols:
+            winners[c] = winners[c].fillna(winners[c].median())
+    if candidate_quality is not None:
+        _cq_cols = [Col.CANDIDATE_QUALITY, Col.EXPERIENCE_CYCLES_DEM, Col.EXPERIENCE_CYCLES_REP]
+        available_cq = [c for c in _cq_cols if c in candidate_quality.columns]
+        winners = winners.merge(
+            candidate_quality[[Col.YEAR, Col.STATE, Col.DISTRICT] + available_cq],
+            on=[Col.YEAR, Col.STATE, Col.DISTRICT],
+            how="left",
+        )
+        winners[Col.CANDIDATE_QUALITY] = winners[Col.CANDIDATE_QUALITY].fillna(0.5)
+        for c in [Col.EXPERIENCE_CYCLES_DEM, Col.EXPERIENCE_CYCLES_REP]:
+            if c in winners.columns:
+                winners[c] = winners[c].fillna(0)
     return winners  # type: ignore[return-value]
 
 
@@ -321,7 +350,18 @@ def build_dataset(min_train_year: int | None = None) -> DatasetResult:
         cache_path=DataFile.FUNDRAISING,
         api_key=os.getenv("FEC_API_KEY"),
     )
-    winners = build_winners(top_candidates, dems_reps, approval, pres_lean, fundraising)
+    census = load_census()
+    candidate_quality = load_candidate_quality()
+    poll_sigma = load_poll_sigma()
+    winners = build_winners(
+        top_candidates=top_candidates,
+        dems_reps=dems_reps,
+        approval=approval,
+        pres_lean=pres_lean,
+        fundraising=fundraising,
+        census=census,
+        candidate_quality=candidate_quality,
+    )
     winners = add_incumbency_features(winners, df)
     X, y, y_vote_share, years = build_feature_matrix(winners)
     if min_train_year is not None:
@@ -339,6 +379,9 @@ def build_dataset(min_train_year: int | None = None) -> DatasetResult:
         dems_reps=dems_reps,
         pres_lean=pres_lean,
         fundraising=fundraising,
+        census=census,
+        candidate_quality=candidate_quality,
+        poll_sigma=poll_sigma,
     )
 
 
@@ -353,6 +396,8 @@ def build_pred_2026(
     fundraising: pd.DataFrame | None = None,
     econ_growth_2026: float | None = None,
     unemployment_2026: float | None = None,
+    census: pd.DataFrame | None = None,
+    candidate_quality: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Returns (pred_features, district_ids) where district_ids labels each row."""
     logger.info("Building 2026 prediction features")
@@ -444,6 +489,30 @@ def build_pred_2026(
             for c in available:
                 pred[c] = pred[c].fillna(0.5)
 
+    if census is not None:
+        _census_cols = [Col.PCT_BACHELOR_PLUS, Col.PCT_NON_WHITE, Col.MEDIAN_INCOME, Col.MEDIAN_AGE]
+        available_c = [c for c in _census_cols if c in list(feature_columns)]
+        if available_c:
+            pred = pred.merge(
+                census[[Col.STATE, Col.DISTRICT] + available_c],
+                on=[Col.STATE, Col.DISTRICT],
+                how="left",
+            )
+            for c in available_c:
+                pred[c] = pred[c].fillna(pred[c].median())
+    if candidate_quality is not None:
+        _cq_cols = [Col.CANDIDATE_QUALITY, Col.EXPERIENCE_CYCLES_DEM, Col.EXPERIENCE_CYCLES_REP]
+        available_cq = [c for c in _cq_cols if c in list(feature_columns) and c in candidate_quality.columns]
+        if available_cq:
+            cq_2026 = candidate_quality[candidate_quality[Col.YEAR] == 2026][
+                [Col.STATE, Col.DISTRICT] + available_cq
+            ]
+            pred = pred.merge(cq_2026, on=[Col.STATE, Col.DISTRICT], how="left")
+            if Col.CANDIDATE_QUALITY in pred.columns:
+                pred[Col.CANDIDATE_QUALITY] = pred[Col.CANDIDATE_QUALITY].fillna(0.5)
+            for c in [Col.EXPERIENCE_CYCLES_DEM, Col.EXPERIENCE_CYCLES_REP]:
+                if c in pred.columns:
+                    pred[c] = pred[c].fillna(0)
     pred = pd.get_dummies(
         pred,
         columns=[Col.NATION_INCUMBENT, Col.DISTRICT_INCUMBENT],

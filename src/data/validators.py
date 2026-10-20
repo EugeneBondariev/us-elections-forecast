@@ -7,6 +7,7 @@ copied cell-by-cell from a spreadsheet) — a bad cell copy should break the pip
 loudly, not slip through as a logged warning nobody reads until the forecast looks
 wrong for reasons nobody can trace back.
 """
+from __future__ import annotations
 
 import logging
 from typing import Optional
@@ -28,6 +29,9 @@ __all__ = [
     "PresLeanSchema",
     "CookCsvSchema",
     "FundraisingSchema",
+    "CensusSchema",
+    "CandidateQualitySchema",
+    "PollAggregatesSchema",
     "validate_house_data",
     "validate_feature_matrix",
     "validate_approval_data",
@@ -35,6 +39,9 @@ __all__ = [
     "validate_pres_lean",
     "validate_cook_csv",
     "validate_fundraising",
+    "validate_census",
+    "validate_candidate_quality",
+    "validate_poll_aggregates",
 ]
 
 logger = logging.getLogger(__name__)
@@ -132,6 +139,15 @@ class WinnersSchema(pa.DataFrameModel):
     pac_dem_share: Optional[Series[float]] = pa.Field(nullable=True, alias=Col.PAC_DEM_SHARE)
     spending_dem_share: Optional[Series[float]] = pa.Field(nullable=True, alias=Col.SPENDING_DEM_SHARE)
     surplus_dem_share: Optional[Series[float]] = pa.Field(alias=Col.SURPLUS_DEM_SHARE)
+    # Census ACS demographics — present when census_acs.csv is available
+    pct_bachelor_plus: Optional[Series[float]] = pa.Field(ge=0, le=1, nullable=True, alias=Col.PCT_BACHELOR_PLUS)
+    pct_non_white: Optional[Series[float]] = pa.Field(ge=0, le=1, nullable=True, alias=Col.PCT_NON_WHITE)
+    median_income: Optional[Series[float]] = pa.Field(ge=0, nullable=True, alias=Col.MEDIAN_INCOME)
+    median_age: Optional[Series[float]] = pa.Field(ge=0, le=120, nullable=True, alias=Col.MEDIAN_AGE)
+    # Candidate quality — present when candidate_quality.csv is available
+    candidate_quality_dem_share: Optional[Series[float]] = pa.Field(ge=0, le=1, nullable=True, alias=Col.CANDIDATE_QUALITY)
+    experience_cycles_dem: Optional[Series[int]] = pa.Field(ge=0, nullable=True, alias=Col.EXPERIENCE_CYCLES_DEM)
+    experience_cycles_rep: Optional[Series[int]] = pa.Field(ge=0, nullable=True, alias=Col.EXPERIENCE_CYCLES_REP)
 
     class Config:
         coerce = True
@@ -201,6 +217,48 @@ class FundraisingSchema(pa.DataFrameModel):
     # relative to Rep, >1 when Rep ran a deficit. Unlike the other share columns it is not
     # clamped to [0,1] by design — see fundraising.py _aggregate() for the formula.
     surplus_dem_share: Series[float] = pa.Field(alias=Col.SURPLUS_DEM_SHARE)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
+class CensusSchema(pa.DataFrameModel):
+    """ACS 5-year demographic features per congressional district."""
+
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
+    pct_bachelor_plus: Series[float] = pa.Field(ge=0, le=1, nullable=True, alias=Col.PCT_BACHELOR_PLUS)
+    pct_non_white: Series[float] = pa.Field(ge=0, le=1, nullable=True, alias=Col.PCT_NON_WHITE)
+    median_income: Series[float] = pa.Field(ge=0, nullable=True, alias=Col.MEDIAN_INCOME)
+    median_age: Series[float] = pa.Field(ge=0, le=120, nullable=True, alias=Col.MEDIAN_AGE)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
+class CandidateQualitySchema(pa.DataFrameModel):
+    """Candidate quality features derived from FEC history and NLP."""
+
+    year: Series[int] = pa.Field(ge=1980, le=2030, alias=Col.YEAR)
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    district: Series[int] = pa.Field(ge=0, le=99, alias=Col.DISTRICT)
+    candidate_quality_dem_share: Series[float] = pa.Field(ge=0, le=1, alias=Col.CANDIDATE_QUALITY)
+    experience_cycles_dem: Series[int] = pa.Field(ge=0, alias=Col.EXPERIENCE_CYCLES_DEM)
+    experience_cycles_rep: Series[int] = pa.Field(ge=0, alias=Col.EXPERIENCE_CYCLES_REP)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
+class PollAggregatesSchema(pa.DataFrameModel):
+    """Weighted generic-ballot aggregate with uncertainty estimate per cycle."""
+
+    year: Series[int] = pa.Field(ge=2006, le=2030, alias=Col.YEAR)
+    generic_ballot: Series[float] = pa.Field(ge=-30, le=30, alias=Col.GENERIC_BALLOT)
+    generic_ballot_sigma: Series[float] = pa.Field(ge=0, alias=Col.GENERIC_BALLOT_SIGMA)
 
     class Config:
         coerce = True
@@ -344,6 +402,53 @@ def validate_fundraising(df: pd.DataFrame, min_rows: int = 500) -> pd.DataFrame:
     except pa.errors.SchemaErrors as e:
         logger.error(
             "Fundraising validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases), e.failure_cases.head(10).to_string(),
+        )
+        raise
+    return df
+
+
+def validate_census(df: pd.DataFrame, min_rows: int = 400) -> pd.DataFrame:
+    """Validate ACS census features. Raises on failure."""
+    if len(df) < min_rows:
+        raise ValueError(
+            f"Census data too small: {len(df)} rows (expected >= {min_rows}; "
+            "check the Census API fetch captured all districts)"
+        )
+    try:
+        CensusSchema.validate(df, lazy=True)
+        logger.info("Census validation passed (%d districts)", len(df))
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "Census validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases), e.failure_cases.head(10).to_string(),
+        )
+        raise
+    return df
+
+
+def validate_candidate_quality(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate candidate quality features. Raises on failure."""
+    try:
+        CandidateQualitySchema.validate(df, lazy=True)
+        logger.info("Candidate quality validation passed (%d district-year rows)", len(df))
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "Candidate quality validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases), e.failure_cases.head(10).to_string(),
+        )
+        raise
+    return df
+
+
+def validate_poll_aggregates(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate poll aggregate features. Raises on failure."""
+    try:
+        PollAggregatesSchema.validate(df, lazy=True)
+        logger.info("Poll aggregates validation passed (%d cycles)", len(df))
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "Poll aggregates validation FAILED: %d issue(s)\n%s",
             len(e.failure_cases), e.failure_cases.head(10).to_string(),
         )
         raise

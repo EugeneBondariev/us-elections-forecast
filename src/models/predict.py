@@ -205,14 +205,18 @@ def main() -> None:
                     "collections.OrderedDict",
                     "lightgbm.basic.Booster",
                     "lightgbm.sklearn.LGBMClassifier",
+                    "lightgbm.sklearn.LGBMRegressor",
                     "sklearn.tree._tree.Tree",
                     "sklearn.utils._bunch.Bunch",
+                    "src.models.model.VoteShareRegressor",
                     "src.models.model.WeightedPipeline",
                 ],
             )
         logger.info("Model logged to MLflow registry as 'us-house-stacking-ensemble'")
         pred_2026, district_ids = build_pred_2026(
-            winners, dems_reps, X.columns, pres_lean=pres_lean, fundraising=fundraising
+            winners, dems_reps, X.columns,
+            pres_lean=pres_lean, fundraising=fundraising,
+            census=ds.census, candidate_quality=ds.candidate_quality,
         )
         proba = pipeline.predict_proba(pred_2026)[:, 1]
 

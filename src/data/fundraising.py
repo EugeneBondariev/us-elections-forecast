@@ -31,6 +31,7 @@ import requests
 
 from src.constants import Col
 from src.paths import ensure
+from src.types import FECCandidateRecord
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +55,8 @@ _RAW_FIELDS = [
 ]
 
 
-def _fetch_year(api_key: str, year: int) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
+def _fetch_year(api_key: str, year: int) -> list[FECCandidateRecord]:
+    records: list[FECCandidateRecord] = []
     page = 1
     pages_total: int | None = None
     while True:
@@ -103,17 +104,21 @@ def _fetch_year(api_key: str, year: int) -> list[dict[str, Any]]:
                 district = int(district_raw)
             except ValueError:
                 district = 0
-            record = {
-                Col.YEAR: year,
-                Col.STATE: r.get("state"),
-                Col.DISTRICT: district,
-                Col.PARTY: r.get("party"),
-                "candidate_id": r.get("candidate_id"),
-                "candidate_name": r.get("name"),
-            }
-            for field in _RAW_FIELDS:
-                record[field] = float(r.get(field) or 0)
-            records.append(record)
+            records.append(FECCandidateRecord(
+                year=year,
+                state_po=r.get("state"),
+                district=district,
+                party=r.get("party"),
+                candidate_id=r.get("candidate_id"),
+                candidate_name=r.get("name"),
+                receipts=float(r.get("receipts") or 0),
+                individual_receipts=float(r.get("individual_receipts") or 0),
+                individual_itemized_contributions=float(r.get("individual_itemized_contributions") or 0),
+                individual_unitemized_contributions=float(r.get("individual_unitemized_contributions") or 0),
+                other_political_committee_contributions=float(r.get("other_political_committee_contributions") or 0),
+                candidate_contribution=float(r.get("candidate_contribution") or 0),
+                disbursements=float(r.get("disbursements") or 0),
+            ))
 
         pages_total = data.get("pagination", {}).get("pages", 1)
         if pages_total is None or page >= pages_total:
@@ -125,7 +130,7 @@ def _fetch_year(api_key: str, year: int) -> list[dict[str, Any]]:
     return records
 
 
-def _save_raw(records: list[dict[str, Any]], raw_path: Path) -> None:
+def _save_raw(records: list[FECCandidateRecord], raw_path: Path) -> None:
     if not records:
         return
     df = pd.DataFrame(records)
@@ -149,7 +154,7 @@ def _top_candidate_per_group(df_party: pd.DataFrame) -> pd.DataFrame:
     return df_party.loc[idx, key_cols + _RAW_FIELDS].reset_index(drop=True)
 
 
-def _aggregate(records: list[dict[str, Any]]) -> pd.DataFrame:
+def _aggregate(records: list[FECCandidateRecord]) -> pd.DataFrame:
     df = pd.DataFrame(records)
     df = df[df[Col.STATE].notna()]
     dem = _top_candidate_per_group(df[df[Col.PARTY] == "DEM"]).rename(
@@ -214,7 +219,7 @@ def fetch_and_cache(
 
     existing = pd.read_csv(cache_path) if cache_path.exists() else pd.DataFrame()
 
-    all_records = []
+    all_records: list[FECCandidateRecord] = []
     for i, year in enumerate(years, 1):
         logger.info("  Fetching FEC year %d (%d/%d)...", year, i, len(years))
         all_records.extend(_fetch_year(api_key, year))

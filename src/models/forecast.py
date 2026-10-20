@@ -29,7 +29,9 @@ def run_forecast() -> ForecastResult:
     weights = compute_sample_weights(years)
     pipeline = train(X, y, sample_weight=weights, y_vote_share=ds.y_vote_share)
     pred_2026, district_ids = build_pred_2026(
-        winners, dems_reps, X.columns, pres_lean=pres_lean, fundraising=fundraising
+        winners, dems_reps, X.columns,
+        pres_lean=pres_lean, fundraising=fundraising,
+        census=ds.census, candidate_quality=ds.candidate_quality,
     )
     proba = pipeline.predict_proba(pred_2026)[:, 1]
     shap_df = explain_districts(pipeline, pred_2026)
