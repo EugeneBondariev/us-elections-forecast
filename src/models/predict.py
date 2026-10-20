@@ -192,7 +192,7 @@ def main() -> None:
         mlflow.log_metric("mean_wf_accuracy", wf["district_accuracy"].mean())
         mlflow.log_metric("mean_abs_seat_error", wf["seat_error"].abs().mean())
 
-        pipeline = train(X, y, sample_weight=compute_sample_weights(years))
+        pipeline = train(X, y, sample_weight=compute_sample_weights(years), y_vote_share=ds.y_vote_share)
         # redirect_stderr: MLflow's internal eprint() writes to sys.stderr when a
         # registered model already exists; on Windows that raises OSError when stderr
         # is a log file.

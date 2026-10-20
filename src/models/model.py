@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
 import shap
-from lightgbm import LGBMClassifier
+from lightgbm import LGBMClassifier, LGBMRegressor
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier, StackingClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "WeightedPipeline",
+    "VoteShareRegressor",
     "build_lr_pipeline",
     "build_gbm_pipeline",
     "build_rf_pipeline",
@@ -147,6 +148,51 @@ def build_calibrated_pipeline() -> CalibratedClassifierCV:
     return CalibratedClassifierCV(build_lr_pipeline(), method="isotonic", cv=5)
 
 
+class VoteShareRegressor:
+    """LightGBM regressor trained on continuous Dem vote share (0–1), exposing a
+    predict_proba interface so it's drop-in compatible with the rest of the pipeline.
+
+    Training on vote share preserves the magnitude of wins and losses — a 51% Dem
+    result and a 70% result both look like "1" to a classifier, but carry very
+    different signal for how safe or competitive a district is. The predicted vote
+    share is clipped to [0, 1] and returned directly as P(Dem win).
+    """
+
+    def __init__(self) -> None:
+        self._scaler: StandardScaler | None = None
+        self._lgbm: LGBMRegressor | None = None
+        self.feature_importances_: np.ndarray | None = None
+
+    def fit(
+        self,
+        X: pd.DataFrame,
+        y_vote_share: pd.Series,
+        sample_weight: np.ndarray | None = None,
+    ) -> VoteShareRegressor:
+        params = {k: v for k, v in _gbm_params().items()}
+        params["verbose"] = -1
+        # Uncontested races have no two-party vote share; exclude them from regression
+        y_arr = np.asarray(y_vote_share, dtype=float)
+        mask = ~np.isnan(y_arr)
+        X_fit = X.iloc[mask] if isinstance(X, pd.DataFrame) else X[mask]
+        y_fit = y_arr[mask]
+        sw_fit = sample_weight[mask] if sample_weight is not None else None
+        self._scaler = StandardScaler()
+        X_scaled = self._scaler.fit_transform(X_fit)
+        self._lgbm = LGBMRegressor(**params)
+        self._lgbm.fit(X_scaled, y_fit, sample_weight=sw_fit)
+        self.feature_importances_ = self._lgbm.feature_importances_
+        return self
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)
+
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        assert self._scaler is not None and self._lgbm is not None
+        p = np.clip(np.asarray(self._lgbm.predict(self._scaler.transform(X)), dtype=float), 0.0, 1.0)
+        return np.column_stack([1.0 - p, p])
+
+
 def compute_sample_weights(years: pd.Series, half_life: int = 4) -> np.ndarray:
     """Exponential recency weighting; elections `half_life` cycles ago get half the weight."""
     elections_ago = (years.max() - years) / 2
@@ -154,9 +200,22 @@ def compute_sample_weights(years: pd.Series, half_life: int = 4) -> np.ndarray:
 
 
 def train(
-    X: pd.DataFrame, y: pd.Series, sample_weight: np.ndarray | None = None
-) -> StackingClassifier:
-    """Fit stacking ensemble on X, y and return the trained model."""
+    X: pd.DataFrame,
+    y: pd.Series,
+    sample_weight: np.ndarray | None = None,
+    y_vote_share: pd.Series | None = None,
+) -> StackingClassifier | VoteShareRegressor:
+    """Fit and return the best available model.
+
+    If y_vote_share is provided, trains a VoteShareRegressor (LightGBM regression on
+    continuous Dem vote share). Otherwise falls back to the stacking classifier on
+    binary labels. Both expose predict_proba so downstream code is unchanged.
+    """
+    if y_vote_share is not None:
+        logger.info(
+            "Training VoteShareRegressor on %d samples, %d features", len(X), X.shape[1]
+        )
+        return VoteShareRegressor().fit(X, y_vote_share, sample_weight=sample_weight)
     logger.info("Training stacking ensemble on %d samples, %d features", len(X), X.shape[1])
     model = build_stacking_ensemble()
     model.fit(X, y, sample_weight=sample_weight)
@@ -165,10 +224,14 @@ def train(
 
 def feature_weights(model: object, feature_names: pd.Index | list[str]) -> dict[str, float]:
     """Extract normalised feature importance (%) from LR pipeline, GBM pipeline, or ensemble."""
-    if isinstance(model, (VotingClassifier, StackingClassifier)):
+    if isinstance(model, VoteShareRegressor):
+        importances = model.feature_importances_
+        if importances is None:
+            return {}
+    elif isinstance(model, (VotingClassifier, StackingClassifier)):
         importances = model.named_estimators_["gbm"].named_steps["model"].feature_importances_
     elif hasattr(model, "named_steps"):
-        m = model.named_steps["model"]
+        m = cast(Pipeline, model).named_steps["model"]
         importances = np.abs(m.coef_[0]) if hasattr(m, "coef_") else m.feature_importances_
     else:
         return {}
@@ -177,14 +240,21 @@ def feature_weights(model: object, feature_names: pd.Index | list[str]) -> dict[
     return dict(sorted(zip(feature_names, weights), key=lambda x: x[1], reverse=True))
 
 
-def explain_districts(model: StackingClassifier, X_pred: pd.DataFrame) -> pd.DataFrame:
+def explain_districts(
+    model: StackingClassifier | VoteShareRegressor, X_pred: pd.DataFrame
+) -> pd.DataFrame:
     """Return SHAP values per feature for the prediction set.
     Uses the LightGBM sub-model (faster and more meaningful than LR for SHAP).
     Returns DataFrame: rows=districts (same index as X_pred), columns=features.
     """
-    lgbm_pipe = model.named_estimators_["gbm"]
-    lgbm_model = lgbm_pipe.named_steps["model"]
-    scaler = lgbm_pipe.named_steps["scaler"]
+    if isinstance(model, VoteShareRegressor):
+        assert model._lgbm is not None and model._scaler is not None
+        lgbm_model = model._lgbm
+        scaler = model._scaler
+    else:
+        lgbm_pipe = model.named_estimators_["gbm"]
+        lgbm_model = lgbm_pipe.named_steps["model"]
+        scaler = lgbm_pipe.named_steps["scaler"]
     X_scaled = scaler.transform(X_pred)
     explainer = shap.TreeExplainer(lgbm_model)
     shap_values = explainer.shap_values(X_scaled)

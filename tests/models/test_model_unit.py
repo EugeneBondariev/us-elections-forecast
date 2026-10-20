@@ -310,3 +310,104 @@ def test_load_simulation_params_reads_calibrated_file(tmp_path, monkeypatch):
     result = load_simulation_params()
     # Old JSON without hetero_k must fall back to default 1.0
     assert result == {"sigma_national": 0.4, "sigma_district": 0.15, "blend_weight": 0.75, "concentration": 30.0, "hetero_k": 1.0}
+
+
+# ---------------------------------------------------------------------------
+# 17. VoteShareRegressor: predict_proba shape, probabilities in [0,1], train()
+# ---------------------------------------------------------------------------
+
+def test_vote_share_regressor_predict_proba_shape():
+    import numpy as np
+    import pandas as pd
+
+    from src.models.model import VoteShareRegressor
+
+    X = pd.DataFrame(np.random.randn(30, 4), columns=["a", "b", "c", "d"])
+    y_vs = pd.Series(np.clip(np.random.randn(30) * 0.1 + 0.55, 0.0, 1.0))
+    reg = VoteShareRegressor().fit(X, y_vs)
+    proba = reg.predict_proba(X)
+    assert proba.shape == (30, 2)
+    assert np.allclose(proba.sum(axis=1), 1.0)
+    assert (proba >= 0).all() and (proba <= 1).all()
+
+
+def test_vote_share_regressor_predict_binary():
+    import numpy as np
+    import pandas as pd
+
+    from src.models.model import VoteShareRegressor
+
+    X = pd.DataFrame(np.random.randn(20, 3), columns=["a", "b", "c"])
+    y_vs = pd.Series(np.where(X["a"] > 0, 0.7, 0.3))
+    reg = VoteShareRegressor().fit(X, y_vs)
+    preds = reg.predict(X)
+    assert set(preds).issubset({0, 1})
+    assert preds.shape == (20,)
+
+
+def test_train_uses_vote_share_when_provided():
+    import numpy as np
+    import pandas as pd
+
+    from src.models.model import VoteShareRegressor, train
+
+    np.random.seed(1)
+    X = pd.DataFrame(np.random.randn(40, 3), columns=["a", "b", "c"])
+    y = pd.Series((X["a"] > 0).astype(int))
+    y_vs = pd.Series(np.clip(X["a"] * 0.2 + 0.5, 0.0, 1.0))
+    model = train(X, y, y_vote_share=y_vs)
+    assert isinstance(model, VoteShareRegressor)
+    proba = model.predict_proba(X)
+    assert proba.shape == (40, 2)
+
+
+# ---------------------------------------------------------------------------
+# 18. Jackknife CI: compute_ci=True adds sigma_low/sigma_high to result
+# ---------------------------------------------------------------------------
+
+def test_jackknife_ci_added_when_requested():
+    from unittest.mock import patch
+
+    import numpy as np
+    import pandas as pd
+
+    from src.models.simulation import calibrate_national_sigma
+
+    proba = np.array([0.5, 0.4, 0.6, 0.7, 0.3])
+    actual = np.array([1, 0, 1, 1, 0], dtype=float)
+
+    fake_folds = {yr: (proba, actual) for yr in [2004, 2006, 2008, 2010, 2012]}
+
+    with patch("src.models.simulation.walk_forward_probas", return_value=fake_folds):
+        result = calibrate_national_sigma(
+            pd.DataFrame(), pd.Series(dtype=float), pd.Series(dtype=int),
+            exclude_years=frozenset(),
+            n=100, seed=0, compute_ci=True,
+        )
+
+    assert "sigma_low" in result, "sigma_low missing when compute_ci=True"
+    assert "sigma_high" in result, "sigma_high missing when compute_ci=True"
+    assert result["sigma_low"] <= result["sigma_national"] <= result["sigma_high"]
+
+
+def test_jackknife_ci_absent_when_not_requested():
+    from unittest.mock import patch
+
+    import numpy as np
+    import pandas as pd
+
+    from src.models.simulation import calibrate_national_sigma
+
+    proba = np.array([0.5, 0.4, 0.6, 0.7, 0.3])
+    actual = np.array([1, 0, 1, 1, 0], dtype=float)
+    fake_folds = {yr: (proba, actual) for yr in [2004, 2006, 2008, 2010]}
+
+    with patch("src.models.simulation.walk_forward_probas", return_value=fake_folds):
+        result = calibrate_national_sigma(
+            pd.DataFrame(), pd.Series(dtype=float), pd.Series(dtype=int),
+            exclude_years=frozenset(),
+            n=100, seed=0, compute_ci=False,
+        )
+
+    assert "sigma_low" not in result
+    assert "sigma_high" not in result
