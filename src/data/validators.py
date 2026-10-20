@@ -115,6 +115,7 @@ class WinnersSchema(pa.DataFrameModel):
     vote_share: Series[float] = pa.Field(ge=0, le=1, alias=Col.VOTE_SHARE)
     dem_lean: Series[float] = pa.Field(nullable=True, alias=Col.DEM_LEAN)
     dem_lean_trend: Series[float] = pa.Field(nullable=True, alias=Col.DEM_LEAN_TREND)
+    dem_vote_share: Optional[Series[float]] = pa.Field(ge=0, le=1, nullable=True, alias=Col.DEM_VOTE_SHARE)
     prev_dem_vote_share: Series[float] = pa.Field(ge=0, le=1, nullable=True, alias=Col.PREV_DEM_SHARE)
     pres_approval: Series[float] = pa.Field(alias=Col.PRES_APPROVAL)
     pres_disapproval: Series[float] = pa.Field(alias=Col.PRES_DISAPPROVAL)
@@ -145,6 +146,7 @@ class FeatureMatrixSchema(pa.DataFrameModel):
         ge=0, le=1, nullable=True, alias=Col.PREV_DEM_SHARE
     )
     net_pres_approval: Series[float] = pa.Field(alias=Col.NET_PRES_APPROVAL)
+    state_partisan_lean: Series[float] = pa.Field(nullable=True, alias=Col.STATE_PARTISAN_LEAN)
 
     class Config:
         coerce = True

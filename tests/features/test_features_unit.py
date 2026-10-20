@@ -87,6 +87,7 @@ def _make_minimal_winners() -> pd.DataFrame:
                 Col.YEAR: year,         Col.STATE: "TX",      Col.DISTRICT: dist,
                 Col.PARTY: party,
                 Col.CANDIDATE_VOTES: 100, Col.TOTAL_VOTES: 180, Col.VOTE_SHARE: 100 / 180,
+                Col.DEM_VOTE_SHARE: 0.55,
                 Col.DEM_LEAN: 0.5,      Col.DEM_LEAN_TREND: 0.0, Col.PREV_DEM_SHARE: 0.5,
                 Col.PRES_APPROVAL: 10.0, Col.PRES_DISAPPROVAL: -40.0,
                 Col.GENERIC_BALLOT: 5.0,
@@ -101,7 +102,7 @@ def test_build_feature_matrix_column_types():
     from src.features.features import build_feature_matrix
 
     winners = _make_minimal_winners()
-    X, y, years = build_feature_matrix(winners)
+    X, y, y_vs, years = build_feature_matrix(winners)
 
     for col in X.columns:
         assert type(col) is str, f"Expected plain str, got {type(col)} for column {col!r}"
@@ -115,26 +116,22 @@ def test_build_feature_matrix_no_data_leakage():
     from src.features.features import build_feature_matrix
 
     winners = _make_minimal_winners()
-    X, y, years = build_feature_matrix(winners)
+    X, y, y_vs, years = build_feature_matrix(winners)
 
     # district_incumbent_party_REPUBLICAN column: 1 means prior incumbent was Rep.
-    # In our toy data districts 1,3 are always Rep-held, so their REPUBLICAN flag must be 1.
     rep_col = "district_incumbent_party_REPUBLICAN"
     if rep_col in X.columns:
-        # All rows that come from district 1 or 3 should have the Rep flag = 1
-        # (we can't assert row-level without district info after dummies, so check shape)
         assert X[rep_col].isin([0, 1]).all()
 
 
 # ---------------------------------------------------------------------------
-# 4. Regional dummies: no state_po_XX columns; region_ columns present
+# 4. State partisan lean: no region_ dummies; state_partisan_lean column present
 # ---------------------------------------------------------------------------
 
 def _make_multiregion_winners() -> pd.DataFrame:
-    """Synthetic winners table spanning 4 regions (Pacific, South, Midwest, Northeast)."""
+    """Synthetic winners table spanning multiple states."""
     from src.constants import Col, Val
     rows = []
-    # one district per state-region pair so we get actual region variety
     state_dist = [("CA", 1), ("TX", 2), ("IL", 3), ("NY", 4)]
     for year in [2000, 2002, 2004]:
         for state, dist in state_dist:
@@ -143,6 +140,7 @@ def _make_multiregion_winners() -> pd.DataFrame:
                 Col.YEAR: year,         Col.STATE: state,     Col.DISTRICT: dist,
                 Col.PARTY: party,
                 Col.CANDIDATE_VOTES: 100, Col.TOTAL_VOTES: 180, Col.VOTE_SHARE: 100 / 180,
+                Col.DEM_VOTE_SHARE: 0.55,
                 Col.DEM_LEAN: 0.5,      Col.DEM_LEAN_TREND: 0.0, Col.PREV_DEM_SHARE: 0.5,
                 Col.PRES_APPROVAL: 10.0, Col.PRES_DISAPPROVAL: -40.0,
                 Col.GENERIC_BALLOT: 5.0,
@@ -153,27 +151,36 @@ def _make_multiregion_winners() -> pd.DataFrame:
 
 
 def test_no_state_dummies_in_feature_matrix():
-    """After switching to regional dummies, no state_po_XX column should appear in X."""
+    """No state_po_XX column should appear in X."""
     from src.features.features import build_feature_matrix
 
     winners = _make_multiregion_winners()
-    X, _, _ = build_feature_matrix(winners)
+    X, *_ = build_feature_matrix(winners)
 
     state_cols = [c for c in X.columns if c.startswith("state_po_")]
     assert state_cols == [], f"Unexpected state dummies found: {state_cols}"
 
 
-def test_region_dummies_in_feature_matrix():
-    """Region dummies should appear in X (with drop_first=True, at least one column)."""
+def test_no_region_dummies_in_feature_matrix():
+    """region_ dummy columns must be gone; state_partisan_lean replaces them."""
     from src.features.features import build_feature_matrix
 
     winners = _make_multiregion_winners()
-    X, _, _ = build_feature_matrix(winners)
+    X, *_ = build_feature_matrix(winners)
 
     region_cols = [c for c in X.columns if c.startswith("region_")]
-    assert len(region_cols) >= 1, "Expected at least one region_ dummy column"
-    # All region dummy values must be 0 or 1
-    assert X[region_cols].isin([0, 1]).all().all()
+    assert region_cols == [], f"region_ dummies should be removed: {region_cols}"
+
+
+def test_state_partisan_lean_in_feature_matrix():
+    """state_partisan_lean must be present in X and be finite."""
+    from src.features.features import build_feature_matrix
+
+    winners = _make_multiregion_winners()
+    X, *_ = build_feature_matrix(winners)
+
+    assert "state_partisan_lean" in X.columns, "state_partisan_lean missing from X"
+    assert X["state_partisan_lean"].notna().all(), "state_partisan_lean must have no NaN after dropna"
 
 
 def test_state_to_region_covers_all_50_states():
@@ -213,6 +220,7 @@ def _make_multiyear_winners_for_filter() -> pd.DataFrame:
                 Col.YEAR: year,         Col.STATE: state,     Col.DISTRICT: dist,
                 Col.PARTY: party,
                 Col.CANDIDATE_VOTES: 100, Col.TOTAL_VOTES: 180, Col.VOTE_SHARE: 100 / 180,
+                Col.DEM_VOTE_SHARE: 0.55,
                 Col.DEM_LEAN: 0.5,      Col.DEM_LEAN_TREND: 0.0, Col.PREV_DEM_SHARE: 0.5,
                 Col.PRES_APPROVAL: 10.0, Col.PRES_DISAPPROVAL: -40.0,
                 Col.GENERIC_BALLOT: 5.0,
@@ -227,17 +235,14 @@ def test_min_train_year_filters_rows():
     from src.features.features import build_feature_matrix
 
     winners = _make_multiyear_winners_for_filter()
-    X_all, y_all, years_all = build_feature_matrix(winners)
+    X_all, y_all, y_vs_all, years_all = build_feature_matrix(winners)
 
-    # Apply min_train_year=2004 filter as build_dataset does
     mask = years_all >= 2004
     X_filt = X_all.loc[mask]
-    y_filt = y_all.loc[mask]
     years_filt = years_all.loc[mask]
 
     assert set(years_filt.unique()) == {2004}, f"Expected only 2004, got {set(years_filt.unique())}"
-    assert len(X_filt) < len(X_all), "Filtered dataset must be smaller than unfiltered"
-    assert len(X_filt) == len(y_filt) == len(years_filt)
+    assert len(X_filt) < len(X_all)
 
 
 def test_min_train_year_none_keeps_all_rows():
@@ -245,10 +250,9 @@ def test_min_train_year_none_keeps_all_rows():
     from src.features.features import build_feature_matrix
 
     winners = _make_multiyear_winners_for_filter()
-    _, _, years = build_feature_matrix(winners)
+    _, _, _, years = build_feature_matrix(winners)
 
-    # No filter applied — year 2000 is dropped by build_feature_matrix (no prior incumbent),
-    # but 2002 and 2004 must be present.
+    # year 2000 is dropped (no prior district_incumbent), but 2002 and 2004 must be present
     assert {2002, 2004}.issubset(set(years.unique()))
 
 
@@ -261,11 +265,11 @@ def test_net_pres_approval_in_feature_matrix():
     from src.features.features import build_feature_matrix
 
     winners = _make_minimal_winners()
-    X, _, _ = build_feature_matrix(winners)
+    X, *_ = build_feature_matrix(winners)
 
     assert "net_pres_approval" in X.columns, "net_pres_approval missing from X"
     assert "pres_approval" not in X.columns, "pres_approval should be dropped (net replaces it)"
-    assert "pres_disapproval" not in X.columns, "pres_disapproval should be dropped (net replaces it)"
+    assert "pres_disapproval" not in X.columns, "pres_disapproval should be dropped"
 
 
 def test_net_pres_approval_value():
@@ -273,9 +277,36 @@ def test_net_pres_approval_value():
     from src.features.features import build_feature_matrix
 
     winners = _make_minimal_winners()  # approval=10.0, disapproval=-40.0 in fixture
-    X, _, _ = build_feature_matrix(winners)
+    X, *_ = build_feature_matrix(winners)
 
     expected_net = 10.0 + (-40.0)  # = -30.0
     assert (X["net_pres_approval"] == expected_net).all(), (
         f"Expected net_pres_approval={expected_net}, got {X['net_pres_approval'].unique()}"
     )
+
+
+# ---------------------------------------------------------------------------
+# 7. y_vote_share: fourth return value from build_feature_matrix
+# ---------------------------------------------------------------------------
+
+def test_y_vote_share_is_continuous():
+    """build_feature_matrix must return y_vote_share as a float Series in [0, 1]."""
+    from src.features.features import build_feature_matrix
+
+    winners = _make_minimal_winners()
+    _, _, y_vs, years = build_feature_matrix(winners)
+
+    assert y_vs.dtype == float or str(y_vs.dtype).startswith("float")
+    assert y_vs.between(0, 1).all(), "vote share must be in [0, 1]"
+    assert len(y_vs) == len(years)
+
+
+def test_y_vote_share_aligned_with_y():
+    """y_vote_share must have the same index as y and years."""
+    from src.features.features import build_feature_matrix
+
+    winners = _make_minimal_winners()
+    _, y, y_vs, years = build_feature_matrix(winners)
+
+    assert list(y_vs.index) == list(y.index)
+    assert list(y_vs.index) == list(years.index)

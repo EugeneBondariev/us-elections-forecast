@@ -12,7 +12,6 @@ from src.constants import (
     PRES_PARTY,
     PRES_YEAR_FOR_HOUSE,
     REDISTRICTING_YEARS,
-    STATE_TO_REGION,
     Col,
     Val,
 )
@@ -53,6 +52,7 @@ __all__ = [
 class DatasetResult(NamedTuple):
     X: pd.DataFrame
     y: pd.Series
+    y_vote_share: pd.Series
     winners: DataFrame[WinnersSchema]
     years: pd.Series
     dems_reps: DataFrame[DemsRepsSchema]
@@ -69,6 +69,8 @@ _DROP_COLS = [
     Col.TOTAL_VOTES,
     Col.VOTE_SHARE,
     Col.DEM_WON,
+    # Current-year vote share is the regression target, not a feature
+    Col.DEM_VOTE_SHARE,
     # Replaced by net_pres_approval (approval + disapproval, both already sign-flipped)
     Col.PRES_APPROVAL,
     Col.PRES_DISAPPROVAL,
@@ -146,6 +148,7 @@ def build_winners(
                 Col.YEAR,
                 Col.STATE,
                 Col.DISTRICT,
+                Col.DEM_VOTE_SHARE,
                 Col.DEM_LEAN,
                 Col.DEM_LEAN_TREND,
                 Col.PREV_DEM_SHARE,
@@ -231,8 +234,10 @@ def add_incumbency_features(
     return winners
 
 
-def build_feature_matrix(winners: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
-    """Returns (X, y, years) — years is a Series aligned with X for walk-forward splitting."""
+def build_feature_matrix(
+    winners: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.Series, pd.Series, pd.Series]:
+    """Returns (X, y, y_vote_share, years) — all Series are aligned with X."""
     logger.info("Building feature matrix")
     seats_per_year = (
         winners.groupby([Col.YEAR, Col.PARTY])[Col.DISTRICT].count().unstack(fill_value=0)
@@ -253,10 +258,14 @@ def build_feature_matrix(winners: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series
     w = w[w[Col.DISTRICT_INCUMBENT].isin([Val.DEMOCRAT, Val.REPUBLICAN])]
     w[Col.INC_X_BALLOT] = w[Col.IS_INCUMBENT] * w[Col.GENERIC_BALLOT]
     w[Col.NET_PRES_APPROVAL] = w[Col.PRES_APPROVAL] + w[Col.PRES_DISAPPROVAL]
-    w["region"] = w[Col.STATE].map(STATE_TO_REGION)
+    # State-level mean of the already-lagged dem_lean — captures state partisan context
+    # without dummy explosion (50 sparse dummies) or information loss (5 coarse regions).
+    w[Col.STATE_PARTISAN_LEAN] = (
+        w.groupby([Col.STATE, Col.YEAR])[Col.DEM_LEAN].transform("mean")
+    )
     w = pd.get_dummies(
         w,
-        columns=[Col.NATION_INCUMBENT, Col.DISTRICT_INCUMBENT, "region"],
+        columns=[Col.NATION_INCUMBENT, Col.DISTRICT_INCUMBENT],
         drop_first=True,
     )
 
@@ -265,10 +274,11 @@ def build_feature_matrix(winners: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series
         [str(c) for c in X.columns]
     )  # StrEnum → plain str for sklearn compatibility
     y = w[Col.DEM_WON][X.index]
+    y_vote_share = w[Col.DEM_VOTE_SHARE][X.index]
     years = w[Col.YEAR][X.index]
     logger.info("Feature matrix: %d rows, %d features", len(X), len(X.columns))
     validate_feature_matrix(X)
-    return X, y, years
+    return X, y, y_vote_share, years
 
 
 def build_dataset(min_train_year: int | None = None) -> DatasetResult:
@@ -301,14 +311,17 @@ def build_dataset(min_train_year: int | None = None) -> DatasetResult:
     )
     winners = build_winners(top_candidates, dems_reps, approval, pres_lean, fundraising)
     winners = add_incumbency_features(winners, df)
-    X, y, years = build_feature_matrix(winners)
+    X, y, y_vote_share, years = build_feature_matrix(winners)
     if min_train_year is not None:
         mask = years >= min_train_year
-        X, y, years = X.loc[mask], y.loc[mask], years.loc[mask]
+        X, y, y_vote_share, years = (
+            X.loc[mask], y.loc[mask], y_vote_share.loc[mask], years.loc[mask]
+        )
         logger.info("Filtered to min_train_year=%d: %d rows remaining", min_train_year, len(X))
     return DatasetResult(
         X=X,
         y=y,
+        y_vote_share=y_vote_share,
         winners=winners,
         years=years,
         dems_reps=dems_reps,
@@ -419,14 +432,23 @@ def build_pred_2026(
             for c in available:
                 pred[c] = pred[c].fillna(0.5)
 
-    pred["region"] = pred[Col.STATE].map(STATE_TO_REGION)
     pred = pd.get_dummies(
         pred,
-        columns=[Col.NATION_INCUMBENT, Col.DISTRICT_INCUMBENT, "region"],
+        columns=[Col.NATION_INCUMBENT, Col.DISTRICT_INCUMBENT],
         drop_first=True,
     )
     pred = pred.reindex(columns=feature_columns, fill_value=0)
     pred[Col.DEM_LEAN] = pred[Col.DEM_LEAN].fillna(pred[Col.DEM_LEAN].median())
     pred[Col.DEM_LEAN_TREND] = pred[Col.DEM_LEAN_TREND].fillna(0)
+    # state_partisan_lean is in feature_columns; reindex filled it with 0 — recompute from
+    # the dem_lean values we just restored (STATE column is gone after reindex, so we need
+    # to rebuild it from district_ids which still has STATE).
+    state_lean = (
+        district_ids[[Col.STATE]]
+        .assign(**{str(Col.DEM_LEAN): pred[Col.DEM_LEAN].values})
+        .groupby(Col.STATE)[str(Col.DEM_LEAN)]
+        .transform("mean")
+    )
+    pred[str(Col.STATE_PARTISAN_LEAN)] = state_lean.values
     logger.info("  → %d districts", len(pred))
     return pred, district_ids

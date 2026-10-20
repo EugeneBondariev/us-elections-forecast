@@ -52,9 +52,16 @@ class TestBuildFeatureMatrix:
             Col.GENERIC_BALLOT, Col.IS_INCUMBENT, Col.REDISTRICTING,
             Col.PREV_DEM_SHARE, Col.INC_X_BALLOT,
             Col.ECON_GROWTH, Col.UNEMPLOYMENT,
+            Col.STATE_PARTISAN_LEAN,
             "nation_incumbent_party_REPUBLICAN", "district_incumbent_party_REPUBLICAN",
         }
         assert required.issubset(set(real_data["X"].columns))
+
+    def test_y_vote_share_continuous(self, real_data):
+        yvs = real_data["y_vote_share"]
+        assert yvs.dtype == float or str(yvs.dtype).startswith("float")
+        assert yvs.dropna().between(0, 1).all()  # NaN allowed for uncontested races
+        assert len(yvs) == len(real_data["y"])
 
     def test_returns_years(self, real_data):
         assert isinstance(real_data["years"], pd.Series)

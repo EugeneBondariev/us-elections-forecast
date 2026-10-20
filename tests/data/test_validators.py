@@ -16,6 +16,7 @@ def test_validate_feature_matrix_valid():
         "dem_lean":            [0.5, 0.6],
         "prev_dem_vote_share": [0.45, 0.55],
         "net_pres_approval":   [10.0, -5.0],
+        "state_partisan_lean": [0.52, 0.48],
         "extra_col":           [1, 2],
     })
     result = validate_feature_matrix(X)

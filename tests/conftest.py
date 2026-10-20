@@ -22,6 +22,7 @@ def real_data():
         "dems_reps": ds.dems_reps,
         "X": ds.X,
         "y": ds.y,
+        "y_vote_share": ds.y_vote_share,
         "years": ds.years,
     }
 

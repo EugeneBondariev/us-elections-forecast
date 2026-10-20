@@ -69,6 +69,7 @@ class Col(StrEnum):
     ECON_GROWTH = "econ_growth"
     UNEMPLOYMENT = "unemployment"
     COOK_PROB = "cook_prob"
+    STATE_PARTISAN_LEAN = "state_partisan_lean"
 
 
 class Val(StrEnum):
