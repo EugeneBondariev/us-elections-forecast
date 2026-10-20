@@ -9,7 +9,7 @@ __all__ = [
     "DEM_MAJORITY_SEATS", "COOK_ALPHA", "COMPETITIVE_MARGIN",
     "PRES_PARTY", "GENERIC_BALLOT", "GDP_2026_ESTIMATE",
     "REDISTRICTING_YEARS", "PRES_YEAR_FOR_HOUSE", "OPEN_SEATS_2026",
-    "STATE_TO_REGION",
+    "STATE_TO_REGION", "STATE_FIPS_TO_PO",
 ]
 
 
@@ -70,6 +70,17 @@ class Col(StrEnum):
     UNEMPLOYMENT = "unemployment"
     COOK_PROB = "cook_prob"
     STATE_PARTISAN_LEAN = "state_partisan_lean"
+    # Census ACS demographics (most recent cycle; static per district)
+    PCT_BACHELOR_PLUS = "pct_bachelor_plus"
+    PCT_NON_WHITE = "pct_non_white"
+    MEDIAN_INCOME = "median_income"
+    MEDIAN_AGE = "median_age"
+    # Candidate quality (FEC filing history + NLP)
+    CANDIDATE_QUALITY = "candidate_quality_dem_share"
+    EXPERIENCE_CYCLES_DEM = "experience_cycles_dem"
+    EXPERIENCE_CYCLES_REP = "experience_cycles_rep"
+    # Poll aggregation
+    GENERIC_BALLOT_SIGMA = "generic_ballot_sigma"
 
 
 class Val(StrEnum):
@@ -222,6 +233,21 @@ STATE_TO_REGION: dict[str, str] = {
     "NM": "Mountain", "NV": "Mountain", "UT": "Mountain", "WY": "Mountain",
     # Pacific
     "AK": "Pacific", "CA": "Pacific", "HI": "Pacific", "OR": "Pacific", "WA": "Pacific",
+}
+
+# Standard FIPS numeric code → 2-letter postal abbreviation (US Census Bureau).
+# Used to join Census API responses (FIPS-keyed) to house election data (postal-keyed).
+STATE_FIPS_TO_PO: dict[str, str] = {
+    "01": "AL", "02": "AK", "04": "AZ", "05": "AR", "06": "CA",
+    "08": "CO", "09": "CT", "10": "DE", "12": "FL", "13": "GA",
+    "15": "HI", "16": "ID", "17": "IL", "18": "IN", "19": "IA",
+    "20": "KS", "21": "KY", "22": "LA", "23": "ME", "24": "MD",
+    "25": "MA", "26": "MI", "27": "MN", "28": "MS", "29": "MO",
+    "30": "MT", "31": "NE", "32": "NV", "33": "NH", "34": "NJ",
+    "35": "NM", "36": "NY", "37": "NC", "38": "ND", "39": "OH",
+    "40": "OK", "41": "OR", "42": "PA", "44": "RI", "45": "SC",
+    "46": "SD", "47": "TN", "48": "TX", "49": "UT", "50": "VT",
+    "51": "VA", "53": "WA", "54": "WV", "55": "WI", "56": "WY",
 }
 
 if datetime.datetime.now().year > 2026:

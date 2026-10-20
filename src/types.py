@@ -5,7 +5,7 @@ from typing import NotRequired, TypedDict
 import numpy as np
 import pandas as pd
 
-__all__ = ["ForecastResult", "SimParams", "CalibrationResult", "BootstrapResult"]
+__all__ = ["ForecastResult", "SimParams", "CalibrationResult", "BootstrapResult", "FECCandidateRecord"]
 
 
 class ForecastResult(TypedDict):
@@ -42,3 +42,19 @@ class BootstrapResult(TypedDict):
     seat_error_mean: float
     seat_error_low: float
     seat_error_high: float
+
+
+class FECCandidateRecord(TypedDict):
+    year: int
+    state_po: str | None
+    district: int
+    party: str | None
+    candidate_id: str | None
+    candidate_name: str | None
+    receipts: float
+    individual_receipts: float
+    individual_itemized_contributions: float
+    individual_unitemized_contributions: float
+    other_political_committee_contributions: float
+    candidate_contribution: float
+    disbursements: float

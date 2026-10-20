@@ -51,6 +51,8 @@ class DataFile:
     # external/ — third-party supplementary data. Same immutability rule as raw/.
     FUNDRAISING_RAW         = EXTERNAL_DIR / "fundraising_raw.csv"
     GENERIC_BALLOT_RAW      = EXTERNAL_DIR / "generic_ballot_averages_raw.csv"
+    CENSUS_RAW              = EXTERNAL_DIR / "census_acs_raw.json"
+    GENERIC_BALLOT_POLLS    = EXTERNAL_DIR / "generic_ballot_polls.csv"
 
     # interim/ — first-pass transformations of raw/external data. APPROVAL belongs
     # here, not raw/, despite the filename: src/data/build_approval_history.py pools
@@ -64,6 +66,9 @@ class DataFile:
     INDICATORS       = INTERIM_DIR / "indicators.csv"
     GENERIC_BALLOT_CSV = INTERIM_DIR / "generic_ballot.csv"
     OPEN_SEATS_CSV   = INTERIM_DIR / "open_seats_2026.csv"
+    CENSUS             = INTERIM_DIR / "census_acs.csv"
+    CANDIDATE_QUALITY  = INTERIM_DIR / "candidate_quality.csv"
+    POLL_AGGREGATES    = INTERIM_DIR / "poll_aggregates.csv"
 
     # processed/ — derived artifacts the app/API read at runtime. Safe to delete.
     DB     = PROCESSED_DIR / "elections.db"
