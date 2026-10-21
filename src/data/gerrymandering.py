@@ -19,6 +19,7 @@ Output: data/interim/gerrymandering.csv — state_po, district, polsby_popper,
 from __future__ import annotations
 
 import io
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -40,11 +41,14 @@ _TIGERWEB_URL = (
     "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Legislative/MapServer/4/query"
 )
 _CRS_EQUAL_AREA = "EPSG:5070"  # CONUS Albers Equal Area — accurate area/perimeter on land
+# WAF blocks responses larger than ~50 districts' worth of detailed geometry; paginate below this.
+_BATCH_SIZE = 50
 
 
 def fetch_tiger_geodataframe(cache_path: Path | None = None) -> Any:
     """Fetch 119th Congress district boundaries from TIGERweb REST API.
 
+    Paginates in batches of 50 (WAF blocks larger geometry responses).
     Results are cached as GeoJSON at cache_path to avoid redundant API calls.
     """
     import geopandas as gpd
@@ -55,20 +59,45 @@ def fetch_tiger_geodataframe(cache_path: Path | None = None) -> Any:
         return gpd.read_file(str(cache))
 
     logger.info("Fetching 119th Congress district boundaries from TIGERweb API")
-    params = {
-        "where": "1=1",
-        "outFields": "STATE,CD119",
-        "returnGeometry": "true",
-        "f": "geojson",
-    }
-    resp = requests.get(_TIGERWEB_URL, params=params, timeout=120)
-    resp.raise_for_status()
+    all_features: list[dict] = []
+    offset = 0
+    while True:
+        params: dict[str, str | int] = {
+            "where": "AREALAND IS NOT NULL",
+            "outFields": "STATE,CD119",
+            "returnGeometry": "true",
+            "f": "geojson",
+            "resultRecordCount": _BATCH_SIZE,
+            "resultOffset": offset,
+        }
+        resp = requests.get(_TIGERWEB_URL, params=params, timeout=120)
+        resp.raise_for_status()
+        if "application/geo+json" not in resp.headers.get("content-type", ""):
+            raise RuntimeError(
+                f"TIGERweb WAF rejection at offset={offset}. "
+                f"Content-type: {resp.headers.get('content-type')}. "
+                f"Response: {resp.text[:200]}"
+            )
+        page = resp.json()
+        batch = page.get("features", [])
+        all_features.extend(batch)
+        logger.info(
+            "Fetched %d districts (offset=%d, total=%d)", len(batch), offset, len(all_features)
+        )
+        if len(batch) < _BATCH_SIZE:
+            break
+        offset += _BATCH_SIZE
 
-    geojson_text = resp.text
+    geojson_text = json.dumps({"type": "FeatureCollection", "features": all_features})
     gdf = gpd.read_file(io.StringIO(geojson_text))
 
     ensure(Path(cache)).write_text(geojson_text, encoding="utf-8")
-    logger.info("TIGERweb GeoJSON cached → %s (%d bytes)", cache, len(geojson_text))
+    logger.info(
+        "TIGERweb GeoJSON cached → %s (%d districts, %d bytes)",
+        cache,
+        len(all_features),
+        len(geojson_text),
+    )
     return gdf
 
 
