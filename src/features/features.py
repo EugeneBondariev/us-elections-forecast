@@ -29,6 +29,7 @@ from src.data.loaders import (
     load_poll_sigma,
     load_pres_lean,
     load_speech_sentiment,
+    load_speech_sentiment_hist,
 )
 from src.data.validators import (
     ApprovalDataSchema,
@@ -70,6 +71,7 @@ class DatasetResult(NamedTuple):
     district_analytics: pd.DataFrame | None
     gerrymandering: pd.DataFrame | None
     speech_sentiment: pd.DataFrame | None
+    speech_sentiment_hist: pd.DataFrame | None
 
 
 _DROP_COLS = [
@@ -390,6 +392,7 @@ def build_dataset(min_train_year: int | None = None) -> DatasetResult:
     district_analytics = load_district_analytics()
     gerrymandering = load_gerrymandering()
     speech_sentiment = load_speech_sentiment()
+    speech_sentiment_hist = load_speech_sentiment_hist()
     winners = build_winners(
         top_candidates=top_candidates,
         dems_reps=dems_reps,
@@ -402,6 +405,16 @@ def build_dataset(min_train_year: int | None = None) -> DatasetResult:
         gerrymandering=gerrymandering,
     )
     winners = add_incumbency_features(winners, df)
+    if speech_sentiment_hist is not None:
+        winners = winners.merge(
+            speech_sentiment_hist[
+                [Col.YEAR, Col.STATE, Col.DISTRICT, Col.SPEECH_SENTIMENT, Col.SPEECH_COUNT]
+            ],
+            on=[Col.YEAR, Col.STATE, Col.DISTRICT],
+            how="left",
+        )
+        winners[Col.SPEECH_SENTIMENT] = winners[Col.SPEECH_SENTIMENT].fillna(0.0)
+        winners[Col.SPEECH_COUNT] = winners[Col.SPEECH_COUNT].fillna(0).astype(int)
     X, y, y_vote_share, years = build_feature_matrix(winners)
     if min_train_year is not None:
         mask = years >= min_train_year
@@ -427,6 +440,7 @@ def build_dataset(min_train_year: int | None = None) -> DatasetResult:
         district_analytics=district_analytics,
         gerrymandering=gerrymandering,
         speech_sentiment=speech_sentiment,
+        speech_sentiment_hist=speech_sentiment_hist,
     )
 
 
@@ -590,7 +604,7 @@ def build_pred_2026(
             )
             for c in _geo_cols:
                 pred[c] = pred[c].fillna(pred[c].median())
-    # speech_sentiment: 2026-cycle Congress.gov data, no historical equivalent
+    # speech_sentiment: 2026-cycle Congress.gov data; historical equivalent merged into winners during training
     if speech_sentiment is not None:
         _sp_cols = [
             c for c in [Col.SPEECH_SENTIMENT, Col.SPEECH_COUNT] if c in list(feature_columns)

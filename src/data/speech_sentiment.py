@@ -44,10 +44,13 @@ __all__ = [
     "fetch_member_bills",
     "score_sentiment",
     "build_speech_features",
+    "build_historical_speech_features",
 ]
 
 _BASE_URL = "https://api.congress.gov/v3"
 _DEFAULT_CONGRESS = 119  # 119th Congress, 2025–2027
+_FIRST_CONGRESS = 113  # 113th Congress → 2014 election (earliest with reliable bill data)
+_ELECTION_YEAR_OFFSET = 1788  # election_year = offset + 2 × congress_number
 _PAGE_LIMIT = 250  # max per Congress.gov API page
 _BILL_FETCH_LIMIT = 20  # sponsored bills per member (recent only)
 _REQUEST_TIMEOUT = 30
@@ -57,8 +60,14 @@ def fetch_house_members(
     congress: int = _DEFAULT_CONGRESS,
     api_key: str | None = None,
     cache_path: Path | None = None,
+    current_members_only: bool = False,
 ) -> list[dict]:
     """Fetch all House members for the given congress with pagination.
+
+    current_members_only: pass True only for the active congress — the API's
+    currentMember filter excludes members who have since left, which is correct
+    for the live cycle but wrong for historical congresses where we want everyone
+    who served.
 
     Writes the raw list to cache_path on success and reads from it on subsequent
     calls to avoid redundant API round-trips.
@@ -73,10 +82,11 @@ def fetch_house_members(
         params: dict[str, str | int] = {
             "congress": congress,
             "chamber": "House",
-            "currentMember": "true",
             "limit": _PAGE_LIMIT,
             "offset": offset,
         }
+        if current_members_only:
+            params["currentMember"] = "true"
         if api_key:
             params["api_key"] = api_key
         resp = requests.get(f"{_BASE_URL}/member", params=params, timeout=_REQUEST_TIMEOUT)
@@ -136,6 +146,7 @@ def build_speech_features(
     members: list[dict],
     api_key: str | None = None,
     state_name_map: dict[str, str] | None = None,
+    log_prefix: str = "",
 ) -> pd.DataFrame:
     """Build per-district sentiment and activity features from member bill titles.
 
@@ -165,7 +176,8 @@ def build_speech_features(
         titles = fetch_member_bills(bioguide_id=bioguide, api_key=api_key)
         sentiment = score_sentiment(titles)
         logger.info(
-            "[%d/%d] %s-%d (%s): %d bills, sentiment=%.3f",
+            "%s[%d/%d] %s-%d (%s): %d bills, sentiment=%.3f",
+            log_prefix,
             i,
             total,
             state,
@@ -201,6 +213,74 @@ def build_speech_features(
     return df
 
 
+def build_historical_speech_features(
+    start_congress: int = _FIRST_CONGRESS,
+    end_congress: int = _DEFAULT_CONGRESS - 1,
+    api_key: str | None = None,
+    state_name_map: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """Build speech sentiment for historical election cycles.
+
+    Loops start_congress–end_congress, fetches members and their sponsored bills,
+    scores VADER sentiment, and returns a DataFrame with a leading year column.
+    Congress → election year: year = 1788 + 2 × congress_number.
+
+    Historical congresses use all members who served (not currentMember filter).
+    Results are cached per-congress under data/external/congress_members_{n}.json.
+    """
+    frames = []
+    for congress in range(start_congress, end_congress + 1):
+        election_year = _ELECTION_YEAR_OFFSET + 2 * congress
+        cache = DataFile.congress_sentiment_cache(congress)
+        if cache.exists():
+            cached = pd.read_csv(cache, dtype={"year": int, "district": int})
+            if "WY" in cached["state_po"].values:
+                logger.info("Congress %d (%d): loading from cache", congress, election_year)
+                frames.append(cached)
+                continue
+            logger.warning("Congress %d cache incomplete (WY missing) — re-fetching", congress)
+            cache.unlink()
+        logger.info("Congress %d → election year %d", congress, election_year)
+        members = fetch_house_members(
+            congress=congress,
+            api_key=api_key,
+            cache_path=DataFile.congress_members_cache(congress),
+            current_members_only=False,
+        )
+        # Keep members whose House service overlapped with this congress's years.
+        # Each term entry spans multiple congresses (startYear–endYear for a continuous
+        # block of service), so we need an interval overlap check, not an exact match.
+        # Congress N runs calendar years [1787+2N, 1789+2N); absent endYear = still serving.
+        c_start = 1787 + 2 * congress
+        c_end = 1789 + 2 * congress
+        members = [
+            m
+            for m in members
+            if any(
+                t.get("chamber") == "House of Representatives"
+                and t.get("startYear", 9999) < c_end
+                and t.get("endYear", 9999) > c_start
+                for t in m.get("terms", {}).get("item", [])
+            )
+        ]
+        logger.info("Congress %d: %d members after term filter", congress, len(members))
+        df = build_speech_features(
+            members=members,
+            api_key=api_key,
+            state_name_map=state_name_map,
+            log_prefix=f"[{election_year}] ",
+        )
+        df.insert(0, "year", election_year)
+        df.to_csv(ensure(cache), index=False)
+        frames.append(df)
+        logger.info("Congress %d: %d districts, cached -> %s", congress, len(df), cache)
+    if not frames:
+        return pd.DataFrame(
+            columns=["year", "state_po", "district", "speech_sentiment", "speech_count"]
+        )
+    return pd.concat(frames, ignore_index=True)
+
+
 def main() -> None:
     import logging as _logging
     import os
@@ -218,20 +298,37 @@ def main() -> None:
         )
     from src.data.loaders import load_state_names
 
-    members = fetch_house_members(
-        congress=_DEFAULT_CONGRESS,
-        api_key=api_key,
-        cache_path=DataFile.CONGRESS_MEMBERS_CACHE,
-    )
-    features = build_speech_features(
-        members=members, api_key=api_key, state_name_map=load_state_names()
-    )
-    features.to_csv(ensure(DataFile.SPEECH_SENTIMENT), index=False)
-    logger.info(
-        "Speech sentiment saved -> %s (%d districts)",
-        DataFile.SPEECH_SENTIMENT,
-        len(features),
-    )
+    state_name_map = load_state_names()
+    if DataFile.SPEECH_SENTIMENT.exists():
+        logger.info("speech_sentiment.csv already exists — skipping 2026 fetch")
+    else:
+        members = fetch_house_members(
+            congress=_DEFAULT_CONGRESS,
+            api_key=api_key,
+            cache_path=DataFile.congress_members_cache(_DEFAULT_CONGRESS),
+            current_members_only=True,
+        )
+        features = build_speech_features(
+            members=members, api_key=api_key, state_name_map=state_name_map
+        )
+        features.to_csv(ensure(DataFile.SPEECH_SENTIMENT), index=False)
+        logger.info(
+            "Speech sentiment saved -> %s (%d districts)",
+            DataFile.SPEECH_SENTIMENT,
+            len(features),
+        )
+    if DataFile.SPEECH_SENTIMENT_HIST.exists():
+        logger.info("speech_sentiment_hist.csv already exists — skipping historical fetch")
+    else:
+        hist = build_historical_speech_features(api_key=api_key, state_name_map=state_name_map)
+        hist.to_csv(ensure(DataFile.SPEECH_SENTIMENT_HIST), index=False)
+        logger.info(
+            "Historical speech sentiment saved -> %s (%d rows, congresses %d–%d)",
+            DataFile.SPEECH_SENTIMENT_HIST,
+            len(hist),
+            _FIRST_CONGRESS,
+            _DEFAULT_CONGRESS - 1,
+        )
 
 
 if __name__ == "__main__":

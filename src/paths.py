@@ -83,8 +83,16 @@ class DataFile:
     DISTRICT_ANALYTICS = INTERIM_DIR / "district_analytics.csv"
     SPEECH_SENTIMENT = INTERIM_DIR / "speech_sentiment.csv"
 
-    # external/ — Congress.gov member list cache (raw API response, no transformation)
-    CONGRESS_MEMBERS_CACHE = EXTERNAL_DIR / "congress_members_119.json"
+    SPEECH_SENTIMENT_HIST = INTERIM_DIR / "speech_sentiment_hist.csv"
+
+    # external/ — Congress.gov per-congress caches (raw API response, no transformation)
+    @staticmethod
+    def congress_members_cache(congress: int) -> Path:
+        return EXTERNAL_DIR / f"congress_members_{congress}.json"
+
+    @staticmethod
+    def congress_sentiment_cache(congress: int) -> Path:
+        return EXTERNAL_DIR / f"speech_sentiment_{congress}.csv"
 
     # external/ — Census TIGERweb 119th Congress GeoJSON cache (raw geometry, no transformation)
     TIGER_GEOJSON = EXTERNAL_DIR / "tiger_cd119.geojson"

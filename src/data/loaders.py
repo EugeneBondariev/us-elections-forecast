@@ -40,6 +40,7 @@ __all__ = [
     "load_district_analytics",
     "load_gerrymandering",
     "load_speech_sentiment",
+    "load_speech_sentiment_hist",
 ]
 
 
@@ -384,6 +385,23 @@ def load_speech_sentiment() -> pd.DataFrame | None:
     from src.data.validators import validate_speech_sentiment
 
     validate_speech_sentiment(df)
+    return df
+
+
+def load_speech_sentiment_hist() -> pd.DataFrame | None:
+    """Load historical Congress.gov speech sentiment (congresses 113–118); return None if absent."""
+    from src.paths import DataFile
+
+    path = DataFile.SPEECH_SENTIMENT_HIST
+    if not path.exists():
+        logger.info(
+            "speech_sentiment_hist.csv absent — historical sentiment features will be skipped"
+        )
+        return None
+    df = pd.read_csv(path, dtype={"year": int, Col.DISTRICT: int})
+    from src.data.validators import validate_speech_sentiment_hist
+
+    validate_speech_sentiment_hist(df)
     return df
 
 

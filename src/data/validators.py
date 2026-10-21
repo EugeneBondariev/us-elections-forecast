@@ -47,6 +47,8 @@ __all__ = [
     "validate_gerrymandering",
     "SpeechSentimentSchema",
     "validate_speech_sentiment",
+    "SpeechSentimentHistSchema",
+    "validate_speech_sentiment_hist",
     "DistrictAnalyticsSchema",
     "validate_district_analytics",
     "FipsStatesSchema",
@@ -552,6 +554,35 @@ def validate_speech_sentiment(df: pd.DataFrame) -> pd.DataFrame:
     except pa.errors.SchemaErrors as e:
         logger.error(
             "Speech sentiment validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
+        )
+        raise
+    return df
+
+
+class SpeechSentimentHistSchema(pa.DataFrameModel):
+    """Historical per-district VADER sentiment from Congress.gov (congresses 113–118)."""
+
+    year: Series[int] = pa.Field(ge=2014, le=2024)
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
+    speech_sentiment: Series[float] = pa.Field(ge=-1.0, le=1.0)
+    speech_count: Series[int] = pa.Field(ge=0)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
+def validate_speech_sentiment_hist(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate historical Congress.gov speech sentiment. Raises on failure."""
+    try:
+        SpeechSentimentHistSchema.validate(df, lazy=True)
+        logger.info("Historical speech sentiment validation passed (%d rows)", len(df))
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "Historical speech sentiment validation FAILED: %d issue(s)\n%s",
             len(e.failure_cases),
             e.failure_cases.head(10).to_string(),
         )

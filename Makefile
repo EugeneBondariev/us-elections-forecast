@@ -34,7 +34,7 @@ help:
 	@echo "  poll-aggregation   Aggregate generic ballot polls with house-effects correction"
 	@echo "  district-analytics  Win streak + swing volatility via SQLite window functions"
 	@echo "  gerrymandering     Download TIGER shapefiles + compute Polsby-Popper compactness"
-	@echo "  speech-sentiment   Congress.gov bill titles + VADER sentiment (requires CONGRESS_API_KEY)"
+	@echo "  speech-sentiment   Congress.gov bill titles + VADER sentiment, 2026 + historical 2014-2024 (requires CONGRESS_API_KEY)"
 	@echo "  db               Build the SQLite forecast database"
 	@echo ""
 	@echo "Model:"
