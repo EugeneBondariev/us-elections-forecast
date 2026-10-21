@@ -2,10 +2,10 @@
 
 Data source: US Department of Transportation State/County/City FIPS Reference
 Table (data.transportation.gov). Deduplicates to state level, keeps only the
-50 US states, and writes a minimal two-column CSV.
+50 US states, and writes a three-column CSV.
 
 Run with: make fips
-Output: data/interim/fips_states.csv — fips, state_po
+Output: data/interim/fips_states.csv — fips, state_po, state_name
 """
 
 from __future__ import annotations
@@ -85,11 +85,18 @@ def fetch_fips_mapping() -> pd.DataFrame:
     resp.raise_for_status()
     df = pd.read_csv(io.StringIO(resp.text), dtype=str)
     states = (
-        df[["State FIPS Code", "State Code"]]
-        .rename(columns={"State FIPS Code": "fips", "State Code": "state_po"})
+        df[["State FIPS Code", "State Code", "State Name"]]
+        .rename(
+            columns={
+                "State FIPS Code": "fips",
+                "State Code": "state_po",
+                "State Name": "state_name",
+            }
+        )
         .drop_duplicates(subset=["fips"])
         .dropna()
     )
+    states["state_name"] = states["state_name"].str.title()
     states = states[states["fips"].isin(_FIFTY_STATE_FIPS)].reset_index(drop=True)
     logger.info("Fetched %d state FIPS codes", len(states))
     return states

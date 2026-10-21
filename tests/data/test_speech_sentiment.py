@@ -101,22 +101,37 @@ class TestFetchMemberBills:
 # Import needed for the side_effect reference above to resolve at module load time.
 import requests  # noqa: E402
 
+_STATE_NAME_MAP = {"California": "CA", "New York": "NY"}
+
 
 class TestBuildSpeechFeatures:
     def test_output_columns(self) -> None:
-        members = [_make_member("CA", 1), _make_member("NY", 5, "B000002")]
+        members = [_make_member("California", 1), _make_member("New York", 5, "B000002")]
         with patch("src.data.speech_sentiment.fetch_member_bills", return_value=[]):
-            result = build_speech_features(members=members)
+            result = build_speech_features(members=members, state_name_map=_STATE_NAME_MAP)
         assert list(result.columns) == ["state_po", "district", "speech_sentiment", "speech_count"]
+
+    def test_state_name_translated_to_abbreviation(self) -> None:
+        members = [_make_member("California", 1)]
+        with patch("src.data.speech_sentiment.fetch_member_bills", return_value=[]):
+            result = build_speech_features(members=members, state_name_map=_STATE_NAME_MAP)
+        assert result.iloc[0]["state_po"] == "CA"
 
     def test_skips_member_without_state(self) -> None:
         members = [{"bioguideId": "X000001", "state": None, "district": 1}]
         with patch("src.data.speech_sentiment.fetch_member_bills", return_value=[]):
-            result = build_speech_features(members=members)
+            result = build_speech_features(members=members, state_name_map=_STATE_NAME_MAP)
         assert result.empty
 
-    def test_district_dtype(self) -> None:
-        members = [_make_member("CA", 1), _make_member("NY", 5, "B000002")]
+    def test_skips_delegate_states(self) -> None:
+        members = [_make_member("California", 1), _make_member("Puerto Rico", 0, "B000002")]
         with patch("src.data.speech_sentiment.fetch_member_bills", return_value=[]):
-            result = build_speech_features(members=members)
+            result = build_speech_features(members=members, state_name_map=_STATE_NAME_MAP)
+        assert len(result) == 1
+        assert "PR" not in result["state_po"].values
+
+    def test_district_dtype(self) -> None:
+        members = [_make_member("California", 1), _make_member("New York", 5, "B000002")]
+        with patch("src.data.speech_sentiment.fetch_member_bills", return_value=[]):
+            result = build_speech_features(members=members, state_name_map=_STATE_NAME_MAP)
         assert result["district"].dtype == int

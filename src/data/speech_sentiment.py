@@ -73,6 +73,7 @@ def fetch_house_members(
         params: dict[str, str | int] = {
             "congress": congress,
             "chamber": "House",
+            "currentMember": "true",
             "limit": _PAGE_LIMIT,
             "offset": offset,
         }
@@ -134,23 +135,45 @@ def score_sentiment(titles: list[str]) -> float:
 def build_speech_features(
     members: list[dict],
     api_key: str | None = None,
+    state_name_map: dict[str, str] | None = None,
 ) -> pd.DataFrame:
     """Build per-district sentiment and activity features from member bill titles.
 
-    Congress.gov member dicts contain: bioguideId, state (2-letter postal), district
+    Congress.gov member dicts contain: bioguideId, state (full state name), district
     (int or None for at-large), name, partyName, terms. Members missing state or
-    bioguideId are silently skipped.
+    bioguideId are silently skipped. Pass state_name_map (full name → postal code) to
+    translate state names to abbreviations and skip non-voting delegates (DC, PR, etc.).
     """
     rows = []
-    for member in members:
-        state = member.get("state")
+    valid = [
+        m
+        for m in members
+        if m.get("state")
+        and m.get("bioguideId")
+        and m.get("district")
+        is not None  # senators have no district; at-large reps have district=0
+        and (state_name_map is None or m["state"] in state_name_map)
+    ]
+    total = len(valid)
+    for i, member in enumerate(valid, 1):
+        state_raw = member["state"]
+        state = state_name_map[state_raw] if state_name_map else state_raw
         district_raw = member.get("district")
-        bioguide = member.get("bioguideId")
-        if not state or not bioguide:
-            continue
-        district = int(district_raw) if district_raw is not None else 0
+        assert district_raw is not None
+        bioguide = member["bioguideId"]
+        district = int(district_raw)
         titles = fetch_member_bills(bioguide_id=bioguide, api_key=api_key)
         sentiment = score_sentiment(titles)
+        logger.info(
+            "[%d/%d] %s-%d (%s): %d bills, sentiment=%.3f",
+            i,
+            total,
+            state,
+            district,
+            bioguide,
+            len(titles),
+            sentiment,
+        )
         rows.append(
             {
                 "state_po": state,
@@ -164,6 +187,11 @@ def build_speech_features(
     if df.empty:
         return pd.DataFrame(columns=["state_po", "district", "speech_sentiment", "speech_count"])
     df["district"] = df["district"].astype(int)
+    # Multiple members may have served the same district in the 119th Congress
+    # (resignation + special election replacement). Average their sentiments.
+    df = df.groupby(["state_po", "district"], as_index=False).agg(
+        speech_sentiment=("speech_sentiment", "mean"), speech_count=("speech_count", "sum")
+    )
     logger.info(
         "Speech sentiment built: %d districts, sentiment range [%.3f, %.3f]",
         len(df),
@@ -188,12 +216,16 @@ def main() -> None:
             "CONGRESS_API_KEY not set — requests will be rate-limited to 5/min. "
             "Register free at https://api.congress.gov/sign-up/"
         )
+    from src.data.loaders import load_state_names
+
     members = fetch_house_members(
         congress=_DEFAULT_CONGRESS,
         api_key=api_key,
         cache_path=DataFile.CONGRESS_MEMBERS_CACHE,
     )
-    features = build_speech_features(members=members, api_key=api_key)
+    features = build_speech_features(
+        members=members, api_key=api_key, state_name_map=load_state_names()
+    )
     features.to_csv(ensure(DataFile.SPEECH_SENTIMENT), index=False)
     logger.info(
         "Speech sentiment saved -> %s (%d districts)",

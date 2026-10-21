@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "load_fips_states",
+    "load_state_names",
     "load_pres_lean",
     "load_clean_house_data",
     "load_cook_ratings",
@@ -58,6 +59,23 @@ def load_fips_states() -> dict[str, str]:
 
     validate_fips_states(df)
     return dict(zip(df["fips"], df["state_po"]))
+
+
+def load_state_names() -> dict[str, str]:
+    """Load full state name → postal abbreviation mapping from fips_states.csv.
+
+    Run `make fips` to generate the file. Raises FileNotFoundError if absent.
+    """
+    from src.paths import DataFile
+
+    path = DataFile.FIPS_STATES
+    if not path.exists():
+        raise FileNotFoundError(f"{path} not found — run `make fips` to fetch it")
+    df = pd.read_csv(path, dtype=str)
+    from src.data.validators import validate_fips_states
+
+    validate_fips_states(df)
+    return dict(zip(df["state_name"], df["state_po"]))
 
 
 def load_pres_lean(path_2008_2020: Path, path_2020_2024: Path) -> pd.DataFrame:

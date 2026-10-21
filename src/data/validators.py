@@ -589,10 +589,11 @@ def validate_district_analytics(df: pd.DataFrame) -> pd.DataFrame:
 
 
 class FipsStatesSchema(pa.DataFrameModel):
-    """50 US state FIPS codes → postal abbreviations."""
+    """50 US state FIPS codes → postal abbreviations and full state names."""
 
     fips: Series[str] = pa.Field(str_matches=r"^[0-9]{2}$")
     state_po: Series[str] = pa.Field(str_matches=r"^[A-Z]{2}$")
+    state_name: Series[str] = pa.Field(str_matches=r"^.{4,}$")
 
     class Config:
         strict = True
