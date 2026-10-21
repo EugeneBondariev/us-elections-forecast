@@ -22,7 +22,10 @@ import io
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from geopandas import GeoDataFrame
 
 import pandas as pd
 import requests
@@ -45,18 +48,18 @@ _CRS_EQUAL_AREA = "EPSG:5070"  # CONUS Albers Equal Area — accurate area/perim
 _BATCH_SIZE = 50
 
 
-def fetch_tiger_geodataframe(cache_path: Path | None = None) -> Any:
+def fetch_tiger_geodataframe() -> GeoDataFrame:
     """Fetch 119th Congress district boundaries from TIGERweb REST API.
 
     Paginates in batches of 50 (WAF blocks larger geometry responses).
-    Results are cached as GeoJSON at cache_path to avoid redundant API calls.
+    Results are cached as GeoJSON at DataFile.TIGER_GEOJSON to avoid redundant API calls.
     """
     import geopandas as gpd
 
-    cache = cache_path or DataFile.TIGER_GEOJSON
-    if Path(cache).exists():
+    cache = DataFile.TIGER_GEOJSON
+    if cache.exists():
         logger.info("TIGERweb cache hit: %s", cache)
-        return gpd.read_file(str(cache))
+        return gpd.read_file(cache)
 
     logger.info("Fetching 119th Congress district boundaries from TIGERweb API")
     all_features: list[dict] = []
@@ -65,7 +68,6 @@ def fetch_tiger_geodataframe(cache_path: Path | None = None) -> Any:
         params: dict[str, str | int] = {
             "where": "AREALAND IS NOT NULL",
             "outFields": "STATE,CD119",
-            "returnGeometry": "true",
             "f": "geojson",
             "resultRecordCount": _BATCH_SIZE,
             "resultOffset": offset,
@@ -91,7 +93,7 @@ def fetch_tiger_geodataframe(cache_path: Path | None = None) -> Any:
     geojson_text = json.dumps({"type": "FeatureCollection", "features": all_features})
     gdf = gpd.read_file(io.StringIO(geojson_text))
 
-    ensure(Path(cache)).write_text(geojson_text, encoding="utf-8")
+    ensure(cache).write_text(geojson_text, encoding="utf-8")
     logger.info(
         "TIGERweb GeoJSON cached → %s (%d districts, %d bytes)",
         cache,
@@ -101,7 +103,7 @@ def fetch_tiger_geodataframe(cache_path: Path | None = None) -> Any:
     return gdf
 
 
-def build_compactness_features(gdf: Any) -> pd.DataFrame:
+def build_compactness_features(gdf: GeoDataFrame) -> pd.DataFrame:
     """Compute Polsby-Popper compactness and district area from TIGERweb geometry."""
     import numpy as np
 
@@ -161,7 +163,7 @@ def load_gerrymandering(cache_path: Path | None = None) -> pd.DataFrame | None:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    gdf = fetch_tiger_geodataframe(cache_path=DataFile.TIGER_GEOJSON)
+    gdf = fetch_tiger_geodataframe()
     features = build_compactness_features(gdf=gdf)
     features.to_csv(ensure(DataFile.GERRYMANDERING), index=False)
     logger.info(

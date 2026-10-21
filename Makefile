@@ -1,4 +1,4 @@
-.PHONY: help app mlflow test test-fast test-e2e coverage typecheck lint format analyze predict tune rag db indicators generic-ballot open-seats census candidate-quality poll-aggregation district-analytics gerrymandering speech-sentiment pipeline agent calibrate-sigma freeze install install-dev fetch validate push
+.PHONY: help app mlflow test test-fast test-e2e coverage typecheck lint format analyze predict tune rag db indicators generic-ballot open-seats census candidate-quality poll-aggregation district-analytics gerrymandering speech-sentiment pipeline agent calibrate-sigma freeze install install-dev fetch validate validate-constants push
 
 PYTHON = python
 export PYTHONUNBUFFERED := 1
@@ -25,6 +25,7 @@ help:
 	@echo "Data:"
 	@echo "  fetch            Fetch all data files (downloads + builds + inline validation)"
 	@echo "  validate         Re-validate all data files already on disk"
+	@echo "  validate-constants Cross-check STATE_FIPS_TO_PO against US DOT reference (needs network)"
 	@echo "  indicators       Fetch latest economic indicators from FRED"
 	@echo "  generic-ballot   Fetch generic ballot history (FiveThirtyEight + Wikipedia)"
 	@echo "  open-seats       Fetch 2026 open-seat list from Wikipedia"
@@ -71,6 +72,9 @@ fetch:
 
 validate:
 	$(PYTHON) -m src.data.validate_data
+
+validate-constants:
+	$(PYTHON) -m src.data.validate_constants
 
 typecheck:
 	$(PYTHON) -m mypy src/ api.py app.py
