@@ -1,4 +1,4 @@
-.PHONY: help app mlflow test test-fast test-e2e coverage typecheck lint analyze predict tune rag db indicators generic-ballot open-seats census candidate-quality poll-aggregation district-analytics gerrymandering speech-sentiment pipeline agent calibrate-sigma freeze install install-dev fetch validate push
+.PHONY: help app mlflow test test-fast test-e2e coverage typecheck lint format analyze predict tune rag db indicators generic-ballot open-seats census candidate-quality poll-aggregation district-analytics gerrymandering speech-sentiment pipeline agent calibrate-sigma freeze install install-dev fetch validate push
 
 PYTHON = python
 export PYTHONUNBUFFERED := 1
@@ -15,6 +15,7 @@ help:
 	@echo "  push             Run typecheck + test, then git push (only if both pass)"
 	@echo "  typecheck        Run mypy over src/, api.py and app.py"
 	@echo "  lint             Run ruff linter"
+	@echo "  format           Run ruff formatter"
 	@echo "  test             Run the full test suite (excludes e2e)"
 	@echo "  test-fast        Re-run only tests affected by file changes (pytest-testmon)"
 	@echo "  coverage         Run tests with coverage; open htmlcov/index.html to explore"
@@ -55,7 +56,10 @@ install:
 install-dev: install
 	$(PYTHON) -m pip install -r requirements-dev.txt
 
-pre-commit: lint typecheck test-fast
+pre-commit: lint format typecheck test-fast
+
+format:
+	$(PYTHON) -m ruff format .
 
 push: lint typecheck test
 	git push
