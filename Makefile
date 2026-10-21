@@ -1,4 +1,4 @@
-.PHONY: help app mlflow test test-fast test-e2e coverage typecheck lint format analyze predict tune rag db indicators generic-ballot open-seats fips census candidate-quality poll-aggregation district-analytics gerrymandering speech-sentiment pipeline agent calibrate-sigma freeze install install-dev fetch validate push
+.PHONY: help app mlflow test test-fast test-e2e coverage typecheck lint format analyze predict tune rag db indicators generic-ballot open-seats fips census candidate-quality poll-aggregation district-analytics gerrymandering speech-sentiment bill-embeddings policy-topics cosponsorship sql-query pipeline agent calibrate-sigma freeze install install-dev fetch validate push
 
 PYTHON = python
 export PYTHONUNBUFFERED := 1
@@ -35,6 +35,10 @@ help:
 	@echo "  district-analytics  Win streak + swing volatility via SQLite window functions"
 	@echo "  gerrymandering     Download TIGER shapefiles + compute Polsby-Popper compactness"
 	@echo "  speech-sentiment   Congress.gov bill titles + VADER sentiment, 2026 + historical 2014-2024 (requires CONGRESS_API_KEY)"
+	@echo "  bill-embeddings    sentence-transformers + K-Means district topic clusters (requires CONGRESS_API_KEY)"
+	@echo "  policy-topics      Groq LLM policy topic fractions from bill titles (requires GROQ_API_KEY + CONGRESS_API_KEY)"
+	@echo "  cosponsorship      Congress.gov cosponsorship network features (requires CONGRESS_API_KEY)"
+	@echo "  sql-query          Interactive NL->SQL query against elections.db (requires GROQ_API_KEY)"
 	@echo "  db               Build the SQLite forecast database"
 	@echo ""
 	@echo "Model:"
@@ -149,6 +153,18 @@ district-analytics:
 
 speech-sentiment:
 	$(PYTHON) -m src.data.speech_sentiment
+
+bill-embeddings:
+	$(PYTHON) -m src.data.bill_embeddings
+
+policy-topics:
+	$(PYTHON) -m src.data.policy_topics
+
+cosponsorship:
+	$(PYTHON) -m src.data.cosponsorship
+
+sql-query:
+	$(PYTHON) -m src.visualization.sql_generator
 
 agent:
 	$(PYTHON) -m src.visualization.forecast_agent

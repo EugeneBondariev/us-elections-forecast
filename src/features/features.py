@@ -18,16 +18,20 @@ from src.constants import (
 from src.data.fundraising import load_fundraising
 from src.data.loaders import (
     load_approval,
+    load_bill_embeddings,
     load_candidate_quality,
     load_census,
     load_clean_house_data,
+    load_cosponsorship,
     load_district_analytics,
     load_generic_ballot,
     load_gerrymandering,
     load_indicators,
     load_open_seats,
+    load_policy_topics,
     load_poll_sigma,
     load_pres_lean,
+    load_ratings_ensemble,
     load_speech_sentiment,
     load_speech_sentiment_hist,
 )
@@ -72,6 +76,10 @@ class DatasetResult(NamedTuple):
     gerrymandering: pd.DataFrame | None
     speech_sentiment: pd.DataFrame | None
     speech_sentiment_hist: pd.DataFrame | None
+    bill_embeddings: pd.DataFrame | None
+    policy_topics: pd.DataFrame | None
+    ratings_ensemble: pd.DataFrame | None
+    cosponsorship: pd.DataFrame | None
 
 
 _DROP_COLS = [
@@ -162,6 +170,9 @@ def build_winners(
     candidate_quality: pd.DataFrame | None = None,
     district_analytics: pd.DataFrame | None = None,
     gerrymandering: pd.DataFrame | None = None,
+    bill_embeddings: pd.DataFrame | None = None,
+    policy_topics: pd.DataFrame | None = None,
+    cosponsorship: pd.DataFrame | None = None,
 ) -> DataFrame[WinnersSchema]:
     """Build winners table by merging top candidates with structural and economic features."""
     logger.info("Building winners table")
@@ -264,6 +275,52 @@ def build_winners(
         )
         for c in available_geo:
             winners[c] = winners[c].fillna(winners[c].median())
+    if bill_embeddings is not None:
+        winners = winners.merge(
+            bill_embeddings[[Col.YEAR, Col.STATE, Col.DISTRICT, Col.BILL_TOPIC_CLUSTER]],
+            on=[Col.YEAR, Col.STATE, Col.DISTRICT],
+            how="left",
+        )
+        if Col.BILL_TOPIC_CLUSTER in winners.columns:
+            winners[Col.BILL_TOPIC_CLUSTER] = winners[Col.BILL_TOPIC_CLUSTER].fillna(-1).astype(int)
+    if policy_topics is not None:
+        _topic_cols = [
+            Col.TOPIC_HEALTHCARE,
+            Col.TOPIC_ECONOMY,
+            Col.TOPIC_DEFENSE,
+            Col.TOPIC_EDUCATION,
+            Col.TOPIC_ENVIRONMENT,
+            Col.TOPIC_SOCIAL,
+        ]
+        available_t = [c for c in _topic_cols if c in policy_topics.columns]
+        if available_t:
+            winners = winners.merge(
+                policy_topics[[Col.YEAR, Col.STATE, Col.DISTRICT] + available_t],
+                on=[Col.YEAR, Col.STATE, Col.DISTRICT],
+                how="left",
+            )
+            for c in available_t:
+                # Fallback: equal-weight neutral prior (1/6 ≈ 0.167)
+                winners[c] = winners[c].fillna(1.0 / 6)
+    if cosponsorship is not None:
+        _cs_cols = [Col.COSPONSOR_REACH, Col.BIPARTISAN_COSPONSOR_PCT, Col.COSPONSORED_COUNT]
+        available_cs = [c for c in _cs_cols if c in cosponsorship.columns]
+        if available_cs:
+            winners = winners.merge(
+                cosponsorship[[Col.YEAR, Col.STATE, Col.DISTRICT] + available_cs],
+                on=[Col.YEAR, Col.STATE, Col.DISTRICT],
+                how="left",
+            )
+            if Col.COSPONSOR_REACH in winners.columns:
+                winners[Col.COSPONSOR_REACH] = winners[Col.COSPONSOR_REACH].fillna(0).astype(int)
+            if Col.COSPONSORED_COUNT in winners.columns:
+                winners[Col.COSPONSORED_COUNT] = (
+                    winners[Col.COSPONSORED_COUNT].fillna(0).astype(int)
+                )
+            if Col.BIPARTISAN_COSPONSOR_PCT in winners.columns:
+                winners[Col.BIPARTISAN_COSPONSOR_PCT] = winners[
+                    Col.BIPARTISAN_COSPONSOR_PCT
+                ].fillna(winners[Col.BIPARTISAN_COSPONSOR_PCT].median())
     return winners  # type: ignore[return-value]
 
 
@@ -393,6 +450,10 @@ def build_dataset(min_train_year: int | None = None) -> DatasetResult:
     gerrymandering = load_gerrymandering()
     speech_sentiment = load_speech_sentiment()
     speech_sentiment_hist = load_speech_sentiment_hist()
+    bill_embeddings = load_bill_embeddings()
+    policy_topics = load_policy_topics()
+    ratings_ensemble = load_ratings_ensemble()
+    cosponsorship = load_cosponsorship()
     winners = build_winners(
         top_candidates=top_candidates,
         dems_reps=dems_reps,
@@ -403,6 +464,9 @@ def build_dataset(min_train_year: int | None = None) -> DatasetResult:
         candidate_quality=candidate_quality,
         district_analytics=district_analytics,
         gerrymandering=gerrymandering,
+        bill_embeddings=bill_embeddings,
+        policy_topics=policy_topics,
+        cosponsorship=cosponsorship,
     )
     winners = add_incumbency_features(winners, df)
     if speech_sentiment_hist is not None:
@@ -441,6 +505,10 @@ def build_dataset(min_train_year: int | None = None) -> DatasetResult:
         gerrymandering=gerrymandering,
         speech_sentiment=speech_sentiment,
         speech_sentiment_hist=speech_sentiment_hist,
+        bill_embeddings=bill_embeddings,
+        policy_topics=policy_topics,
+        ratings_ensemble=ratings_ensemble,
+        cosponsorship=cosponsorship,
     )
 
 
@@ -460,6 +528,10 @@ def build_pred_2026(
     district_analytics: pd.DataFrame | None = None,
     gerrymandering: pd.DataFrame | None = None,
     speech_sentiment: pd.DataFrame | None = None,
+    bill_embeddings: pd.DataFrame | None = None,
+    policy_topics: pd.DataFrame | None = None,
+    ratings_ensemble: pd.DataFrame | None = None,
+    cosponsorship: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Returns (pred_features, district_ids) where district_ids labels each row."""
     logger.info("Building 2026 prediction features")
@@ -604,6 +676,64 @@ def build_pred_2026(
             )
             for c in _geo_cols:
                 pred[c] = pred[c].fillna(pred[c].median())
+    # bill_embeddings: use the year==2026 row (congress 119)
+    if bill_embeddings is not None:
+        _be_col = Col.BILL_TOPIC_CLUSTER
+        if str(_be_col) in list(feature_columns):
+            be_2026 = bill_embeddings[bill_embeddings["year"] == 2026][
+                [Col.STATE, Col.DISTRICT, _be_col]
+            ]
+            pred = pred.merge(be_2026, on=[Col.STATE, Col.DISTRICT], how="left")
+            if _be_col in pred.columns:
+                pred[_be_col] = pred[_be_col].fillna(-1).astype(int)
+    # policy_topics: year==2026 rows (congress 119 Groq classification)
+    if policy_topics is not None:
+        _topic_cols = [
+            Col.TOPIC_HEALTHCARE,
+            Col.TOPIC_ECONOMY,
+            Col.TOPIC_DEFENSE,
+            Col.TOPIC_EDUCATION,
+            Col.TOPIC_ENVIRONMENT,
+            Col.TOPIC_SOCIAL,
+        ]
+        available_t = [
+            c for c in _topic_cols if c in list(feature_columns) and c in policy_topics.columns
+        ]
+        if available_t:
+            pt_2026 = policy_topics[policy_topics["year"] == 2026][
+                [Col.STATE, Col.DISTRICT] + available_t
+            ]
+            pred = pred.merge(pt_2026, on=[Col.STATE, Col.DISTRICT], how="left")
+            for c in available_t:
+                pred[c] = pred[c].fillna(1.0 / 6)
+    # ratings_ensemble: 2026 only feature — district-level consensus from all raters
+    if ratings_ensemble is not None:
+        _re_col = Col.RATINGS_ENSEMBLE
+        if str(_re_col) in list(feature_columns):
+            pred = pred.merge(
+                ratings_ensemble[[Col.STATE, Col.DISTRICT, _re_col]],
+                on=[Col.STATE, Col.DISTRICT],
+                how="left",
+            )
+            if _re_col in pred.columns:
+                pred[_re_col] = pred[_re_col].fillna(0.5)
+    # cosponsorship: year==2026 rows
+    if cosponsorship is not None:
+        _cs_cols = [Col.COSPONSOR_REACH, Col.BIPARTISAN_COSPONSOR_PCT, Col.COSPONSORED_COUNT]
+        available_cs = [
+            c for c in _cs_cols if c in list(feature_columns) and c in cosponsorship.columns
+        ]
+        if available_cs:
+            cs_2026 = cosponsorship[cosponsorship["year"] == 2026][
+                [Col.STATE, Col.DISTRICT] + available_cs
+            ]
+            pred = pred.merge(cs_2026, on=[Col.STATE, Col.DISTRICT], how="left")
+            if Col.COSPONSOR_REACH in pred.columns:
+                pred[Col.COSPONSOR_REACH] = pred[Col.COSPONSOR_REACH].fillna(0).astype(int)
+            if Col.COSPONSORED_COUNT in pred.columns:
+                pred[Col.COSPONSORED_COUNT] = pred[Col.COSPONSORED_COUNT].fillna(0).astype(int)
+            if Col.BIPARTISAN_COSPONSOR_PCT in pred.columns:
+                pred[Col.BIPARTISAN_COSPONSOR_PCT] = pred[Col.BIPARTISAN_COSPONSOR_PCT].fillna(0.0)
     # speech_sentiment: 2026-cycle Congress.gov data; historical equivalent merged into winners during training
     if speech_sentiment is not None:
         _sp_cols = [
