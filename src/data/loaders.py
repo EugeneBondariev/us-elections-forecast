@@ -41,6 +41,10 @@ __all__ = [
     "load_gerrymandering",
     "load_speech_sentiment",
     "load_speech_sentiment_hist",
+    "load_bill_embeddings",
+    "load_policy_topics",
+    "load_ratings_ensemble",
+    "load_cosponsorship",
 ]
 
 
@@ -402,6 +406,66 @@ def load_speech_sentiment_hist() -> pd.DataFrame | None:
     from src.data.validators import validate_speech_sentiment_hist
 
     validate_speech_sentiment_hist(df)
+    return df
+
+
+def load_bill_embeddings() -> pd.DataFrame | None:
+    """Load K-Means district topic clusters; return None if absent."""
+    from src.paths import DataFile
+
+    path = DataFile.BILL_EMBEDDINGS
+    if not path.exists():
+        logger.info("bill_embeddings.csv absent — bill_topic_cluster will be skipped")
+        return None
+    df = pd.read_csv(path, dtype={"year": int, Col.DISTRICT: int, "bill_topic_cluster": int})
+    from src.data.validators import validate_bill_embeddings
+
+    validate_bill_embeddings(df)
+    return df
+
+
+def load_policy_topics() -> pd.DataFrame | None:
+    """Load Groq-classified policy topic fractions; return None if absent."""
+    from src.paths import DataFile
+
+    path = DataFile.POLICY_TOPICS
+    if not path.exists():
+        logger.info("policy_topics.csv absent — topic_* features will be skipped")
+        return None
+    df = pd.read_csv(path, dtype={"year": int, Col.DISTRICT: int})
+    from src.data.validators import validate_policy_topics
+
+    validate_policy_topics(df)
+    return df
+
+
+def load_ratings_ensemble() -> pd.DataFrame | None:
+    """Load multi-rater ensemble probabilities (2026 only); return None if absent."""
+    from src.paths import DataFile
+
+    path = DataFile.RATINGS_ENSEMBLE_CSV
+    if not path.exists():
+        logger.info("ratings_ensemble.csv absent — ratings_ensemble_prob will be skipped")
+        return None
+    df = pd.read_csv(path, dtype={Col.DISTRICT: int})
+    from src.data.validators import validate_ratings_ensemble
+
+    validate_ratings_ensemble(df)
+    return df
+
+
+def load_cosponsorship() -> pd.DataFrame | None:
+    """Load cosponsorship network features; return None if absent."""
+    from src.paths import DataFile
+
+    path = DataFile.COSPONSORSHIP
+    if not path.exists():
+        logger.info("cosponsorship.csv absent — cosponsor features will be skipped")
+        return None
+    df = pd.read_csv(path, dtype={"year": int, Col.DISTRICT: int})
+    from src.data.validators import validate_cosponsorship
+
+    validate_cosponsorship(df)
     return df
 
 

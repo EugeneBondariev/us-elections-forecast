@@ -94,9 +94,24 @@ class Col(StrEnum):
     # Geospatial compactness (Census TIGER shapefiles)
     POLSBY_POPPER = "polsby_popper"
     DISTRICT_AREA_KM2 = "district_area_km2"
-    # NLP speech sentiment (Congress.gov API, 2026 cycle only)
+    # NLP speech sentiment (Congress.gov API)
     SPEECH_SENTIMENT = "speech_sentiment"
     SPEECH_COUNT = "speech_count"
+    # Bill title topic clusters (sentence-transformers + K-Means)
+    BILL_TOPIC_CLUSTER = "bill_topic_cluster"
+    # Policy topic fractions from bill titles (LLM classification)
+    TOPIC_HEALTHCARE = "topic_healthcare"
+    TOPIC_ECONOMY = "topic_economy"
+    TOPIC_DEFENSE = "topic_defense"
+    TOPIC_EDUCATION = "topic_education"
+    TOPIC_ENVIRONMENT = "topic_environment"
+    TOPIC_SOCIAL = "topic_social"
+    # Cosponsorship network features
+    COSPONSOR_REACH = "cosponsor_reach"
+    BIPARTISAN_COSPONSOR_PCT = "bipartisan_cosponsor_pct"
+    COSPONSORED_COUNT = "cosponsored_count"
+    # Multi-rater ensemble (2026 only)
+    RATINGS_ENSEMBLE = "ratings_ensemble_prob"
 
 
 class Val(StrEnum):

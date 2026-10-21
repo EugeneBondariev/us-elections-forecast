@@ -84,6 +84,10 @@ class DataFile:
     SPEECH_SENTIMENT = INTERIM_DIR / "speech_sentiment.csv"
 
     SPEECH_SENTIMENT_HIST = INTERIM_DIR / "speech_sentiment_hist.csv"
+    BILL_EMBEDDINGS = INTERIM_DIR / "bill_embeddings.csv"
+    POLICY_TOPICS = INTERIM_DIR / "policy_topics.csv"
+    RATINGS_ENSEMBLE_CSV = INTERIM_DIR / "ratings_ensemble.csv"
+    COSPONSORSHIP = INTERIM_DIR / "cosponsorship.csv"
 
     # external/ — Congress.gov per-congress caches (raw API response, no transformation)
     @staticmethod
@@ -94,6 +98,16 @@ class DataFile:
     def congress_sentiment_cache(congress: int) -> Path:
         return EXTERNAL_DIR / f"speech_sentiment_{congress}.csv"
 
+    @staticmethod
+    def congress_sponsored_bills_cache(congress: int) -> Path:
+        """Full bill objects (title, number, type, congress) per member; shared by
+        bill_embeddings, policy_topics, and cosponsorship modules."""
+        return EXTERNAL_DIR / f"sponsored_bills_{congress}.json"
+
+    @staticmethod
+    def congress_policy_topics_cache(congress: int) -> Path:
+        return EXTERNAL_DIR / f"policy_topics_{congress}.json"
+
     # external/ — Census TIGERweb 119th Congress GeoJSON cache (raw geometry, no transformation)
     TIGER_GEOJSON = EXTERNAL_DIR / "tiger_cd119.geojson"
 
@@ -103,6 +117,7 @@ class DataFile:
 
     # models/ — trained model artifacts (gitignored, regenerable).
     CALIBRATED_SIGMA = MODELS_DIR / "calibrated_sigma.json"
+    BILL_EMBEDDINGS_MODEL = MODELS_DIR / "bill_embeddings_kmeans.pkl"
 
     # reports/ — generated analysis outputs (gitignored, regenerable).
     SHAP_CSV = REPORTS_DIR / "shap_values.csv"

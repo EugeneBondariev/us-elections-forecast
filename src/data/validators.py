@@ -53,6 +53,14 @@ __all__ = [
     "validate_district_analytics",
     "FipsStatesSchema",
     "validate_fips_states",
+    "BillEmbeddingsSchema",
+    "validate_bill_embeddings",
+    "PolicyTopicsSchema",
+    "validate_policy_topics",
+    "RatingsEnsembleSchema",
+    "validate_ratings_ensemble",
+    "CosponsorshipSchema",
+    "validate_cosponsorship",
 ]
 
 logger = logging.getLogger(__name__)
@@ -640,6 +648,128 @@ def validate_fips_states(df: pd.DataFrame) -> pd.DataFrame:
     except pa.errors.SchemaErrors as e:
         logger.error(
             "FIPS states validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
+        )
+        raise
+    return df
+
+
+class BillEmbeddingsSchema(pa.DataFrameModel):
+    """K-Means cluster labels derived from bill title embeddings, per district-year."""
+
+    year: Series[int] = pa.Field(ge=2014, le=2030)
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
+    bill_topic_cluster: Series[int] = pa.Field(ge=0)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
+def validate_bill_embeddings(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate bill embeddings cluster output. Raises on failure."""
+    try:
+        BillEmbeddingsSchema.validate(df, lazy=True)
+        logger.info("Bill embeddings validation passed (%d rows)", len(df))
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "Bill embeddings validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
+        )
+        raise
+    return df
+
+
+class PolicyTopicsSchema(pa.DataFrameModel):
+    """Per-district-year Groq-classified policy topic fractions."""
+
+    year: Series[int] = pa.Field(ge=2014, le=2030)
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
+    topic_healthcare: Series[float] = pa.Field(ge=0.0, le=1.0)
+    topic_economy: Series[float] = pa.Field(ge=0.0, le=1.0)
+    topic_defense: Series[float] = pa.Field(ge=0.0, le=1.0)
+    topic_education: Series[float] = pa.Field(ge=0.0, le=1.0)
+    topic_environment: Series[float] = pa.Field(ge=0.0, le=1.0)
+    topic_social: Series[float] = pa.Field(ge=0.0, le=1.0)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
+def validate_policy_topics(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate policy topics output. Raises on failure."""
+    try:
+        PolicyTopicsSchema.validate(df, lazy=True)
+        logger.info("Policy topics validation passed (%d rows)", len(df))
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "Policy topics validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
+        )
+        raise
+    return df
+
+
+class RatingsEnsembleSchema(pa.DataFrameModel):
+    """Multi-rater consensus probability from the Wikipedia ratings table (2026 only)."""
+
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
+    ratings_ensemble_prob: Series[float] = pa.Field(ge=0.0, le=1.0)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
+def validate_ratings_ensemble(df: pd.DataFrame, min_districts: int = 50) -> pd.DataFrame:
+    """Validate ratings ensemble output. Raises on failure."""
+    if len(df) < min_districts:
+        raise ValueError(
+            f"Ratings ensemble too small: {len(df)} districts (expected >= {min_districts})"
+        )
+    try:
+        RatingsEnsembleSchema.validate(df, lazy=True)
+        logger.info("Ratings ensemble validation passed (%d districts)", len(df))
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "Ratings ensemble validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
+        )
+        raise
+    return df
+
+
+class CosponsorshipSchema(pa.DataFrameModel):
+    """Per-district-year cosponsorship network features from Congress.gov."""
+
+    year: Series[int] = pa.Field(ge=2014, le=2030)
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
+    cosponsor_reach: Series[int] = pa.Field(ge=0)
+    bipartisan_cosponsor_pct: Series[float] = pa.Field(ge=0.0, le=1.0)
+    cosponsored_count: Series[int] = pa.Field(ge=0)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
+def validate_cosponsorship(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate cosponsorship network features. Raises on failure."""
+    try:
+        CosponsorshipSchema.validate(df, lazy=True)
+        logger.info("Cosponsorship validation passed (%d rows)", len(df))
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "Cosponsorship validation FAILED: %d issue(s)\n%s",
             len(e.failure_cases),
             e.failure_cases.head(10).to_string(),
         )
