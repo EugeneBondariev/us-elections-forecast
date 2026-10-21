@@ -103,11 +103,9 @@ def fetch_tiger_geodataframe() -> GeoDataFrame:
     return gdf
 
 
-def build_compactness_features(gdf: GeoDataFrame) -> pd.DataFrame:
+def build_compactness_features(gdf: GeoDataFrame, fips_map: dict[str, str]) -> pd.DataFrame:
     """Compute Polsby-Popper compactness and district area from TIGERweb geometry."""
     import numpy as np
-
-    from src.constants import STATE_FIPS_TO_PO
 
     # Project to equal-area CRS for accurate geometry measurements
     projected = gdf.to_crs(_CRS_EQUAL_AREA)
@@ -129,7 +127,7 @@ def build_compactness_features(gdf: GeoDataFrame) -> pd.DataFrame:
     )
 
     # Map FIPS → postal abbreviation; drop territories (DC, PR, VI, etc.)
-    df["state_po"] = df["statefp"].map(STATE_FIPS_TO_PO)
+    df["state_po"] = df["statefp"].map(fips_map)
     df = df[df["state_po"].notna()].copy()
 
     # Parse district: "00" → 0 (at-large), "01" → 1, etc.
@@ -163,8 +161,10 @@ def load_gerrymandering(cache_path: Path | None = None) -> pd.DataFrame | None:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    from src.data.loaders import load_fips_states
+
     gdf = fetch_tiger_geodataframe()
-    features = build_compactness_features(gdf=gdf)
+    features = build_compactness_features(gdf=gdf, fips_map=load_fips_states())
     features.to_csv(ensure(DataFile.GERRYMANDERING), index=False)
     logger.info(
         "Gerrymandering features saved → %s (%d districts)",

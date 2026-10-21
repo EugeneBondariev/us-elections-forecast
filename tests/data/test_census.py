@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.constants import STATE_FIPS_TO_PO, Col
+from src.constants import Col
 from src.data.census import (
     _parse_district_code,
     build_census_features,
@@ -18,6 +18,10 @@ from src.data.census import (
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+# Minimal FIPS map covering all state codes used in synthetic test rows.
+# "72" (PR) intentionally absent so territory-drop tests work correctly.
+_FIPS_MAP: dict[str, str] = {"06": "CA", "48": "TX", "36": "NY", "02": "AK"}
 
 _HEADER = [
     "B15003_022E",
@@ -133,21 +137,21 @@ def test_parse_district_code_invalid() -> None:
 
 
 def test_parse_census_response_drops_territories(raw_response: list[list[str]]) -> None:
-    df = parse_census_response(raw_response)
+    df = parse_census_response(raw=raw_response, fips_map=_FIPS_MAP)
     assert "PR" not in df[Col.STATE].values
     # Verify only the 4 valid US-state rows remain
     assert len(df) == 4
 
 
 def test_parse_census_response_at_large_district(raw_response: list[list[str]]) -> None:
-    df = parse_census_response(raw_response)
+    df = parse_census_response(raw=raw_response, fips_map=_FIPS_MAP)
     ak_rows = df[df[Col.STATE] == "AK"]
     assert len(ak_rows) == 1
     assert ak_rows.iloc[0][Col.DISTRICT] == 0
 
 
 def test_parse_census_response_column_names(raw_response: list[list[str]]) -> None:
-    df = parse_census_response(raw_response)
+    df = parse_census_response(raw=raw_response, fips_map=_FIPS_MAP)
     expected = {
         Col.STATE,
         Col.DISTRICT,
@@ -182,7 +186,7 @@ def test_parse_census_response_missing_sentinel(raw_response: list[list[str]]) -
         "99",
     ]
     raw = [_HEADER, sentinel_row]
-    df = parse_census_response(raw)
+    df = parse_census_response(raw=raw, fips_map=_FIPS_MAP)
     assert pd.isna(df.iloc[0]["bachelor"])
     assert pd.isna(df.iloc[0]["median_income"])
 
@@ -193,7 +197,7 @@ def test_parse_census_response_missing_sentinel(raw_response: list[list[str]]) -
 
 
 def test_build_census_features_output_columns(raw_response: list[list[str]]) -> None:
-    parsed = parse_census_response(raw_response)
+    parsed = parse_census_response(raw=raw_response, fips_map=_FIPS_MAP)
     features = build_census_features(parsed)
     expected_cols = [
         Col.STATE,
@@ -207,21 +211,21 @@ def test_build_census_features_output_columns(raw_response: list[list[str]]) -> 
 
 
 def test_build_census_features_pct_bachelor_range(raw_response: list[list[str]]) -> None:
-    parsed = parse_census_response(raw_response)
+    parsed = parse_census_response(raw=raw_response, fips_map=_FIPS_MAP)
     features = build_census_features(parsed)
     col = features[Col.PCT_BACHELOR_PLUS].dropna()
     assert (col >= 0).all() and (col <= 1).all()
 
 
 def test_build_census_features_pct_nonwhite_range(raw_response: list[list[str]]) -> None:
-    parsed = parse_census_response(raw_response)
+    parsed = parse_census_response(raw=raw_response, fips_map=_FIPS_MAP)
     features = build_census_features(parsed)
     col = features[Col.PCT_NON_WHITE].dropna()
     assert (col >= 0).all() and (col <= 1).all()
 
 
 def test_build_census_features_bachelor_computation(raw_response: list[list[str]]) -> None:
-    parsed = parse_census_response(raw_response)
+    parsed = parse_census_response(raw=raw_response, fips_map=_FIPS_MAP)
     features = build_census_features(parsed)
     # Verify CA-12 manually: (42000+20000+8000+5000) / 220000
     ca_row = features[features[Col.STATE] == "CA"].iloc[0]
@@ -250,19 +254,10 @@ def test_build_census_features_missing_income_preserved_as_nan() -> None:
 
 
 def test_build_census_features_no_extra_rows(raw_response: list[list[str]]) -> None:
-    parsed = parse_census_response(raw_response)
+    parsed = parse_census_response(raw=raw_response, fips_map=_FIPS_MAP)
     features = build_census_features(parsed)
     # 4 valid US-state rows in; same 4 rows out
     assert len(features) == len(parsed)
-
-
-# ---------------------------------------------------------------------------
-# STATE_FIPS_TO_PO completeness
-# ---------------------------------------------------------------------------
-
-
-def test_state_fips_mapping_complete() -> None:
-    assert len(STATE_FIPS_TO_PO) == 50
 
 
 # ---------------------------------------------------------------------------

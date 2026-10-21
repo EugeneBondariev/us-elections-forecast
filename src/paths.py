@@ -70,6 +70,7 @@ class DataFile:
     # same shape of transformation as cook.html -> cook.csv, just with a more
     # involved selection step.
     APPROVAL = INTERIM_DIR / "Approval-Ratings-for-POTUS-raw.xls"
+    FIPS_STATES = INTERIM_DIR / "fips_states.csv"
     COOK = INTERIM_DIR / "cook.csv"
     FUNDRAISING = INTERIM_DIR / "fundraising.csv"
     INDICATORS = INTERIM_DIR / "indicators.csv"

@@ -49,6 +49,8 @@ __all__ = [
     "validate_speech_sentiment",
     "DistrictAnalyticsSchema",
     "validate_district_analytics",
+    "FipsStatesSchema",
+    "validate_fips_states",
 ]
 
 logger = logging.getLogger(__name__)
@@ -579,6 +581,33 @@ def validate_district_analytics(df: pd.DataFrame) -> pd.DataFrame:
     except pa.errors.SchemaErrors as e:
         logger.error(
             "District analytics validation FAILED: %d issue(s)\n%s",
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
+        )
+        raise
+    return df
+
+
+class FipsStatesSchema(pa.DataFrameModel):
+    """50 US state FIPS codes → postal abbreviations."""
+
+    fips: Series[str] = pa.Field(str_matches=r"^[0-9]{2}$")
+    state_po: Series[str] = pa.Field(str_matches=r"^[A-Z]{2}$")
+
+    class Config:
+        strict = True
+
+
+def validate_fips_states(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate FIPS states mapping. Raises on failure."""
+    if len(df) != 50:
+        raise ValueError(f"Expected 50 states, got {len(df)}")
+    try:
+        FipsStatesSchema.validate(df, lazy=True)
+        logger.info("FIPS states validation passed (50 states)")
+    except pa.errors.SchemaErrors as e:
+        logger.error(
+            "FIPS states validation FAILED: %d issue(s)\n%s",
             len(e.failure_cases),
             e.failure_cases.head(10).to_string(),
         )

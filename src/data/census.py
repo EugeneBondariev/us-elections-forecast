@@ -31,7 +31,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-from src.constants import STATE_FIPS_TO_PO, Col
+from src.constants import Col
 from src.paths import DataFile, ensure
 
 logger = logging.getLogger(__name__)
@@ -118,7 +118,7 @@ def fetch_census_acs(
     return raw
 
 
-def parse_census_response(raw: list[list[str]]) -> pd.DataFrame:
+def parse_census_response(raw: list[list[str]], fips_map: dict[str, str]) -> pd.DataFrame:
     """Convert the raw Census API list-of-lists into a clean DataFrame."""
     header, *rows = raw
     df = pd.DataFrame(data=rows, columns=header)
@@ -127,7 +127,7 @@ def parse_census_response(raw: list[list[str]]) -> pd.DataFrame:
     df = df.rename(columns=_VARS)
 
     # Map FIPS code → postal abbreviation; drop territories and DC
-    df[Col.STATE] = df["state"].map(STATE_FIPS_TO_PO)
+    df[Col.STATE] = df["state"].map(fips_map)
     df = df[df[Col.STATE].notna()].copy()
 
     # Parse district code: "00" → 0 (at-large), "12" → 12
@@ -189,8 +189,10 @@ def main() -> None:
     load_dotenv()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     api_key = os.getenv("CENSUS_API_KEY")
+    from src.data.loaders import load_fips_states
+
     raw = fetch_census_acs(api_key=api_key, cache_path=DataFile.CENSUS_RAW)
-    df = parse_census_response(raw)
+    df = parse_census_response(raw=raw, fips_map=load_fips_states())
     features = build_census_features(df)
     features.to_csv(ensure(DataFile.CENSUS), index=False)
     logger.info("Census features saved → %s (%d districts)", DataFile.CENSUS, len(features))

@@ -56,7 +56,7 @@ def _make_gdf(n: int = 4) -> "GeoDataFrame":
 class TestBuildCompactnessFeatures:
     def test_output_columns(self) -> None:
         gdf = _make_gdf()
-        result = build_compactness_features(gdf=gdf)
+        result = build_compactness_features(gdf=gdf, fips_map={"06": "CA"})
         assert list(result.columns) == [
             "state_po",
             "district",
@@ -66,20 +66,20 @@ class TestBuildCompactnessFeatures:
 
     def test_polsby_popper_range(self) -> None:
         gdf = _make_gdf()
-        result = build_compactness_features(gdf=gdf)
+        result = build_compactness_features(gdf=gdf, fips_map={"06": "CA"})
         assert (result["polsby_popper"] >= 0.0).all()
         assert (result["polsby_popper"] <= 1.0).all()
 
     def test_square_has_known_pp(self) -> None:
         """A perfect square has PP = π/4 ≈ 0.785."""
         gdf = _make_gdf(n=1)
-        result = build_compactness_features(gdf=gdf)
+        result = build_compactness_features(gdf=gdf, fips_map={"06": "CA"})
         pp = result["polsby_popper"].iloc[0]
         assert pp == pytest.approx(math.pi / 4, abs=0.05)
 
     def test_district_dtype(self) -> None:
         gdf = _make_gdf()
-        result = build_compactness_features(gdf=gdf)
+        result = build_compactness_features(gdf=gdf, fips_map={"06": "CA"})
         assert pd.api.types.is_integer_dtype(result["district"])
 
     def test_drops_territories(self) -> None:
@@ -94,18 +94,18 @@ class TestBuildCompactnessFeatures:
             geometry=geometries,
             crs="EPSG:4326",
         )
-        result = build_compactness_features(gdf=gdf)
+        result = build_compactness_features(gdf=gdf, fips_map={"06": "CA"})
         assert "PR" not in result["state_po"].values
         assert len(result) == 1
 
     def test_row_count_matches_valid_districts(self) -> None:
         gdf = _make_gdf(n=4)
-        result = build_compactness_features(gdf=gdf)
+        result = build_compactness_features(gdf=gdf, fips_map={"06": "CA"})
         assert len(result) == 4
 
     def test_sorted_by_state_district(self) -> None:
         gdf = _make_gdf(n=3)
-        result = build_compactness_features(gdf=gdf)
+        result = build_compactness_features(gdf=gdf, fips_map={"06": "CA"})
         pairs = list(zip(result["state_po"], result["district"]))
         assert pairs == sorted(pairs)
 
