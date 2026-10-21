@@ -41,6 +41,7 @@ Run from project root:
 or:
     make fetch
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -95,7 +96,9 @@ def _download_and_verify(url: str, dest: Path, sha256_hex: str) -> bool:
             logger.error(
                 "CHECKSUM MISMATCH for %s: expected %s, got %s. "
                 "Discarding the download - falling back to manual instructions.",
-                dest.name, sha256_hex, digest,
+                dest.name,
+                sha256_hex,
+                digest,
             )
             tmp.unlink(missing_ok=True)
             return False
@@ -164,7 +167,9 @@ REQUIRED: list[_RequiredItem] = [
 
 
 def _check_required() -> bool:
-    logger.info("Required files (needed for `make test` to stop skipping and for the pipeline to run):\n")
+    logger.info(
+        "Required files (needed for `make test` to stop skipping and for the pipeline to run):\n"
+    )
     all_present = True
     ran_scripts: set[str] = set()
     for item in REQUIRED:
@@ -195,6 +200,7 @@ def _check_required() -> bool:
 
 def _fetch_fundraising() -> None:
     import os
+
     if DataFile.FUNDRAISING.exists():
         log_ok(DataFile.FUNDRAISING.name, "already present")
         return
@@ -208,9 +214,11 @@ def _fetch_fundraising() -> None:
         return
     logger.info("Fetching fundraising data (FEC_API_KEY is set)...")
     from src.data.fundraising import fetch_and_cache
+
     fetch_and_cache(DataFile.FUNDRAISING, api_key)
     if DataFile.FUNDRAISING.exists():
         from src.data.validate_data import validate_fundraising
+
         validate_fundraising()
     else:
         log_fail(DataFile.FUNDRAISING.name, "fetch produced no output file")
@@ -219,18 +227,18 @@ def _fetch_fundraising() -> None:
 def _check_cook() -> None:
     if DataFile.COOK.exists():
         from src.data.validate_data import validate_cook
+
         if validate_cook():
             return
         logger.warning("cook.csv failed validation — deleting and re-fetching")
         DataFile.COOK.unlink(missing_ok=True)
     logger.info("Fetching Wikipedia election ratings...")
-    result = subprocess.run(
-        [sys.executable, "-m", "src.data.parse_cook"], check=False
-    )
+    result = subprocess.run([sys.executable, "-m", "src.data.parse_cook"], check=False)
     if result.returncode != 0 or not DataFile.COOK.exists():
         log_skip(DataFile.COOK.name, "optional. Wikipedia fetch failed (network issue?).")
         return
     from src.data.validate_data import validate_cook
+
     validate_cook()
 
 
@@ -238,6 +246,7 @@ def main() -> None:
     import logging as _logging
 
     from dotenv import load_dotenv
+
     load_dotenv()
     _logging.basicConfig(level=_logging.INFO, format="%(message)s")
 
@@ -248,8 +257,11 @@ def main() -> None:
         logger.info("")
         logger.info("Validating required files...")
         from src.data.validate_data import validate_required
+
         if not validate_required():
-            logger.error("Required data failed validation — fix the issues above before running the model.")
+            logger.error(
+                "Required data failed validation — fix the issues above before running the model."
+            )
             sys.exit(1)
 
     logger.info("=" * 72)
@@ -258,7 +270,9 @@ def main() -> None:
     _check_cook()
     logger.info("")
     if all_required_present:
-        logger.info("All required files present - run `make test` or `python -m src.models.predict`.")
+        logger.info(
+            "All required files present - run `make test` or `python -m src.models.predict`."
+        )
     else:
         logger.error(
             "Some required files are still missing (see above). Each has an automated fetch\n"

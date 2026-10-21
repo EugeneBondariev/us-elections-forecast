@@ -3,6 +3,7 @@
 Reads reports/shap_values.csv (written by `make predict`) instead of retraining
 the model. Run via: python -m src.visualization.shap_analysis
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,9 +19,7 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     if not DataFile.SHAP_CSV.exists():
-        logger.error(
-            "SHAP CSV not found at %s — run `make predict` first.", DataFile.SHAP_CSV
-        )
+        logger.error("SHAP CSV not found at %s — run `make predict` first.", DataFile.SHAP_CSV)
         sys.exit(1)
 
     combined = pd.read_csv(DataFile.SHAP_CSV)
@@ -53,10 +52,8 @@ def main() -> None:
     plt.close(fig)
 
     # Most competitive district waterfall
-    competitive = (
-        districts
-        .assign(closeness=lambda df: (df["proba_dem"] - 0.5).abs())
-        .sort_values("closeness")
+    competitive = districts.assign(closeness=lambda df: (df["proba_dem"] - 0.5).abs()).sort_values(
+        "closeness"
     )
     label = competitive.iloc[0]["label"]
     row_idx = competitive.index[0]  # original integer position, preserved from CSV read
@@ -76,5 +73,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     from src.logging_config import setup_logging
+
     setup_logging()
     main()

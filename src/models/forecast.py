@@ -29,9 +29,13 @@ def run_forecast() -> ForecastResult:
     weights = compute_sample_weights(years)
     pipeline = train(X, y, sample_weight=weights, y_vote_share=ds.y_vote_share)
     pred_2026, district_ids = build_pred_2026(
-        winners, dems_reps, X.columns,
-        pres_lean=pres_lean, fundraising=fundraising,
-        census=ds.census, candidate_quality=ds.candidate_quality,
+        winners,
+        dems_reps,
+        X.columns,
+        pres_lean=pres_lean,
+        fundraising=fundraising,
+        census=ds.census,
+        candidate_quality=ds.candidate_quality,
         district_analytics=ds.district_analytics,
         gerrymandering=ds.gerrymandering,
         speech_sentiment=ds.speech_sentiment,

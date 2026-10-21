@@ -1,4 +1,5 @@
 """Unit tests for src.data.validate_data. All synthetic — no data files needed."""
+
 from __future__ import annotations
 
 from pathlib import Path

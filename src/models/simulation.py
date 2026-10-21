@@ -197,17 +197,19 @@ def calibrate_national_sigma(
     target_std = float(np.sqrt(np.average((realized_errors - w_mean) ** 2, weights=weights)))
 
     def _weighted_simulated_std(sigma_national: float) -> float:
-        stds = np.array([
-            simulate_election(
-                proba,
-                n=n,
-                seed=seed,
-                sigma_national=sigma_national,
-                sigma_district=sigma_district,
-                hetero_k=hetero_k,
-            ).std()
-            for proba, _ in folds.values()
-        ])
+        stds = np.array(
+            [
+                simulate_election(
+                    proba,
+                    n=n,
+                    seed=seed,
+                    sigma_national=sigma_national,
+                    sigma_district=sigma_district,
+                    hetero_k=hetero_k,
+                ).std()
+                for proba, _ in folds.values()
+            ]
+        )
         return float(np.average(stds, weights=weights))
 
     lo, hi = 0.01, 1.0
@@ -248,18 +250,22 @@ def calibrate_national_sigma(
                 [actual.sum() - proba.sum() for proba, actual in jk_folds.values()]
             )
             jk_mean = float(np.average(jk_errors, weights=jk_weights))
-            jk_target = float(
-                np.sqrt(np.average((jk_errors - jk_mean) ** 2, weights=jk_weights))
-            )
+            jk_target = float(np.sqrt(np.average((jk_errors - jk_mean) ** 2, weights=jk_weights)))
 
             def _jk_std(s: float, _jf: dict = jk_folds, _jw: np.ndarray = jk_weights) -> float:
-                stds = np.array([
-                    simulate_election(
-                        proba, n=500, seed=seed,
-                        sigma_national=s, sigma_district=sigma_district, hetero_k=hetero_k,
-                    ).std()
-                    for proba, _ in _jf.values()
-                ])
+                stds = np.array(
+                    [
+                        simulate_election(
+                            proba,
+                            n=500,
+                            seed=seed,
+                            sigma_national=s,
+                            sigma_district=sigma_district,
+                            hetero_k=hetero_k,
+                        ).std()
+                        for proba, _ in _jf.values()
+                    ]
+                )
                 return float(np.average(stds, weights=_jw))
 
             lo_jk, hi_jk = 0.01, 1.0
@@ -336,10 +342,12 @@ def calibrate_simulation_params(
 
     # Step 2: concentration — higher → tighter Beta → lower std
     def _weighted_bayesian_std(conc: float) -> float:
-        stds = np.array([
-            bayesian_simulate(proba, n=n, seed=seed, concentration=conc).std()
-            for proba, _ in folds.values()
-        ])
+        stds = np.array(
+            [
+                bayesian_simulate(proba, n=n, seed=seed, concentration=conc).std()
+                for proba, _ in folds.values()
+            ]
+        )
         return float(np.average(stds, weights=weights))
 
     lo_c, hi_c = 2.0, 500.0

@@ -1,4 +1,5 @@
 """Smoke tests for app.py — streamlit is stubbed so tests run outside a Streamlit context."""
+
 from __future__ import annotations
 
 import sys
@@ -38,14 +39,37 @@ _mock_event = MagicMock()
 _mock_event.selection.rows = []
 _st_mock.dataframe.return_value = _mock_event
 
-_DISTRICTS = pd.DataFrame([
-    {"label": "PA-7", Col.STATE: "PA", Col.DISTRICT: 7, "proba_dem": 0.60,
-     "district_incumbent": "DEMOCRAT", "is_open": False, "dem_lean": 0.57},
-    {"label": "AZ-6", Col.STATE: "AZ", Col.DISTRICT: 6, "proba_dem": 0.48,
-     "district_incumbent": "REPUBLICAN", "is_open": True,  "dem_lean": 0.46},
-    {"label": "TX-3", Col.STATE: "TX", Col.DISTRICT: 3, "proba_dem": 0.20,
-     "district_incumbent": "REPUBLICAN", "is_open": False, "dem_lean": 0.22},
-])
+_DISTRICTS = pd.DataFrame(
+    [
+        {
+            "label": "PA-7",
+            Col.STATE: "PA",
+            Col.DISTRICT: 7,
+            "proba_dem": 0.60,
+            "district_incumbent": "DEMOCRAT",
+            "is_open": False,
+            "dem_lean": 0.57,
+        },
+        {
+            "label": "AZ-6",
+            Col.STATE: "AZ",
+            Col.DISTRICT: 6,
+            "proba_dem": 0.48,
+            "district_incumbent": "REPUBLICAN",
+            "is_open": True,
+            "dem_lean": 0.46,
+        },
+        {
+            "label": "TX-3",
+            Col.STATE: "TX",
+            Col.DISTRICT: 3,
+            "proba_dem": 0.20,
+            "district_incumbent": "REPUBLICAN",
+            "is_open": False,
+            "dem_lean": 0.22,
+        },
+    ]
+)
 
 _FORECAST = {
     "seats_sim": np.array([210, 215, 218, 216, 220]),

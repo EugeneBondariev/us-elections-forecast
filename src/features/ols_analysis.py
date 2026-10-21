@@ -8,6 +8,7 @@ Demonstrates econometric interpretation of the forecast's structural features:
 
 Saves: data/ols_summary.txt, data/ols_coef_comparison.png
 """
+
 from __future__ import annotations
 
 import logging
@@ -42,17 +43,17 @@ STRUCTURAL_FEATURES = [
 ]
 
 FEATURE_LABELS = {
-    "dem_lean":                  "Hist. Dem vote share (4yr avg)",
-    "prev_dem_vote_share":       "Previous Dem vote share",
-    "pres_approval":             "Presidential approval",
-    "pres_disapproval":          "Presidential disapproval",
-    "generic_ballot":            "Generic ballot margin (D–R)",
-    "econ_growth":               "GDP growth (sign-adjusted)",
-    "unemployment":              "Unemployment (sign-adjusted)",
-    "is_incumbent_on_ballot":    "Incumbent running (0/1)",
-    "inc_x_ballot":              "Incumbent × Generic ballot",
-    "redistricting":             "Redistricting year (0/1)",
-    "dem_lean_trend":            "Dem lean trend (4yr slope)",
+    "dem_lean": "Hist. Dem vote share (4yr avg)",
+    "prev_dem_vote_share": "Previous Dem vote share",
+    "pres_approval": "Presidential approval",
+    "pres_disapproval": "Presidential disapproval",
+    "generic_ballot": "Generic ballot margin (D–R)",
+    "econ_growth": "GDP growth (sign-adjusted)",
+    "unemployment": "Unemployment (sign-adjusted)",
+    "is_incumbent_on_ballot": "Incumbent running (0/1)",
+    "inc_x_ballot": "Incumbent × Generic ballot",
+    "redistricting": "Redistricting year (0/1)",
+    "dem_lean_trend": "Dem lean trend (4yr slope)",
 }
 
 
@@ -87,10 +88,12 @@ def main() -> None:
     # construction → use HC3 (heteroskedasticity-robust) standard errors.
     log.info("\n--- Linear Probability Model ---")
     ols = sm.OLS(y, X_sm).fit(cov_type="HC3")
-    print(ols.summary(
-        title="Linear Probability Model (HC3 robust SEs)",
-        xname=["const"] + [FEATURE_LABELS.get(f, f) for f in available],
-    ))
+    print(
+        ols.summary(
+            title="Linear Probability Model (HC3 robust SEs)",
+            xname=["const"] + [FEATURE_LABELS.get(f, f) for f in available],
+        )
+    )
 
     # -----------------------------------------------------------------------
     # 2. Logit Model
@@ -99,10 +102,12 @@ def main() -> None:
     # Use average marginal effects (AME) for comparable magnitudes to OLS.
     log.info("\n--- Logit Model ---")
     logit = sm.Logit(y, X_sm).fit(disp=False, maxiter=200)
-    print(logit.summary(
-        title="Logit Model",
-        xname=["const"] + [FEATURE_LABELS.get(f, f) for f in available],
-    ))
+    print(
+        logit.summary(
+            title="Logit Model",
+            xname=["const"] + [FEATURE_LABELS.get(f, f) for f in available],
+        )
+    )
 
     log.info("\n--- Average Marginal Effects (Logit) ---")
     ame = logit.get_margeff(at="overall")
@@ -122,8 +127,8 @@ def main() -> None:
     common = [f for f in available if f in ame_df.index]
 
     ame_vals = ame_df.loc[common, "dy/dx"]
-    ame_lo   = ame_df.loc[common, "Conf. Int. Low"]
-    ame_hi   = ame_df.loc[common, "Cont. Int. Hi."]
+    ame_lo = ame_df.loc[common, "Conf. Int. Low"]
+    ame_hi = ame_df.loc[common, "Cont. Int. Hi."]
 
     labels = [FEATURE_LABELS.get(f, f) for f in common]
     n = len(common)
@@ -131,12 +136,28 @@ def main() -> None:
 
     fig, axes = plt.subplots(1, 2, figsize=(14, max(5, n * 0.55 + 1)))
 
-    def _barh(ax: plt.Axes, vals: np.ndarray, ci_lo: np.ndarray, ci_hi: np.ndarray, title: str, xlabel: str) -> None:
+    def _barh(
+        ax: plt.Axes,
+        vals: np.ndarray,
+        ci_lo: np.ndarray,
+        ci_hi: np.ndarray,
+        title: str,
+        xlabel: str,
+    ) -> None:
         colors = ["steelblue" if v > 0 else "tomato" for v in vals]
         err_lo = np.maximum(vals - ci_lo, 0)
         err_hi = np.maximum(ci_hi - vals, 0)
-        ax.barh(y_pos, vals, xerr=[err_lo, err_hi], align="center",
-                color=colors, alpha=0.75, height=0.6, ecolor="black", capsize=3)
+        ax.barh(
+            y_pos,
+            vals,
+            xerr=[err_lo, err_hi],
+            align="center",
+            color=colors,
+            alpha=0.75,
+            height=0.6,
+            ecolor="black",
+            capsize=3,
+        )
         ax.axvline(0, color="black", linewidth=0.8, linestyle="--", alpha=0.6)
         ax.set_yticks(y_pos)
         ax.set_yticklabels(labels, fontsize=8)
@@ -163,7 +184,8 @@ def main() -> None:
 
     fig.suptitle(
         "Structural drivers of Dem House win probability (1976–2024)",
-        fontsize=11, y=1.01,
+        fontsize=11,
+        y=1.01,
     )
     fig.tight_layout()
     out_png = figures_dir / "ols_coef_comparison.png"
@@ -174,15 +196,19 @@ def main() -> None:
     # Save text summaries
     out_txt = reports_dir / "ols_summary.txt"
     with open(out_txt, "w", encoding="utf-8") as fh:
-        fh.write(ols.summary(
-            title="Linear Probability Model (HC3 robust SEs)",
-            xname=["const"] + [FEATURE_LABELS.get(f, f) for f in available],
-        ).as_text())
+        fh.write(
+            ols.summary(
+                title="Linear Probability Model (HC3 robust SEs)",
+                xname=["const"] + [FEATURE_LABELS.get(f, f) for f in available],
+            ).as_text()
+        )
         fh.write("\n\n")
-        fh.write(logit.summary(
-            title="Logit Model",
-            xname=["const"] + [FEATURE_LABELS.get(f, f) for f in available],
-        ).as_text())
+        fh.write(
+            logit.summary(
+                title="Logit Model",
+                xname=["const"] + [FEATURE_LABELS.get(f, f) for f in available],
+            ).as_text()
+        )
         fh.write("\n\n")
         fh.write(ame.summary().as_text())
     log.info("Text summary saved → %s", out_txt)

@@ -1,4 +1,5 @@
 """FastAPI endpoint tests — forecast is mocked so no real data files are needed."""
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -11,16 +12,24 @@ from fastapi.testclient import TestClient
 from api import app
 from src.constants import Col
 
-_MOCK_DISTRICTS = pd.DataFrame([
-    {
-        "label": "PA-7", Col.STATE: "PA", Col.DISTRICT: 7,
-        "proba_dem": 0.55, "district_incumbent": "Democrat",
-    },
-    {
-        "label": "AZ-6", Col.STATE: "AZ", Col.DISTRICT: 6,
-        "proba_dem": 0.42, "district_incumbent": "Republican",
-    },
-])
+_MOCK_DISTRICTS = pd.DataFrame(
+    [
+        {
+            "label": "PA-7",
+            Col.STATE: "PA",
+            Col.DISTRICT: 7,
+            "proba_dem": 0.55,
+            "district_incumbent": "Democrat",
+        },
+        {
+            "label": "AZ-6",
+            Col.STATE: "AZ",
+            Col.DISTRICT: 6,
+            "proba_dem": 0.42,
+            "district_incumbent": "Republican",
+        },
+    ]
+)
 
 _MOCK_FORECAST = {
     "seats_sim": np.full(10_000, 215),
@@ -51,7 +60,9 @@ class TestForecast:
 
     def test_required_keys_present(self, client):
         data = client.get("/forecast").json()
-        assert {"median_dem_seats", "p_dem_majority", "ci_68", "ci_95", "n_districts"}.issubset(data)
+        assert {"median_dem_seats", "p_dem_majority", "ci_68", "ci_95", "n_districts"}.issubset(
+            data
+        )
 
     def test_n_districts_matches_mock(self, client):
         assert client.get("/forecast").json()["n_districts"] == 2

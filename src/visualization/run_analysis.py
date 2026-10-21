@@ -24,10 +24,10 @@ from src.visualization.shap_analysis import main as shap
 _STEPS = [
     ("Feature significance", feature_significance),
     ("OLS / logit analysis", ols),
-    ("PCA analysis",         pca),
+    ("PCA analysis", pca),
     ("Calibration analysis", calibration),
-    ("Learning curves",      learning_curves),
-    ("SHAP analysis",        shap),
+    ("Learning curves", learning_curves),
+    ("SHAP analysis", shap),
 ]
 
 _LOG_DIR = Path("logs/analysis")

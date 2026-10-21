@@ -1,5 +1,6 @@
 """Tests for src/fundraising.py aggregation logic. No network access needed —
 all tests operate on hand-crafted in-memory records."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,11 +11,22 @@ from src.data.fundraising import _RAW_FIELDS, _aggregate, _save_raw, _top_candid
 from src.types import FECCandidateRecord
 
 
-def _record(party: str, candidate_id: str, receipts: float, disbursements: float,
-            year: int = 2024, state_po: str = "CA", district: int = 1) -> FECCandidateRecord:
+def _record(
+    party: str,
+    candidate_id: str,
+    receipts: float,
+    disbursements: float,
+    year: int = 2024,
+    state_po: str = "CA",
+    district: int = 1,
+) -> FECCandidateRecord:
     return {
-        "year": year, "state_po": state_po, "district": district, "party": party,
-        "candidate_id": candidate_id, "candidate_name": candidate_id,
+        "year": year,
+        "state_po": state_po,
+        "district": district,
+        "party": party,
+        "candidate_id": candidate_id,
+        "candidate_name": candidate_id,
         "receipts": receipts,
         "individual_receipts": receipts * 0.8,
         "individual_itemized_contributions": receipts * 0.5,
@@ -27,10 +39,12 @@ def _record(party: str, candidate_id: str, receipts: float, disbursements: float
 
 class TestTopCandidatePerGroup:
     def test_picks_row_with_max_receipts(self):
-        df = pd.DataFrame([
-            _record("DEM", "A", receipts=100.0, disbursements=20.0),
-            _record("DEM", "B", receipts=40.0, disbursements=90.0),
-        ])
+        df = pd.DataFrame(
+            [
+                _record("DEM", "A", receipts=100.0, disbursements=20.0),
+                _record("DEM", "B", receipts=40.0, disbursements=90.0),
+            ]
+        )
         result = _top_candidate_per_group(df)
         assert len(result) == 1
         row = result.iloc[0]
@@ -54,7 +68,7 @@ class TestAggregate:
         candidate A's receipts together with candidate B's disbursements."""
         records = [
             _record("DEM", "A", receipts=100.0, disbursements=20.0),  # top DEM by receipts
-            _record("DEM", "B", receipts=40.0, disbursements=90.0),   # top DEM by disbursements
+            _record("DEM", "B", receipts=40.0, disbursements=90.0),  # top DEM by disbursements
             _record("REP", "C", receipts=60.0, disbursements=55.0),
         ]
         result = _aggregate(records)
@@ -99,9 +113,15 @@ class TestAggregateNegativeClipping:
 class TestSaveRaw:
     def test_writes_sortable_csv(self, tmp_path: Path) -> None:
         records: list[FECCandidateRecord] = [
-            _record("DEM", "A", receipts=100.0, disbursements=20.0, year=2022, state_po="TX", district=7),
-            _record("REP", "B", receipts=80.0,  disbursements=15.0, year=2020, state_po="CA", district=1),
-            _record("DEM", "C", receipts=60.0,  disbursements=10.0, year=2022, state_po="CA", district=3),
+            _record(
+                "DEM", "A", receipts=100.0, disbursements=20.0, year=2022, state_po="TX", district=7
+            ),
+            _record(
+                "REP", "B", receipts=80.0, disbursements=15.0, year=2020, state_po="CA", district=1
+            ),
+            _record(
+                "DEM", "C", receipts=60.0, disbursements=10.0, year=2022, state_po="CA", district=3
+            ),
         ]
         out = tmp_path / "out.csv"
         _save_raw(records=records, raw_path=out)
@@ -131,16 +151,18 @@ class TestLoadFundraising:
         from src.data.fundraising import load_fundraising
 
         cache = tmp_path / "fundraising.csv"
-        pd.DataFrame({
-            "year": [2020, 2022, 2024],
-            "state_po": ["CA", "TX", "FL"],
-            "district": [1, 2, 3],
-            "fundraising_dem_share": [0.5, 0.6, 0.4],
-            "large_donor_dem_share": [0.5, 0.6, 0.4],
-            "pac_dem_share": [0.5, 0.6, 0.4],
-            "spending_dem_share": [0.5, 0.6, 0.4],
-            "surplus_dem_share": [0.5, 0.6, 0.4],
-        }).to_csv(cache, index=False)
+        pd.DataFrame(
+            {
+                "year": [2020, 2022, 2024],
+                "state_po": ["CA", "TX", "FL"],
+                "district": [1, 2, 3],
+                "fundraising_dem_share": [0.5, 0.6, 0.4],
+                "large_donor_dem_share": [0.5, 0.6, 0.4],
+                "pac_dem_share": [0.5, 0.6, 0.4],
+                "spending_dem_share": [0.5, 0.6, 0.4],
+                "surplus_dem_share": [0.5, 0.6, 0.4],
+            }
+        ).to_csv(cache, index=False)
         result = load_fundraising(cache_path=cache)
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 3

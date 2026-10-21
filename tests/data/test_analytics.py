@@ -1,4 +1,5 @@
 """Unit tests for src/data/analytics.py. No network access, no disk I/O."""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -29,32 +30,39 @@ def dems_reps() -> pd.DataFrame:
     rows = []
     for i, year in enumerate(_YEARS):
         # District 1: firmly Dem, nearly flat — low volatility
-        rows.append({
-            "year": year,
-            "state_po": "CA",
-            "district": 1,
-            "dem_vote_share": 0.65,
-        })
+        rows.append(
+            {
+                "year": year,
+                "state_po": "CA",
+                "district": 1,
+                "dem_vote_share": 0.65,
+            }
+        )
         # District 2: firmly Rep, nearly flat
-        rows.append({
-            "year": year,
-            "state_po": "CA",
-            "district": 2,
-            "dem_vote_share": 0.35,
-        })
+        rows.append(
+            {
+                "year": year,
+                "state_po": "CA",
+                "district": 2,
+                "dem_vote_share": 0.35,
+            }
+        )
         # District 3: alternating with wide swing — high volatility
-        rows.append({
-            "year": year,
-            "state_po": "CA",
-            "district": 3,
-            "dem_vote_share": 0.55 if i % 2 == 0 else 0.45,
-        })
+        rows.append(
+            {
+                "year": year,
+                "state_po": "CA",
+                "district": 3,
+                "dem_vote_share": 0.55 if i % 2 == 0 else 0.45,
+            }
+        )
     return pd.DataFrame(rows)
 
 
 # ---------------------------------------------------------------------------
 # TestBuildAnalyticsDb
 # ---------------------------------------------------------------------------
+
 
 class TestBuildAnalyticsDb:
     def test_creates_results_table(self, dems_reps: pd.DataFrame) -> None:
@@ -72,6 +80,7 @@ class TestBuildAnalyticsDb:
 # ---------------------------------------------------------------------------
 # TestComputeWinStreak
 # ---------------------------------------------------------------------------
+
 
 class TestComputeWinStreak:
     def test_always_dem_gets_streak(self, dems_reps: pd.DataFrame) -> None:
@@ -100,6 +109,7 @@ class TestComputeWinStreak:
 # TestComputeSwingVolatility
 # ---------------------------------------------------------------------------
 
+
 class TestComputeSwingVolatility:
     def test_stable_district_low_volatility(self, dems_reps: pd.DataFrame) -> None:
         conn = build_analytics_db(dems_reps)
@@ -122,6 +132,7 @@ class TestComputeSwingVolatility:
 # ---------------------------------------------------------------------------
 # TestBuildDistrictAnalytics
 # ---------------------------------------------------------------------------
+
 
 class TestBuildDistrictAnalytics:
     def test_output_shape(self, dems_reps: pd.DataFrame) -> None:

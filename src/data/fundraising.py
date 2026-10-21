@@ -18,6 +18,7 @@ Derived features saved to fundraising.csv (all expressed as Dem share of Dem+Rep
   surplus_dem_share       – Share of (receipts - disbursements); negative means Dem spent more than raised
                             relative to Republican; large positive = incumbent war chest dominance
 """
+
 from __future__ import annotations
 
 import logging
@@ -79,19 +80,26 @@ def _fetch_year(api_key: str, year: int) -> list[FECCandidateRecord]:
                 data = resp.json()
                 break
             except Exception as exc:
-                logger.warning("FEC API error year=%d page=%d attempt=%d: %s", year, page, attempt + 1, exc)
+                logger.warning(
+                    "FEC API error year=%d page=%d attempt=%d: %s", year, page, attempt + 1, exc
+                )
                 if attempt == 2:
                     logger.error("Giving up on year=%d page=%d after 3 attempts", year, page)
-                time.sleep(2 ** attempt)
+                time.sleep(2**attempt)
 
         if data is None:
             if pages_total is not None and page <= pages_total:
                 logger.warning(
                     "  %d: INCOMPLETE — gave up at page %d/%d, only %d records collected",
-                    year, page, pages_total, len(records),
+                    year,
+                    page,
+                    pages_total,
+                    len(records),
                 )
             else:
-                logger.warning("  %d: INCOMPLETE — failed on first page, no records collected", year)
+                logger.warning(
+                    "  %d: INCOMPLETE — failed on first page, no records collected", year
+                )
             break
 
         results = data.get("results", [])
@@ -104,21 +112,29 @@ def _fetch_year(api_key: str, year: int) -> list[FECCandidateRecord]:
                 district = int(district_raw)
             except ValueError:
                 district = 0
-            records.append(FECCandidateRecord(
-                year=year,
-                state_po=r.get("state"),
-                district=district,
-                party=r.get("party"),
-                candidate_id=r.get("candidate_id"),
-                candidate_name=r.get("name"),
-                receipts=float(r.get("receipts") or 0),
-                individual_receipts=float(r.get("individual_receipts") or 0),
-                individual_itemized_contributions=float(r.get("individual_itemized_contributions") or 0),
-                individual_unitemized_contributions=float(r.get("individual_unitemized_contributions") or 0),
-                other_political_committee_contributions=float(r.get("other_political_committee_contributions") or 0),
-                candidate_contribution=float(r.get("candidate_contribution") or 0),
-                disbursements=float(r.get("disbursements") or 0),
-            ))
+            records.append(
+                FECCandidateRecord(
+                    year=year,
+                    state_po=r.get("state"),
+                    district=district,
+                    party=r.get("party"),
+                    candidate_id=r.get("candidate_id"),
+                    candidate_name=r.get("name"),
+                    receipts=float(r.get("receipts") or 0),
+                    individual_receipts=float(r.get("individual_receipts") or 0),
+                    individual_itemized_contributions=float(
+                        r.get("individual_itemized_contributions") or 0
+                    ),
+                    individual_unitemized_contributions=float(
+                        r.get("individual_unitemized_contributions") or 0
+                    ),
+                    other_political_committee_contributions=float(
+                        r.get("other_political_committee_contributions") or 0
+                    ),
+                    candidate_contribution=float(r.get("candidate_contribution") or 0),
+                    disbursements=float(r.get("disbursements") or 0),
+                )
+            )
 
         pages_total = data.get("pagination", {}).get("pages", 1)
         if pages_total is None or page >= pages_total:
@@ -192,16 +208,22 @@ def _aggregate(records: list[FECCandidateRecord]) -> pd.DataFrame:
     result["dem_surplus"] = result["dem_receipts"] - result["dem_disbursements"]
     result["rep_surplus"] = result["rep_receipts"] - result["rep_disbursements"]
     total_surplus = result["dem_surplus"] + result["rep_surplus"]
-    result["surplus_dem_share"] = (
-        (result["dem_surplus"] / total_surplus.clip(lower=1))
-        .where(total_surplus.abs() > 0, 0.5)
+    result["surplus_dem_share"] = (result["dem_surplus"] / total_surplus.clip(lower=1)).where(
+        total_surplus.abs() > 0, 0.5
     )
 
-    return result[[
-        Col.YEAR, Col.STATE, Col.DISTRICT,
-        Col.FUNDRAISING_DEM_SHARE, Col.LARGE_DONOR_DEM_SHARE,
-        Col.PAC_DEM_SHARE, Col.SPENDING_DEM_SHARE, Col.SURPLUS_DEM_SHARE,
-    ]]
+    return result[
+        [
+            Col.YEAR,
+            Col.STATE,
+            Col.DISTRICT,
+            Col.FUNDRAISING_DEM_SHARE,
+            Col.LARGE_DONOR_DEM_SHARE,
+            Col.PAC_DEM_SHARE,
+            Col.SPENDING_DEM_SHARE,
+            Col.SURPLUS_DEM_SHARE,
+        ]
+    ]
 
 
 def fetch_and_cache(
@@ -212,6 +234,7 @@ def fetch_and_cache(
 ) -> pd.DataFrame:
     """Fetch House fundraising totals from FEC API and cache to CSV."""
     from src.paths import DataFile
+
     if years is None:
         years = DEFAULT_YEARS
     cache_path = Path(cache_path)
@@ -234,9 +257,8 @@ def fetch_and_cache(
 
     if not existing.empty:
         other_years = existing[~existing["year"].isin(years)]
-        result = (
-            pd.concat([other_years, new], ignore_index=True)
-            .sort_values(["year", "state_po", "district"])
+        result = pd.concat([other_years, new], ignore_index=True).sort_values(
+            ["year", "state_po", "district"]
         )
     else:
         result = new

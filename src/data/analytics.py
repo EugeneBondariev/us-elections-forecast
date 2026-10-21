@@ -12,6 +12,7 @@ Output
 data/interim/district_analytics.csv — columns: year, state_po, district,
                                        win_streak, swing_volatility
 """
+
 from __future__ import annotations
 
 import logging
@@ -125,11 +126,13 @@ def build_district_analytics(dems_reps: pd.DataFrame) -> pd.DataFrame:
 
     # Col.YEAR/STATE/DISTRICT already match — rename is a no-op kept for
     # explicitness and future-proofing if Col values ever diverge.
-    result = result.rename(columns={
-        "year": "year",          # Col.YEAR
-        "state_po": "state_po",  # Col.STATE
-        "district": "district",  # Col.DISTRICT
-    })
+    result = result.rename(
+        columns={
+            "year": "year",  # Col.YEAR
+            "state_po": "state_po",  # Col.STATE
+            "district": "district",  # Col.DISTRICT
+        }
+    )
 
     result["year"] = result["year"].astype(int)
     result["district"] = result["district"].astype(int)
@@ -156,6 +159,7 @@ def load_district_analytics(cache_path: Path | None = None) -> pd.DataFrame | No
         return None
     df = pd.read_csv(path, dtype={"district": int, "year": int})
     from src.data.validators import validate_district_analytics
+
     validate_district_analytics(df)
     return df
 

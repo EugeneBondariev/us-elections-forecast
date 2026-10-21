@@ -1,4 +1,5 @@
 """Tests for src/narrative.py — Groq client is mocked, no real API calls."""
+
 from __future__ import annotations
 
 import sys
@@ -10,10 +11,12 @@ import pandas as pd
 from src.visualization.narrative import _build_prompt, generate_narrative
 
 _SIM = np.array([210, 215, 218, 220, 225])
-_DISTRICTS = pd.DataFrame([
-    {"label": "PA-7", "proba_dem": 0.51, "district_incumbent": "DEMOCRAT", "is_open": False},
-    {"label": "AZ-6", "proba_dem": 0.49, "district_incumbent": "REPUBLICAN", "is_open": True},
-])
+_DISTRICTS = pd.DataFrame(
+    [
+        {"label": "PA-7", "proba_dem": 0.51, "district_incumbent": "DEMOCRAT", "is_open": False},
+        {"label": "AZ-6", "proba_dem": 0.49, "district_incumbent": "REPUBLICAN", "is_open": True},
+    ]
+)
 
 
 def test_returns_empty_without_api_key(monkeypatch):

@@ -1,4 +1,5 @@
 """Unit tests for src.data.poll_aggregation. No network, no disk I/O — all synthetic data."""
+
 from __future__ import annotations
 
 import datetime
@@ -47,6 +48,7 @@ def _poll(
 # Fixture
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def polls_df() -> pd.DataFrame:
     """Synthetic generic ballot polls across 2018, 2020, 2022.
@@ -83,13 +85,15 @@ def polls_df() -> pd.DataFrame:
                 poll_date = election_date - datetime.timedelta(days=days_before)
                 dem = base_dem + offset
                 rep = base_rep
-                rows.append(_poll(
-                    year=year,
-                    end_date=poll_date.isoformat(),
-                    pollster=pollster,
-                    dem=dem,
-                    rep=rep,
-                ))
+                rows.append(
+                    _poll(
+                        year=year,
+                        end_date=poll_date.isoformat(),
+                        pollster=pollster,
+                        dem=dem,
+                        rep=rep,
+                    )
+                )
 
     return pd.DataFrame(rows)
 
@@ -98,6 +102,7 @@ def polls_df() -> pd.DataFrame:
 # normalize_poll_columns
 # ---------------------------------------------------------------------------
 
+
 class TestNormalizePollColumns:
     def test_normalize_keeps_canonical_columns(self):
         df = pd.DataFrame([_poll(2018, "2018-10-01", "PollsterA", 47.0, 40.0)])
@@ -105,22 +110,34 @@ class TestNormalizePollColumns:
         assert set(result.columns) == {"year", "end_date", "pollster", "dem", "rep", "margin"}
 
     def test_normalize_maps_adjusted_dem(self):
-        df = pd.DataFrame([{
-            "cycle": 2018,
-            "end_date": "2018-10-01",
-            "pollster": "PollsterA",
-            "adj_dem": 47.5,
-            "adj_rep": 40.5,
-        }])
+        df = pd.DataFrame(
+            [
+                {
+                    "cycle": 2018,
+                    "end_date": "2018-10-01",
+                    "pollster": "PollsterA",
+                    "adj_dem": 47.5,
+                    "adj_rep": 40.5,
+                }
+            ]
+        )
         result = normalize_poll_columns(df)
         assert result["dem"].iloc[0] == pytest.approx(47.5)
         assert result["rep"].iloc[0] == pytest.approx(40.5)
 
     def test_normalize_drops_missing_dem(self):
-        df = pd.DataFrame([
-            {"year": 2018, "end_date": "2018-10-01", "pollster": "A", "dem": np.nan, "rep": 40.0},
-            {"year": 2018, "end_date": "2018-10-02", "pollster": "A", "dem": 47.0, "rep": 40.0},
-        ])
+        df = pd.DataFrame(
+            [
+                {
+                    "year": 2018,
+                    "end_date": "2018-10-01",
+                    "pollster": "A",
+                    "dem": np.nan,
+                    "rep": 40.0,
+                },
+                {"year": 2018, "end_date": "2018-10-02", "pollster": "A", "dem": 47.0, "rep": 40.0},
+            ]
+        )
         result = normalize_poll_columns(df)
         assert len(result) == 1
         assert result["dem"].iloc[0] == pytest.approx(47.0)
@@ -130,6 +147,7 @@ class TestNormalizePollColumns:
 # estimate_house_effects
 # ---------------------------------------------------------------------------
 
+
 class TestEstimateHouseEffects:
     def test_estimate_house_effects_known_bias(self, polls_df: pd.DataFrame):
         effects = estimate_house_effects(polls=polls_df, min_polls=3)
@@ -138,13 +156,15 @@ class TestEstimateHouseEffects:
 
     def test_estimate_house_effects_min_polls_threshold(self):
         # PollsterSmall has only 2 polls — below min_polls=3
-        df = pd.DataFrame([
-            _poll(2018, "2018-10-01", "PollsterSmall", 47.0, 40.0),
-            _poll(2018, "2018-10-05", "PollsterSmall", 47.0, 40.0),
-            _poll(2018, "2018-10-01", "PollsterBig",   47.0, 40.0),
-            _poll(2018, "2018-10-05", "PollsterBig",   47.0, 40.0),
-            _poll(2018, "2018-10-10", "PollsterBig",   47.0, 40.0),
-        ])
+        df = pd.DataFrame(
+            [
+                _poll(2018, "2018-10-01", "PollsterSmall", 47.0, 40.0),
+                _poll(2018, "2018-10-05", "PollsterSmall", 47.0, 40.0),
+                _poll(2018, "2018-10-01", "PollsterBig", 47.0, 40.0),
+                _poll(2018, "2018-10-05", "PollsterBig", 47.0, 40.0),
+                _poll(2018, "2018-10-10", "PollsterBig", 47.0, 40.0),
+            ]
+        )
         effects = estimate_house_effects(polls=df, min_polls=3)
         assert "PollsterSmall" not in effects
         assert "PollsterBig" in effects
@@ -153,6 +173,7 @@ class TestEstimateHouseEffects:
 # ---------------------------------------------------------------------------
 # time_decay_weights
 # ---------------------------------------------------------------------------
+
 
 class TestTimeDecayWeights:
     def test_time_decay_weights_recent_heavier(self):
@@ -176,6 +197,7 @@ class TestTimeDecayWeights:
 # ---------------------------------------------------------------------------
 # aggregate_year
 # ---------------------------------------------------------------------------
+
 
 class TestAggregateYear:
     def test_aggregate_year_filters_post_election_polls(self, polls_df: pd.DataFrame):
@@ -221,6 +243,7 @@ class TestAggregateYear:
 # build_poll_aggregates
 # ---------------------------------------------------------------------------
 
+
 class TestBuildPollAggregates:
     def test_build_poll_aggregates_columns(self, polls_df: pd.DataFrame):
         result = build_poll_aggregates(polls=polls_df)
@@ -244,18 +267,43 @@ class TestBuildPollAggregates:
 # house_effect_correction
 # ---------------------------------------------------------------------------
 
+
 class TestHouseEffectCorrection:
     def test_house_effect_correction_moves_mean(self):
         """When one Dem-leaning pollster dominates, correction lowers the raw mean."""
         election_date = ELECTION_DATES[2018]
         # 8 polls from Dem-leaning pollster (+3 each), 1 from neutral
         rows = [
-            _poll(2018, (election_date - datetime.timedelta(days=d)).isoformat(), "BiasedPoll", 50.0, 42.0)
+            _poll(
+                2018,
+                (election_date - datetime.timedelta(days=d)).isoformat(),
+                "BiasedPoll",
+                50.0,
+                42.0,
+            )
             for d in range(7, 80, 9)  # 8 polls
         ] + [
-            _poll(2018, (election_date - datetime.timedelta(days=10)).isoformat(), "NeutralPoll", 47.0, 42.0),
-            _poll(2018, (election_date - datetime.timedelta(days=20)).isoformat(), "NeutralPoll", 47.0, 42.0),
-            _poll(2018, (election_date - datetime.timedelta(days=30)).isoformat(), "NeutralPoll", 47.0, 42.0),
+            _poll(
+                2018,
+                (election_date - datetime.timedelta(days=10)).isoformat(),
+                "NeutralPoll",
+                47.0,
+                42.0,
+            ),
+            _poll(
+                2018,
+                (election_date - datetime.timedelta(days=20)).isoformat(),
+                "NeutralPoll",
+                47.0,
+                42.0,
+            ),
+            _poll(
+                2018,
+                (election_date - datetime.timedelta(days=30)).isoformat(),
+                "NeutralPoll",
+                47.0,
+                42.0,
+            ),
         ]
         df = pd.DataFrame(rows)
         # Naive unweighted mean is dominated by BiasedPoll's D+8
@@ -269,35 +317,48 @@ class TestHouseEffectCorrection:
 # normalize_poll_columns — topline format
 # ---------------------------------------------------------------------------
 
+
 class TestNormalizePollColumnsToplineFormat:
     def test_topline_modeldate_maps_to_end_date(self):
-        df = pd.DataFrame([{
-            "modeldate": "11/6/2018",
-            "subgroup": "All polls",
-            "dem_estimate": 48.5,
-            "rep_estimate": 41.5,
-        }])
+        df = pd.DataFrame(
+            [
+                {
+                    "modeldate": "11/6/2018",
+                    "subgroup": "All polls",
+                    "dem_estimate": 48.5,
+                    "rep_estimate": 41.5,
+                }
+            ]
+        )
         result = normalize_poll_columns(df)
         assert result["end_date"].iloc[0] == "11/6/2018"
         assert result["pollster"].iloc[0] == "All polls"
 
     def test_topline_year_derived_from_modeldate(self):
-        df = pd.DataFrame([{
-            "modeldate": "11/6/2018",
-            "subgroup": "All polls",
-            "dem_estimate": 48.5,
-            "rep_estimate": 41.5,
-        }])
+        df = pd.DataFrame(
+            [
+                {
+                    "modeldate": "11/6/2018",
+                    "subgroup": "All polls",
+                    "dem_estimate": 48.5,
+                    "rep_estimate": 41.5,
+                }
+            ]
+        )
         result = normalize_poll_columns(df)
         assert result["year"].iloc[0] == 2018
 
     def test_topline_dem_estimate_maps_to_dem(self):
-        df = pd.DataFrame([{
-            "modeldate": "11/6/2018",
-            "subgroup": "All polls",
-            "dem_estimate": 48.5,
-            "rep_estimate": 41.5,
-        }])
+        df = pd.DataFrame(
+            [
+                {
+                    "modeldate": "11/6/2018",
+                    "subgroup": "All polls",
+                    "dem_estimate": 48.5,
+                    "rep_estimate": 41.5,
+                }
+            ]
+        )
         result = normalize_poll_columns(df)
         assert result["dem"].iloc[0] == pytest.approx(48.5)
 
@@ -306,26 +367,35 @@ class TestNormalizePollColumnsToplineFormat:
 # normalize_poll_columns — edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestNormalizePollColumnsEdgeCases:
     def test_cycle_column_used_for_year(self):
-        df = pd.DataFrame([{
-            "cycle": 2018,
-            "end_date": "2018-10-01",
-            "pollster": "PollsterA",
-            "dem": 47.0,
-            "rep": 40.0,
-        }])
+        df = pd.DataFrame(
+            [
+                {
+                    "cycle": 2018,
+                    "end_date": "2018-10-01",
+                    "pollster": "PollsterA",
+                    "dem": 47.0,
+                    "rep": 40.0,
+                }
+            ]
+        )
         result = normalize_poll_columns(df)
         assert result["year"].iloc[0] == 2018
 
     def test_no_recognized_dem_column_drops_rows(self):
         """A DataFrame with no dem/adjusted_dem/adj_dem/dem_estimate column produces an empty result."""
-        df = pd.DataFrame([{
-            "end_date": "2018-10-01",
-            "pollster": "PollsterA",
-            "unknown_dem_col": 47.0,
-            "rep": 40.0,
-        }])
+        df = pd.DataFrame(
+            [
+                {
+                    "end_date": "2018-10-01",
+                    "pollster": "PollsterA",
+                    "unknown_dem_col": 47.0,
+                    "rep": 40.0,
+                }
+            ]
+        )
         result = normalize_poll_columns(df)
         assert len(result) == 0
 
@@ -334,17 +404,20 @@ class TestNormalizePollColumnsEdgeCases:
 # fetch_generic_ballot_polls — cache hit
 # ---------------------------------------------------------------------------
 
+
 class TestFetchGenericBallotPollsCacheHit:
     def test_returns_cached_csv_without_network(self, tmp_path: Path):
         cache_file = tmp_path / "polls.csv"
-        expected = pd.DataFrame({
-            "year": [2018, 2020],
-            "end_date": ["2018-10-01", "2020-10-01"],
-            "pollster": ["PollsterA", "PollsterB"],
-            "dem": [47.0, 48.0],
-            "rep": [40.0, 41.0],
-            "margin": [7.0, 7.0],
-        })
+        expected = pd.DataFrame(
+            {
+                "year": [2018, 2020],
+                "end_date": ["2018-10-01", "2020-10-01"],
+                "pollster": ["PollsterA", "PollsterB"],
+                "dem": [47.0, 48.0],
+                "rep": [40.0, 41.0],
+                "margin": [7.0, 7.0],
+            }
+        )
         expected.to_csv(cache_file, index=False)
 
         with patch("requests.get", side_effect=RuntimeError("should not reach network")):

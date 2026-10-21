@@ -25,6 +25,7 @@ or:
 
 Output: data/interim/speech_sentiment.csv — state_po, district, speech_sentiment, speech_count
 """
+
 from __future__ import annotations
 
 import json
@@ -47,9 +48,9 @@ __all__ = [
 ]
 
 _BASE_URL = "https://api.congress.gov/v3"
-_DEFAULT_CONGRESS = 119   # 119th Congress, 2025–2027
-_PAGE_LIMIT = 250         # max per Congress.gov API page
-_BILL_FETCH_LIMIT = 20    # sponsored bills per member (recent only)
+_DEFAULT_CONGRESS = 119  # 119th Congress, 2025–2027
+_PAGE_LIMIT = 250  # max per Congress.gov API page
+_BILL_FETCH_LIMIT = 20  # sponsored bills per member (recent only)
 _REQUEST_TIMEOUT = 30
 
 
@@ -125,6 +126,7 @@ def score_sentiment(titles: list[str]) -> float:
     if not titles:
         return 0.0
     from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
     sia = SentimentIntensityAnalyzer()
     scores = [sia.polarity_scores(t)["compound"] for t in titles]
     return float(sum(scores) / len(scores))
@@ -150,12 +152,14 @@ def build_speech_features(
         district = int(district_raw) if district_raw is not None else 0
         titles = fetch_member_bills(bioguide_id=bioguide, api_key=api_key)
         sentiment = score_sentiment(titles)
-        rows.append({
-            "state_po": state,
-            "district": district,
-            "speech_sentiment": sentiment,
-            "speech_count": len(titles),
-        })
+        rows.append(
+            {
+                "state_po": state,
+                "district": district,
+                "speech_sentiment": sentiment,
+                "speech_count": len(titles),
+            }
+        )
 
     df = pd.DataFrame(rows)
     if df.empty:
@@ -183,6 +187,7 @@ def load_speech_sentiment(cache_path: Path | None = None) -> pd.DataFrame | None
         return None
     df = pd.read_csv(path, dtype={"district": int})
     from src.data import validators
+
     validators.validate_speech_sentiment(df)
     return df
 
@@ -192,6 +197,7 @@ def main() -> None:
     import os
 
     from dotenv import load_dotenv
+
     load_dotenv()
     _logging.basicConfig(level=_logging.INFO, format="%(message)s")
 
@@ -210,7 +216,8 @@ def main() -> None:
     features.to_csv(ensure(DataFile.SPEECH_SENTIMENT), index=False)
     logger.info(
         "Speech sentiment saved -> %s (%d districts)",
-        DataFile.SPEECH_SENTIMENT, len(features),
+        DataFile.SPEECH_SENTIMENT,
+        len(features),
     )
 
 

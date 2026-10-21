@@ -45,7 +45,7 @@ def _build_prompt(sim: np.ndarray, districts: pd.DataFrame, n_districts: int) ->
         inc = getattr(r, "district_incumbent", "unknown")
         open_seat = getattr(r, "is_open", False)
         tag = " (open seat)" if open_seat else f" (incumbent: {str(inc).title()})"
-        comp_lines.append(f"  {str(r.label)}: {float(r.proba_dem)*100:.1f}% Dem{tag}")  # type: ignore[arg-type]
+        comp_lines.append(f"  {str(r.label)}: {float(r.proba_dem) * 100:.1f}% Dem{tag}")  # type: ignore[arg-type]
 
     # Open seats count
     n_open = (
@@ -82,6 +82,7 @@ def generate_narrative(sim: np.ndarray, districts: pd.DataFrame, n_districts: in
 
     try:
         from groq import Groq
+
         client = Groq(api_key=api_key)
         prompt = _build_prompt(sim, districts, n_districts)
         response = client.chat.completions.create(

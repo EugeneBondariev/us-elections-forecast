@@ -1,4 +1,5 @@
 """Unit tests for src.models.simulation — no data files required."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -7,6 +8,7 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 # 1. simulate_election: basic shape and range
 # ---------------------------------------------------------------------------
+
 
 def test_simulate_election_output_shape():
     from src.models.simulation import simulate_election
@@ -21,6 +23,7 @@ def test_simulate_election_output_shape():
 # ---------------------------------------------------------------------------
 # 2. hetero_k=0 is homoskedastic (identical to old flat sigma_district)
 # ---------------------------------------------------------------------------
+
 
 def test_hetero_k_zero_matches_flat_sigma():
     """With hetero_k=0 all districts get sigma_district; result must equal flat call."""
@@ -39,6 +42,7 @@ def test_hetero_k_zero_matches_flat_sigma():
 # ---------------------------------------------------------------------------
 # 3. hetero_k>0 gives competitive districts more variance than safe seats
 # ---------------------------------------------------------------------------
+
 
 def test_hetero_k_increases_competitive_variance():
     """With hetero_k=1.0, p=0.5 gets 2x sigma; p=0.9 gets 1x sigma.
@@ -67,6 +71,7 @@ def test_hetero_k_increases_competitive_variance():
 # 4. simulate_blended passes hetero_k through to simulate_election
 # ---------------------------------------------------------------------------
 
+
 def test_simulate_blended_hetero_k_propagates():
     """blend_weight=1.0 reduces to simulate_election; hetero_k must affect output."""
     from src.models.simulation import simulate_blended
@@ -74,12 +79,22 @@ def test_simulate_blended_hetero_k_propagates():
     proba = np.array([0.5] * 20)
 
     sim_hetero = simulate_blended(
-        proba, n=1000, seed=0, blend_weight=1.0,
-        sigma_national=0.0, sigma_district=0.15, hetero_k=2.0,
+        proba,
+        n=1000,
+        seed=0,
+        blend_weight=1.0,
+        sigma_national=0.0,
+        sigma_district=0.15,
+        hetero_k=2.0,
     )
     sim_flat = simulate_blended(
-        proba, n=1000, seed=0, blend_weight=1.0,
-        sigma_national=0.0, sigma_district=0.15, hetero_k=0.0,
+        proba,
+        n=1000,
+        seed=0,
+        blend_weight=1.0,
+        sigma_national=0.0,
+        sigma_district=0.15,
+        hetero_k=0.0,
     )
     # Larger hetero_k on all-competitive array → more variance
     assert sim_hetero.std() > sim_flat.std()
@@ -88,6 +103,7 @@ def test_simulate_blended_hetero_k_propagates():
 # ---------------------------------------------------------------------------
 # 5. exclude_years: 2002 is dropped from error distribution by default
 # ---------------------------------------------------------------------------
+
 
 def test_exclude_years_removes_2002_from_folds():
     """calibrate_national_sigma must drop 2002 from folds when exclude_years={2002}."""
@@ -107,14 +123,20 @@ def test_exclude_years_removes_2002_from_folds():
 
     with patch("src.models.simulation.walk_forward_probas", return_value=fake_folds):
         result_excl = calibrate_national_sigma(
-            pd.DataFrame(), pd.Series(dtype=float), pd.Series(dtype=int),
+            pd.DataFrame(),
+            pd.Series(dtype=float),
+            pd.Series(dtype=int),
             exclude_years=frozenset({2002}),
-            n=200, seed=0,
+            n=200,
+            seed=0,
         )
         result_incl = calibrate_national_sigma(
-            pd.DataFrame(), pd.Series(dtype=float), pd.Series(dtype=int),
+            pd.DataFrame(),
+            pd.Series(dtype=float),
+            pd.Series(dtype=int),
             exclude_years=frozenset(),
-            n=200, seed=0,
+            n=200,
+            seed=0,
         )
 
     assert result_excl["n_years"] == 3, "2002 must be dropped from folds"
@@ -124,6 +146,7 @@ def test_exclude_years_removes_2002_from_folds():
 # ---------------------------------------------------------------------------
 # 7. recency_decay: recent years are weighted more heavily in calibration
 # ---------------------------------------------------------------------------
+
 
 def test_recency_decay_default_is_085():
     """recency_decay must default to 0.85 in both calibration functions."""
@@ -169,6 +192,7 @@ def test_exclude_years_default_is_2002():
 # 6. load_simulation_params defaults hetero_k=1.0 when key absent from JSON
 # ---------------------------------------------------------------------------
 
+
 def test_load_simulation_params_default_hetero_k(tmp_path, monkeypatch):
     """Old calibrated_sigma.json without hetero_k must still load with default 1.0."""
     import json
@@ -177,12 +201,16 @@ def test_load_simulation_params_default_hetero_k(tmp_path, monkeypatch):
     from src.models.simulation import load_simulation_params
 
     json_path = tmp_path / "calibrated_sigma.json"
-    json_path.write_text(json.dumps({
-        "sigma_national": 0.3,
-        "sigma_district": 0.12,
-        "blend_weight": 1.0,
-        "concentration": 5.0,
-    }))
+    json_path.write_text(
+        json.dumps(
+            {
+                "sigma_national": 0.3,
+                "sigma_district": 0.12,
+                "blend_weight": 1.0,
+                "concentration": 5.0,
+            }
+        )
+    )
 
     # Patch DataFile.CALIBRATED_SIGMA to point at our temp file
     class _FakeDataFile:
@@ -191,10 +219,12 @@ def test_load_simulation_params_default_hetero_k(tmp_path, monkeypatch):
     monkeypatch.setattr(paths_mod, "DataFile", _FakeDataFile)
     # Also patch the import inside simulation.py
     import src.models.simulation as sim_mod
+
     monkeypatch.setattr(sim_mod, "load_simulation_params", load_simulation_params)
 
     # Re-import after patching isn't straightforward; call directly with the patched path
     import src.paths
+
     original = src.paths.DataFile
     src.paths.DataFile.CALIBRATED_SIGMA = json_path  # type: ignore[attr-defined]
     try:
@@ -207,6 +237,7 @@ def test_load_simulation_params_default_hetero_k(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # 10. bayesian_simulate: shape and value range
 # ---------------------------------------------------------------------------
+
 
 def test_bayesian_simulate_shape_and_range():
     from src.models.simulation import bayesian_simulate
@@ -221,6 +252,7 @@ def test_bayesian_simulate_shape_and_range():
 # ---------------------------------------------------------------------------
 # 11. bayesian_simulate: high concentration reduces variance
 # ---------------------------------------------------------------------------
+
 
 def test_bayesian_simulate_high_concentration_reduces_variance():
     from src.models.simulation import bayesian_simulate
@@ -238,6 +270,7 @@ def test_bayesian_simulate_high_concentration_reduces_variance():
 # 12. simulate_blended: pure Bayesian branch (blend_weight=0.0)
 # ---------------------------------------------------------------------------
 
+
 def test_simulate_blended_pure_bayesian():
     from src.models.simulation import simulate_blended
 
@@ -253,6 +286,7 @@ def test_simulate_blended_pure_bayesian():
 # 13. simulate_blended: half-and-half returns exactly n samples
 # ---------------------------------------------------------------------------
 
+
 def test_simulate_blended_half_half_returns_n_samples():
     from src.models.simulation import simulate_blended
 
@@ -265,6 +299,7 @@ def test_simulate_blended_half_half_returns_n_samples():
 # 14. _robust_std: constant array yields zero
 # ---------------------------------------------------------------------------
 
+
 def test_robust_std_near_zero_for_constant():
     from src.models.simulation import _robust_std
 
@@ -275,6 +310,7 @@ def test_robust_std_near_zero_for_constant():
 # 15. _robust_std: resistant to a single extreme outlier
 # ---------------------------------------------------------------------------
 
+
 def test_robust_std_outlier_resistance():
     from src.models.simulation import _robust_std
 
@@ -282,14 +318,13 @@ def test_robust_std_outlier_resistance():
     base[-1] = 1000.0
     robust = _robust_std(base)
     plain = float(np.std(base))
-    assert robust < plain / 10, (
-        f"Expected _robust_std ({robust:.3f}) << np.std ({plain:.3f})"
-    )
+    assert robust < plain / 10, f"Expected _robust_std ({robust:.3f}) << np.std ({plain:.3f})"
 
 
 # ---------------------------------------------------------------------------
 # 16. calibrate_simulation_params: expected keys and valid blend_weight
 # ---------------------------------------------------------------------------
+
 
 def test_calibrate_simulation_params_returns_expected_keys():
     from unittest.mock import patch
@@ -323,6 +358,7 @@ def test_calibrate_simulation_params_returns_expected_keys():
 # 17. load_simulation_params: absent file falls back to defaults
 # ---------------------------------------------------------------------------
 
+
 def test_load_simulation_params_absent_file_uses_defaults(tmp_path, monkeypatch):
     import src.paths as paths_mod
     from src.models.simulation import load_simulation_params
@@ -334,6 +370,7 @@ def test_load_simulation_params_absent_file_uses_defaults(tmp_path, monkeypatch)
 
     monkeypatch.setattr(paths_mod, "DataFile", _FakeDataFile)
     import src.paths
+
     src.paths.DataFile.CALIBRATED_SIGMA = nonexistent  # type: ignore[attr-defined]
     try:
         result = load_simulation_params()

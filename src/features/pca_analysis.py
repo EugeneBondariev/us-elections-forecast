@@ -3,6 +3,7 @@
 Usage:
     python -m src.features.pca_analysis
 """
+
 from __future__ import annotations
 
 import matplotlib.pyplot as plt

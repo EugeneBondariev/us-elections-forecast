@@ -8,6 +8,7 @@ Forecast persistence (used by api.py and /refresh):
     save_forecast(result)          — write latest forecast to DB, return run_id
     load_latest_forecast()         — read most recent forecast from DB, or None
 """
+
 from __future__ import annotations
 
 import json
@@ -112,9 +113,19 @@ def load_house_from_db(db_path: Path) -> pd.DataFrame:
         df = df[~df[col]]
 
     drop = [
-        "state", Col.STATE_FIPS, Col.STATE_CEN, Col.STATE_IC, Col.FUSION_TICKET,
-        Col.OFFICE, Col.MODE, Col.VERSION, Col.STAGE, Col.SPECIAL, Col.RUNOFF,
-        Col.UNOFFICIAL, Col.WRITE_IN,
+        "state",
+        Col.STATE_FIPS,
+        Col.STATE_CEN,
+        Col.STATE_IC,
+        Col.FUSION_TICKET,
+        Col.OFFICE,
+        Col.MODE,
+        Col.VERSION,
+        Col.STAGE,
+        Col.SPECIAL,
+        Col.RUNOFF,
+        Col.UNOFFICIAL,
+        Col.WRITE_IN,
     ]
     df = df.drop(columns=drop, errors="ignore")
     df = df[df[Col.PARTY].notna()]

@@ -20,39 +20,48 @@ remember:
     reports/         Generated analysis output (text/csv) — safe to delete and rebuild.
     reports/figures/ Generated plots/images — safe to delete and rebuild.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 
 __all__ = [
-    "DATA_DIR", "RAW_DIR", "EXTERNAL_DIR", "INTERIM_DIR", "PROCESSED_DIR",
-    "MODELS_DIR", "REPORTS_DIR", "FIGURES_DIR", "DataFile", "ensure",
+    "DATA_DIR",
+    "RAW_DIR",
+    "EXTERNAL_DIR",
+    "INTERIM_DIR",
+    "PROCESSED_DIR",
+    "MODELS_DIR",
+    "REPORTS_DIR",
+    "FIGURES_DIR",
+    "DataFile",
+    "ensure",
 ]
 
 _ROOT = Path(__file__).parent.parent
 
-DATA_DIR      = _ROOT / "data"
-RAW_DIR       = DATA_DIR / "raw"
-EXTERNAL_DIR  = DATA_DIR / "external"
-INTERIM_DIR   = DATA_DIR / "interim"
+DATA_DIR = _ROOT / "data"
+RAW_DIR = DATA_DIR / "raw"
+EXTERNAL_DIR = DATA_DIR / "external"
+INTERIM_DIR = DATA_DIR / "interim"
 PROCESSED_DIR = DATA_DIR / "processed"
-MODELS_DIR    = _ROOT / "models"
-REPORTS_DIR   = _ROOT / "reports"
-FIGURES_DIR   = REPORTS_DIR / "figures"
+MODELS_DIR = _ROOT / "models"
+REPORTS_DIR = _ROOT / "reports"
+FIGURES_DIR = REPORTS_DIR / "figures"
 
 
 class DataFile:
     # raw/ — primary source files, exactly as downloaded, zero transformation
     # applied. Immutable.
-    HOUSE      = RAW_DIR / "1976-2024-house.tab"
+    HOUSE = RAW_DIR / "1976-2024-house.tab"
     PRES_08_20 = RAW_DIR / "president-2008-2020-by-district.csv"
     PRES_20_24 = RAW_DIR / "president-2020-2024-by-district.csv"
 
     # external/ — third-party supplementary data. Same immutability rule as raw/.
-    FUNDRAISING_RAW         = EXTERNAL_DIR / "fundraising_raw.csv"
-    GENERIC_BALLOT_RAW      = EXTERNAL_DIR / "generic_ballot_averages_raw.csv"
-    CENSUS_RAW              = EXTERNAL_DIR / "census_acs_raw.json"
-    GENERIC_BALLOT_POLLS    = EXTERNAL_DIR / "generic_ballot_polls.csv"
+    FUNDRAISING_RAW = EXTERNAL_DIR / "fundraising_raw.csv"
+    GENERIC_BALLOT_RAW = EXTERNAL_DIR / "generic_ballot_averages_raw.csv"
+    CENSUS_RAW = EXTERNAL_DIR / "census_acs_raw.json"
+    GENERIC_BALLOT_POLLS = EXTERNAL_DIR / "generic_ballot_polls.csv"
 
     # interim/ — first-pass transformations of raw/external data. APPROVAL belongs
     # here, not raw/, despite the filename: src/data/build_approval_history.py pools
@@ -60,27 +69,27 @@ class DataFile:
     # staleness-filtered) rather than passing anything through untouched - the
     # same shape of transformation as cook.html -> cook.csv, just with a more
     # involved selection step.
-    APPROVAL      = INTERIM_DIR / "Approval-Ratings-for-POTUS-raw.xls"
-    COOK          = INTERIM_DIR / "cook.csv"
-    FUNDRAISING   = INTERIM_DIR / "fundraising.csv"
-    INDICATORS       = INTERIM_DIR / "indicators.csv"
+    APPROVAL = INTERIM_DIR / "Approval-Ratings-for-POTUS-raw.xls"
+    COOK = INTERIM_DIR / "cook.csv"
+    FUNDRAISING = INTERIM_DIR / "fundraising.csv"
+    INDICATORS = INTERIM_DIR / "indicators.csv"
     GENERIC_BALLOT_CSV = INTERIM_DIR / "generic_ballot.csv"
-    OPEN_SEATS_CSV   = INTERIM_DIR / "open_seats_2026.csv"
-    CENSUS             = INTERIM_DIR / "census_acs.csv"
-    CANDIDATE_QUALITY  = INTERIM_DIR / "candidate_quality.csv"
-    POLL_AGGREGATES    = INTERIM_DIR / "poll_aggregates.csv"
-    GERRYMANDERING     = INTERIM_DIR / "gerrymandering.csv"
+    OPEN_SEATS_CSV = INTERIM_DIR / "open_seats_2026.csv"
+    CENSUS = INTERIM_DIR / "census_acs.csv"
+    CANDIDATE_QUALITY = INTERIM_DIR / "candidate_quality.csv"
+    POLL_AGGREGATES = INTERIM_DIR / "poll_aggregates.csv"
+    GERRYMANDERING = INTERIM_DIR / "gerrymandering.csv"
     DISTRICT_ANALYTICS = INTERIM_DIR / "district_analytics.csv"
-    SPEECH_SENTIMENT   = INTERIM_DIR / "speech_sentiment.csv"
+    SPEECH_SENTIMENT = INTERIM_DIR / "speech_sentiment.csv"
 
     # external/ — Congress.gov member list cache (raw API response, no transformation)
     CONGRESS_MEMBERS_CACHE = EXTERNAL_DIR / "congress_members_119.json"
 
     # external/ — Census TIGER/Line shapefile zip (raw geometry, no transformation)
-    TIGER_SHAPEFILE    = EXTERNAL_DIR / "tl_2022_us_cd118.zip"
+    TIGER_SHAPEFILE = EXTERNAL_DIR / "tl_2022_us_cd118.zip"
 
     # processed/ — derived artifacts the app/API read at runtime. Safe to delete.
-    DB     = PROCESSED_DIR / "elections.db"
+    DB = PROCESSED_DIR / "elections.db"
     CHROMA = PROCESSED_DIR / "chroma_db"
 
     # models/ — trained model artifacts (gitignored, regenerable).

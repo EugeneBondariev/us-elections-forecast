@@ -27,6 +27,7 @@ Output
 data/interim/candidate_quality.csv  — year, state_po, district,
     candidate_quality_dem_share, experience_cycles_dem, experience_cycles_rep
 """
+
 from __future__ import annotations
 
 import logging
@@ -56,8 +57,16 @@ __all__ = [
 ]
 
 _KEY_COLS = [Col.YEAR, Col.STATE, Col.DISTRICT, Col.PARTY]
-_CANDIDATE_COLS = [Col.YEAR, Col.STATE, Col.DISTRICT, Col.PARTY,
-                   "candidate_id", "candidate_name", "receipts", "experience_cycles"]
+_CANDIDATE_COLS = [
+    Col.YEAR,
+    Col.STATE,
+    Col.DISTRICT,
+    Col.PARTY,
+    "candidate_id",
+    "candidate_name",
+    "receipts",
+    "experience_cycles",
+]
 
 
 def compute_experience_cycles(fec_raw: pd.DataFrame) -> pd.DataFrame:
@@ -115,11 +124,16 @@ def build_candidate_descriptions(candidates: pd.DataFrame) -> pd.Series:
     cycles = candidates["experience_cycles"].apply(lambda c: f"{min(int(c), 10)} cycles")
 
     descriptions = (
-        party_word + " "
-        + incumbent + " "
-        + state + " district "
-        + district + " "
-        + fundraising + " "
+        party_word
+        + " "
+        + incumbent
+        + " "
+        + state
+        + " district "
+        + district
+        + " "
+        + fundraising
+        + " "
         + cycles
     )
     return descriptions
@@ -178,11 +192,7 @@ def compute_quality_scores(candidates: pd.DataFrame, use_embeddings: bool = Fals
     exp_norm = _min_max_normalize(result["experience_cycles"].clip(lower=1, upper=10))
     tfidf_norm = _min_max_normalize(result["tfidf_1"])
 
-    quality_raw = (
-        0.5 * exp_norm
-        + 0.3 * result["receipts_rank"]
-        + 0.2 * tfidf_norm
-    )
+    quality_raw = 0.5 * exp_norm + 0.3 * result["receipts_rank"] + 0.2 * tfidf_norm
     result["quality_score"] = _min_max_normalize(quality_raw)
     return result
 
@@ -228,12 +238,16 @@ def build_candidate_quality(
         total > 0, 0.5
     )
 
-    return merged[[
-        Col.YEAR, Col.STATE, Col.DISTRICT,
-        Col.CANDIDATE_QUALITY,
-        Col.EXPERIENCE_CYCLES_DEM,
-        Col.EXPERIENCE_CYCLES_REP,
-    ]]
+    return merged[
+        [
+            Col.YEAR,
+            Col.STATE,
+            Col.DISTRICT,
+            Col.CANDIDATE_QUALITY,
+            Col.EXPERIENCE_CYCLES_DEM,
+            Col.EXPERIENCE_CYCLES_REP,
+        ]
+    ]
 
 
 def load_candidate_quality(path: Path) -> pd.DataFrame | None:

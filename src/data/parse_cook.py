@@ -10,6 +10,7 @@ Run:
     python -m src.data.parse_cook
 or via fetch_data.py / make fetch (called automatically if cook.csv is missing).
 """
+
 from __future__ import annotations
 
 import csv
@@ -28,36 +29,72 @@ from src.paths import DataFile, ensure
 logger = logging.getLogger(__name__)
 
 RATINGS_URL = (
-    "https://en.wikipedia.org/wiki/"
-    "2026_United_States_House_of_Representatives_election_ratings"
+    "https://en.wikipedia.org/wiki/2026_United_States_House_of_Representatives_election_ratings"
 )
 
 _UA = "Mozilla/5.0 (compatible; us-elections-forecast/1.0; educational use)"
 
 _STATE_ABBR: dict[str, str] = {
-    "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR",
-    "California": "CA", "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE",
-    "Florida": "FL", "Georgia": "GA", "Hawaii": "HI", "Idaho": "ID",
-    "Illinois": "IL", "Indiana": "IN", "Iowa": "IA", "Kansas": "KS",
-    "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD",
-    "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN", "Mississippi": "MS",
-    "Missouri": "MO", "Montana": "MT", "Nebraska": "NE", "Nevada": "NV",
-    "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM", "New York": "NY",
-    "North Carolina": "NC", "North Dakota": "ND", "Ohio": "OH", "Oklahoma": "OK",
-    "Oregon": "OR", "Pennsylvania": "PA", "Rhode Island": "RI", "South Carolina": "SC",
-    "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX", "Utah": "UT",
-    "Vermont": "VT", "Virginia": "VA", "Washington": "WA", "West Virginia": "WV",
-    "Wisconsin": "WI", "Wyoming": "WY",
+    "Alabama": "AL",
+    "Alaska": "AK",
+    "Arizona": "AZ",
+    "Arkansas": "AR",
+    "California": "CA",
+    "Colorado": "CO",
+    "Connecticut": "CT",
+    "Delaware": "DE",
+    "Florida": "FL",
+    "Georgia": "GA",
+    "Hawaii": "HI",
+    "Idaho": "ID",
+    "Illinois": "IL",
+    "Indiana": "IN",
+    "Iowa": "IA",
+    "Kansas": "KS",
+    "Kentucky": "KY",
+    "Louisiana": "LA",
+    "Maine": "ME",
+    "Maryland": "MD",
+    "Massachusetts": "MA",
+    "Michigan": "MI",
+    "Minnesota": "MN",
+    "Mississippi": "MS",
+    "Missouri": "MO",
+    "Montana": "MT",
+    "Nebraska": "NE",
+    "Nevada": "NV",
+    "New Hampshire": "NH",
+    "New Jersey": "NJ",
+    "New Mexico": "NM",
+    "New York": "NY",
+    "North Carolina": "NC",
+    "North Dakota": "ND",
+    "Ohio": "OH",
+    "Oklahoma": "OK",
+    "Oregon": "OR",
+    "Pennsylvania": "PA",
+    "Rhode Island": "RI",
+    "South Carolina": "SC",
+    "South Dakota": "SD",
+    "Tennessee": "TN",
+    "Texas": "TX",
+    "Utah": "UT",
+    "Vermont": "VT",
+    "Virginia": "VA",
+    "Washington": "WA",
+    "West Virginia": "WV",
+    "Wisconsin": "WI",
+    "Wyoming": "WY",
 }
 
 COOK_PROB: dict[str, float] = {
-    "solid-d":  0.97,
+    "solid-d": 0.97,
     "likely-d": 0.87,
-    "lean-d":   0.72,
-    "tossup":   0.50,
-    "lean-r":   0.28,
+    "lean-d": 0.72,
+    "tossup": 0.50,
+    "lean-r": 0.28,
     "likely-r": 0.13,
-    "solid-r":  0.03,
+    "solid-r": 0.03,
 }
 
 _WIKI_TO_KEY: dict[str, str] = {
@@ -114,9 +151,7 @@ def _find_table(tables: list[pd.DataFrame]) -> tuple[pd.DataFrame, str, str] | N
         constituency_col = next(
             (c for c in cols if re.search(r"constituency", c, re.IGNORECASE)), None
         )
-        cook_col = next(
-            (c for c in cols if re.search(r"\bcook\b", c, re.IGNORECASE)), None
-        )
+        cook_col = next((c for c in cols if re.search(r"\bcook\b", c, re.IGNORECASE)), None)
         if constituency_col and cook_col:
             return df, constituency_col, cook_col
     return None
@@ -149,12 +184,14 @@ def parse(html: str) -> list[dict[str, Any]]:
         if rating_key is None:
             continue
         state_po, district = parsed
-        rows.append({
-            Col.STATE: state_po,
-            Col.DISTRICT: district,
-            "rating": rating_key,
-            Col.COOK_PROB: COOK_PROB[rating_key],
-        })
+        rows.append(
+            {
+                Col.STATE: state_po,
+                Col.DISTRICT: district,
+                "rating": rating_key,
+                Col.COOK_PROB: COOK_PROB[rating_key],
+            }
+        )
     return rows
 
 

@@ -7,6 +7,7 @@ LR is fast, interpretable, and representative enough for these diagnostics.
 
 Run via predict.py: python -m src.models.predict
 """
+
 from __future__ import annotations
 
 import logging
@@ -163,13 +164,15 @@ def walk_forward_tossup_skew(
             continue
         dem_wins = int(actual[mask].sum())
         dem_pct = dem_wins / n_tossup * 100
-        rows.append({
-            "year": year,
-            "n_tossup": n_tossup,
-            "dem_wins": dem_wins,
-            "dem_pct": round(dem_pct, 1),
-            "skew": round(dem_pct - 50.0, 1),
-        })
+        rows.append(
+            {
+                "year": year,
+                "n_tossup": n_tossup,
+                "dem_wins": dem_wins,
+                "dem_pct": round(dem_pct, 1),
+                "skew": round(dem_pct - 50.0, 1),
+            }
+        )
     return pd.DataFrame(rows)
 
 

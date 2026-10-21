@@ -131,13 +131,17 @@ def build_dems_reps(
     dems_reps[Col.DEM_LEAN_TREND] = dems_reps.groupby([Col.STATE, Col.DISTRICT])[
         Col.DEM_VOTE_SHARE
     ].transform(
-        lambda x: x.shift(1)
-        .rolling(dem_lean_window)
-        .apply(
-            lambda v: (
-                np.polyfit(range(dem_lean_window), v, 1)[0] if not np.any(np.isnan(v)) else np.nan
-            ),
-            raw=True,
+        lambda x: (
+            x.shift(1)
+            .rolling(dem_lean_window)
+            .apply(
+                lambda v: (
+                    np.polyfit(range(dem_lean_window), v, 1)[0]
+                    if not np.any(np.isnan(v))
+                    else np.nan
+                ),
+                raw=True,
+            )
         )
     )
     dems_reps[Col.PREV_DEM_SHARE] = dems_reps.groupby([Col.STATE, Col.DISTRICT])[
@@ -326,9 +330,7 @@ def build_feature_matrix(
     w[Col.NET_PRES_APPROVAL] = w[Col.PRES_APPROVAL] + w[Col.PRES_DISAPPROVAL]
     # State-level mean of the already-lagged dem_lean — captures state partisan context
     # without dummy explosion (50 sparse dummies) or information loss (5 coarse regions).
-    w[Col.STATE_PARTISAN_LEAN] = (
-        w.groupby([Col.STATE, Col.YEAR])[Col.DEM_LEAN].transform("mean")
-    )
+    w[Col.STATE_PARTISAN_LEAN] = w.groupby([Col.STATE, Col.YEAR])[Col.DEM_LEAN].transform("mean")
     w = pd.get_dummies(
         w,
         columns=[Col.NATION_INCUMBENT, Col.DISTRICT_INCUMBENT],
@@ -404,7 +406,10 @@ def build_dataset(min_train_year: int | None = None) -> DatasetResult:
     if min_train_year is not None:
         mask = years >= min_train_year
         X, y, y_vote_share, years = (
-            X.loc[mask], y.loc[mask], y_vote_share.loc[mask], years.loc[mask]
+            X.loc[mask],
+            y.loc[mask],
+            y_vote_share.loc[mask],
+            years.loc[mask],
         )
         logger.info("Filtered to min_train_year=%d: %d rows remaining", min_train_year, len(X))
     return DatasetResult(
@@ -545,7 +550,9 @@ def build_pred_2026(
                 pred[c] = pred[c].fillna(pred[c].median())
     if candidate_quality is not None:
         _cq_cols = [Col.CANDIDATE_QUALITY, Col.EXPERIENCE_CYCLES_DEM, Col.EXPERIENCE_CYCLES_REP]
-        available_cq = [c for c in _cq_cols if c in list(feature_columns) and c in candidate_quality.columns]
+        available_cq = [
+            c for c in _cq_cols if c in list(feature_columns) and c in candidate_quality.columns
+        ]
         if available_cq:
             cq_2026 = candidate_quality[candidate_quality[Col.YEAR] == 2026][
                 [Col.STATE, Col.DISTRICT] + available_cq
@@ -572,7 +579,9 @@ def build_pred_2026(
                 )
     # gerrymandering: static geometry — same values for 2026 as for training
     if gerrymandering is not None:
-        _geo_cols = [c for c in [Col.POLSBY_POPPER, Col.DISTRICT_AREA_KM2] if c in list(feature_columns)]
+        _geo_cols = [
+            c for c in [Col.POLSBY_POPPER, Col.DISTRICT_AREA_KM2] if c in list(feature_columns)
+        ]
         if _geo_cols:
             pred = pred.merge(
                 gerrymandering[[Col.STATE, Col.DISTRICT] + _geo_cols],
@@ -583,7 +592,9 @@ def build_pred_2026(
                 pred[c] = pred[c].fillna(pred[c].median())
     # speech_sentiment: 2026-cycle Congress.gov data, no historical equivalent
     if speech_sentiment is not None:
-        _sp_cols = [c for c in [Col.SPEECH_SENTIMENT, Col.SPEECH_COUNT] if c in list(feature_columns)]
+        _sp_cols = [
+            c for c in [Col.SPEECH_SENTIMENT, Col.SPEECH_COUNT] if c in list(feature_columns)
+        ]
         if _sp_cols:
             pred = pred.merge(
                 speech_sentiment[[Col.STATE, Col.DISTRICT] + _sp_cols],

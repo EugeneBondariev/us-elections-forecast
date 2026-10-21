@@ -51,29 +51,25 @@ def main() -> None:
     train_sizes_frac = np.linspace(0.05, 1.0, 15)
 
     logger.info("Computing LR learning curve...")
-    train_sizes_lr, train_scores_lr, test_scores_lr = (
-        learning_curve(  # pyright: ignore[reportAssignmentType]
-            build_lr_pipeline(),
-            X,
-            y,
-            train_sizes=train_sizes_frac,
-            cv=5,
-            scoring="accuracy",
-            n_jobs=-1,
-        )
+    train_sizes_lr, train_scores_lr, test_scores_lr = learning_curve(  # pyright: ignore[reportAssignmentType]
+        build_lr_pipeline(),
+        X,
+        y,
+        train_sizes=train_sizes_frac,
+        cv=5,
+        scoring="accuracy",
+        n_jobs=-1,
     )
 
     logger.info("Computing LightGBM learning curve...")
-    train_sizes_gbm, train_scores_gbm, test_scores_gbm = (
-        learning_curve(  # pyright: ignore[reportAssignmentType]
-            build_gbm_pipeline(),
-            X,
-            y,
-            train_sizes=train_sizes_frac,
-            cv=5,
-            scoring="accuracy",
-            n_jobs=-1,
-        )
+    train_sizes_gbm, train_scores_gbm, test_scores_gbm = learning_curve(  # pyright: ignore[reportAssignmentType]
+        build_gbm_pipeline(),
+        X,
+        y,
+        train_sizes=train_sizes_frac,
+        cv=5,
+        scoring="accuracy",
+        n_jobs=-1,
     )
 
     logger.info(

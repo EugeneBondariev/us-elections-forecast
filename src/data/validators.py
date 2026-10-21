@@ -7,6 +7,7 @@ copied cell-by-cell from a spreadsheet) — a bad cell copy should break the pip
 loudly, not slip through as a logged warning nobody reads until the forecast looks
 wrong for reasons nobody can trace back.
 """
+
 from __future__ import annotations
 
 import logging
@@ -97,7 +98,9 @@ class DemsRepsSchema(pa.DataFrameModel):
     dem_vote_share: Series[float] = pa.Field(ge=0, le=1, nullable=True, alias=Col.DEM_VOTE_SHARE)
     dem_lean: Series[float] = pa.Field(nullable=True, alias=Col.DEM_LEAN)
     dem_lean_trend: Series[float] = pa.Field(nullable=True, alias=Col.DEM_LEAN_TREND)
-    prev_dem_vote_share: Series[float] = pa.Field(ge=0, le=1, nullable=True, alias=Col.PREV_DEM_SHARE)
+    prev_dem_vote_share: Series[float] = pa.Field(
+        ge=0, le=1, nullable=True, alias=Col.PREV_DEM_SHARE
+    )
 
     class Config:
         coerce = True
@@ -128,32 +131,56 @@ class WinnersSchema(pa.DataFrameModel):
     vote_share: Series[float] = pa.Field(ge=0, le=1, alias=Col.VOTE_SHARE)
     dem_lean: Series[float] = pa.Field(nullable=True, alias=Col.DEM_LEAN)
     dem_lean_trend: Series[float] = pa.Field(nullable=True, alias=Col.DEM_LEAN_TREND)
-    dem_vote_share: Optional[Series[float]] = pa.Field(ge=0, le=1, nullable=True, alias=Col.DEM_VOTE_SHARE)
-    prev_dem_vote_share: Series[float] = pa.Field(ge=0, le=1, nullable=True, alias=Col.PREV_DEM_SHARE)
+    dem_vote_share: Optional[Series[float]] = pa.Field(
+        ge=0, le=1, nullable=True, alias=Col.DEM_VOTE_SHARE
+    )
+    prev_dem_vote_share: Series[float] = pa.Field(
+        ge=0, le=1, nullable=True, alias=Col.PREV_DEM_SHARE
+    )
     pres_approval: Series[float] = pa.Field(alias=Col.PRES_APPROVAL)
     pres_disapproval: Series[float] = pa.Field(alias=Col.PRES_DISAPPROVAL)
     generic_ballot: Series[float] = pa.Field(alias=Col.GENERIC_BALLOT)
     econ_growth: Series[float] = pa.Field(alias=Col.ECON_GROWTH)
     unemployment: Series[float] = pa.Field(alias=Col.UNEMPLOYMENT)
     # Added by add_incumbency_features — absent in build_winners output
-    is_incumbent_on_ballot: Optional[Series[float]] = pa.Field(nullable=True, alias=Col.IS_INCUMBENT)
+    is_incumbent_on_ballot: Optional[Series[float]] = pa.Field(
+        nullable=True, alias=Col.IS_INCUMBENT
+    )
     redistricting: Optional[Series[int]] = pa.Field(alias=Col.REDISTRICTING)
     # Present only when source data available
     pres_lean: Optional[Series[float]] = pa.Field(nullable=True, alias=Col.PRES_LEAN)
-    fundraising_dem_share: Optional[Series[float]] = pa.Field(nullable=True, alias=Col.FUNDRAISING_DEM_SHARE)
-    large_donor_dem_share: Optional[Series[float]] = pa.Field(nullable=True, alias=Col.LARGE_DONOR_DEM_SHARE)
+    fundraising_dem_share: Optional[Series[float]] = pa.Field(
+        nullable=True, alias=Col.FUNDRAISING_DEM_SHARE
+    )
+    large_donor_dem_share: Optional[Series[float]] = pa.Field(
+        nullable=True, alias=Col.LARGE_DONOR_DEM_SHARE
+    )
     pac_dem_share: Optional[Series[float]] = pa.Field(nullable=True, alias=Col.PAC_DEM_SHARE)
-    spending_dem_share: Optional[Series[float]] = pa.Field(nullable=True, alias=Col.SPENDING_DEM_SHARE)
+    spending_dem_share: Optional[Series[float]] = pa.Field(
+        nullable=True, alias=Col.SPENDING_DEM_SHARE
+    )
     surplus_dem_share: Optional[Series[float]] = pa.Field(alias=Col.SURPLUS_DEM_SHARE)
     # Census ACS demographics — present when census_acs.csv is available
-    pct_bachelor_plus: Optional[Series[float]] = pa.Field(ge=0, le=1, nullable=True, alias=Col.PCT_BACHELOR_PLUS)
-    pct_non_white: Optional[Series[float]] = pa.Field(ge=0, le=1, nullable=True, alias=Col.PCT_NON_WHITE)
+    pct_bachelor_plus: Optional[Series[float]] = pa.Field(
+        ge=0, le=1, nullable=True, alias=Col.PCT_BACHELOR_PLUS
+    )
+    pct_non_white: Optional[Series[float]] = pa.Field(
+        ge=0, le=1, nullable=True, alias=Col.PCT_NON_WHITE
+    )
     median_income: Optional[Series[float]] = pa.Field(ge=0, nullable=True, alias=Col.MEDIAN_INCOME)
-    median_age: Optional[Series[float]] = pa.Field(ge=0, le=120, nullable=True, alias=Col.MEDIAN_AGE)
+    median_age: Optional[Series[float]] = pa.Field(
+        ge=0, le=120, nullable=True, alias=Col.MEDIAN_AGE
+    )
     # Candidate quality — present when candidate_quality.csv is available
-    candidate_quality_dem_share: Optional[Series[float]] = pa.Field(ge=0, le=1, nullable=True, alias=Col.CANDIDATE_QUALITY)
-    experience_cycles_dem: Optional[Series[int]] = pa.Field(ge=0, nullable=True, alias=Col.EXPERIENCE_CYCLES_DEM)
-    experience_cycles_rep: Optional[Series[int]] = pa.Field(ge=0, nullable=True, alias=Col.EXPERIENCE_CYCLES_REP)
+    candidate_quality_dem_share: Optional[Series[float]] = pa.Field(
+        ge=0, le=1, nullable=True, alias=Col.CANDIDATE_QUALITY
+    )
+    experience_cycles_dem: Optional[Series[int]] = pa.Field(
+        ge=0, nullable=True, alias=Col.EXPERIENCE_CYCLES_DEM
+    )
+    experience_cycles_rep: Optional[Series[int]] = pa.Field(
+        ge=0, nullable=True, alias=Col.EXPERIENCE_CYCLES_REP
+    )
 
     class Config:
         coerce = True
@@ -164,7 +191,9 @@ class FeatureMatrixSchema(pa.DataFrameModel):
     """Schema for the feature matrix X before model training."""
 
     dem_lean: Series[float] = pa.Field(nullable=True, alias=Col.DEM_LEAN)
-    prev_dem_vote_share: Series[float] = pa.Field(ge=0, le=1, nullable=True, alias=Col.PREV_DEM_SHARE)
+    prev_dem_vote_share: Series[float] = pa.Field(
+        ge=0, le=1, nullable=True, alias=Col.PREV_DEM_SHARE
+    )
     net_pres_approval: Series[float] = pa.Field(alias=Col.NET_PRES_APPROVAL)
     state_partisan_lean: Series[float] = pa.Field(nullable=True, alias=Col.STATE_PARTISAN_LEAN)
 
@@ -234,7 +263,9 @@ class CensusSchema(pa.DataFrameModel):
 
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
     district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
-    pct_bachelor_plus: Series[float] = pa.Field(ge=0, le=1, nullable=True, alias=Col.PCT_BACHELOR_PLUS)
+    pct_bachelor_plus: Series[float] = pa.Field(
+        ge=0, le=1, nullable=True, alias=Col.PCT_BACHELOR_PLUS
+    )
     pct_non_white: Series[float] = pa.Field(ge=0, le=1, nullable=True, alias=Col.PCT_NON_WHITE)
     median_income: Series[float] = pa.Field(ge=0, nullable=True, alias=Col.MEDIAN_INCOME)
     median_age: Series[float] = pa.Field(ge=0, le=120, nullable=True, alias=Col.MEDIAN_AGE)
@@ -404,7 +435,8 @@ def validate_pres_lean(df: pd.DataFrame, min_rows: int = 400) -> pd.DataFrame:
     except pa.errors.SchemaErrors as e:
         logger.error(
             "Presidential lean validation FAILED: %d issue(s)\n%s",
-            len(e.failure_cases), e.failure_cases.head(10).to_string(),
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
         )
         raise
     return df
@@ -423,7 +455,8 @@ def validate_cook_csv(df: pd.DataFrame, min_districts: int = 100) -> pd.DataFram
     except pa.errors.SchemaErrors as e:
         logger.error(
             "Cook CSV validation FAILED: %d issue(s)\n%s",
-            len(e.failure_cases), e.failure_cases.head(10).to_string(),
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
         )
         raise
     return df
@@ -432,16 +465,15 @@ def validate_cook_csv(df: pd.DataFrame, min_districts: int = 100) -> pd.DataFram
 def validate_fundraising(df: pd.DataFrame, min_rows: int = 500) -> pd.DataFrame:
     """Validate fundraising CSV. Raises on failure."""
     if len(df) < min_rows:
-        raise ValueError(
-            f"Fundraising data too small: {len(df)} rows (expected >= {min_rows})"
-        )
+        raise ValueError(f"Fundraising data too small: {len(df)} rows (expected >= {min_rows})")
     try:
         FundraisingSchema.validate(df, lazy=True)
         logger.info("Fundraising validation passed (%d district-year rows)", len(df))
     except pa.errors.SchemaErrors as e:
         logger.error(
             "Fundraising validation FAILED: %d issue(s)\n%s",
-            len(e.failure_cases), e.failure_cases.head(10).to_string(),
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
         )
         raise
     return df
@@ -460,7 +492,8 @@ def validate_census(df: pd.DataFrame, min_rows: int = 400) -> pd.DataFrame:
     except pa.errors.SchemaErrors as e:
         logger.error(
             "Census validation FAILED: %d issue(s)\n%s",
-            len(e.failure_cases), e.failure_cases.head(10).to_string(),
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
         )
         raise
     return df
@@ -474,7 +507,8 @@ def validate_candidate_quality(df: pd.DataFrame) -> pd.DataFrame:
     except pa.errors.SchemaErrors as e:
         logger.error(
             "Candidate quality validation FAILED: %d issue(s)\n%s",
-            len(e.failure_cases), e.failure_cases.head(10).to_string(),
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
         )
         raise
     return df
@@ -488,7 +522,8 @@ def validate_poll_aggregates(df: pd.DataFrame) -> pd.DataFrame:
     except pa.errors.SchemaErrors as e:
         logger.error(
             "Poll aggregates validation FAILED: %d issue(s)\n%s",
-            len(e.failure_cases), e.failure_cases.head(10).to_string(),
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
         )
         raise
     return df
@@ -515,7 +550,8 @@ def validate_speech_sentiment(df: pd.DataFrame) -> pd.DataFrame:
     except pa.errors.SchemaErrors as e:
         logger.error(
             "Speech sentiment validation FAILED: %d issue(s)\n%s",
-            len(e.failure_cases), e.failure_cases.head(10).to_string(),
+            len(e.failure_cases),
+            e.failure_cases.head(10).to_string(),
         )
         raise
     return df

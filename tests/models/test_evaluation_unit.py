@@ -2,6 +2,7 @@
 walk_forward_feature_importance, and walk_forward_tossup_skew.
 All fixtures are synthetic; no real data files required.
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -22,10 +23,12 @@ def _make_fixture() -> tuple[pd.DataFrame, pd.Series, pd.Series]:
     rows_y: list[int] = []
     rows_years: list[int] = []
     for yr in group_years:
-        rows_X.append(pd.DataFrame(
-            rng.randn(n_per_year, 4),
-            columns=["a", "b", "c", "d"],
-        ))
+        rows_X.append(
+            pd.DataFrame(
+                rng.randn(n_per_year, 4),
+                columns=["a", "b", "c", "d"],
+            )
+        )
         rows_y.extend([i % 2 for i in range(n_per_year)])
         rows_years.extend([yr] * n_per_year)
     X = pd.concat(rows_X, ignore_index=True)

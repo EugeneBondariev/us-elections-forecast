@@ -5,7 +5,13 @@ from typing import NotRequired, TypedDict
 import numpy as np
 import pandas as pd
 
-__all__ = ["ForecastResult", "SimParams", "CalibrationResult", "BootstrapResult", "FECCandidateRecord"]
+__all__ = [
+    "ForecastResult",
+    "SimParams",
+    "CalibrationResult",
+    "BootstrapResult",
+    "FECCandidateRecord",
+]
 
 
 class ForecastResult(TypedDict):

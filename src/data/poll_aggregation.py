@@ -20,6 +20,7 @@ data/interim/poll_aggregates.csv  — year, generic_ballot, generic_ballot_sigma
     generic_ballot       = Dem% - Rep% in percentage points (positive = Dem-favorable)
     generic_ballot_sigma = weighted standard deviation of adjusted polls (uncertainty estimate)
 """
+
 from __future__ import annotations
 
 import datetime
@@ -184,9 +185,7 @@ def aggregate_year(
     # Estimate house effects only from pre-election polls across all cycles so that
     # any post-election poll in the input doesn't distort pollster bias estimates.
     all_end_dates = pd.to_datetime(polls["end_date"], errors="coerce").dt.date
-    cutoff_dates = polls["year"].map(
-        lambda y: ELECTION_DATES.get(int(y)) if pd.notna(y) else None
-    )
+    cutoff_dates = polls["year"].map(lambda y: ELECTION_DATES.get(int(y)) if pd.notna(y) else None)
     pre_election_mask = pd.Series(
         [
             (d is not None) and (c is not None) and (d <= c)

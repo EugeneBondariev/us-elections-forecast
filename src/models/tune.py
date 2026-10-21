@@ -3,6 +3,7 @@
 Run from project root:
     python -m src.models.tune
 """
+
 from __future__ import annotations
 
 import json
@@ -50,10 +51,12 @@ def objective(trial: optuna.Trial, X: pd.DataFrame, y: pd.Series, years: pd.Seri
         if len(train_idx) == 0 or len(test_idx) == 0:
             continue
 
-        pipeline = WeightedPipeline([
-            ("scaler", StandardScaler()),
-            ("model", LGBMClassifier(**params)),  # type: ignore[arg-type]
-        ])
+        pipeline = WeightedPipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("model", LGBMClassifier(**params)),  # type: ignore[arg-type]
+            ]
+        )
         w = compute_sample_weights(years.loc[train_idx])
         pipeline.fit(X.loc[train_idx], y.loc[train_idx], sample_weight=w)
         preds = pipeline.predict(X.loc[test_idx])
@@ -80,7 +83,9 @@ def main() -> None:
 
     def _log_progress(study: optuna.Study, trial: optuna.trial.FrozenTrial) -> None:
         if trial.number % 50 == 0 or trial.number == n_trials - 1:
-            logger.info("  Trial %3d/%d — best so far: %.4f", trial.number + 1, n_trials, study.best_value)
+            logger.info(
+                "  Trial %3d/%d — best so far: %.4f", trial.number + 1, n_trials, study.best_value
+            )
 
     logger.info("Running %d trials...", n_trials)
     sampler = optuna.samplers.TPESampler(seed=42, n_startup_trials=50)

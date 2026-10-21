@@ -32,7 +32,11 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "n": {"type": "integer", "description": "Number of districts to return (default 10)", "default": 10}
+                    "n": {
+                        "type": "integer",
+                        "description": "Number of districts to return (default 10)",
+                        "default": 10,
+                    }
                 },
                 "required": [],
             },
@@ -46,8 +50,14 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "state": {"type": "string", "description": "Two-letter state postal code, e.g. 'PA'"},
-                    "district": {"type": "integer", "description": "District number. Use 0 for at-large districts."},
+                    "state": {
+                        "type": "string",
+                        "description": "Two-letter state postal code, e.g. 'PA'",
+                    },
+                    "district": {
+                        "type": "integer",
+                        "description": "District number. Use 0 for at-large districts.",
+                    },
                 },
                 "required": ["state", "district"],
             },
@@ -61,7 +71,10 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "state": {"type": "string", "description": "Two-letter state postal code, e.g. 'AZ'"},
+                    "state": {
+                        "type": "string",
+                        "description": "Two-letter state postal code, e.g. 'AZ'",
+                    },
                 },
                 "required": ["state"],
             },
@@ -82,34 +95,37 @@ def _run_tool(name: str, inputs: dict, forecast: ForecastResult) -> str:
 
     if name == "get_forecast_summary":
         median = int(np.median(sim))
-        return json.dumps({
-            "median_dem_seats": median,
-            "rep_seats": n_districts - median,
-            "p_dem_majority_pct": round(float((sim >= DEM_MAJORITY_SEATS).mean() * 100), 1),
-            "ci_68": [int(np.percentile(sim, 16)), int(np.percentile(sim, 84))],
-            "ci_95": [int(np.percentile(sim, 2.5)), int(np.percentile(sim, 97.5))],
-            "n_districts": n_districts,
-            "n_competitive": int(((districts["proba_dem"] - 0.5).abs() < 0.15).sum()),
-        })
+        return json.dumps(
+            {
+                "median_dem_seats": median,
+                "rep_seats": n_districts - median,
+                "p_dem_majority_pct": round(float((sim >= DEM_MAJORITY_SEATS).mean() * 100), 1),
+                "ci_68": [int(np.percentile(sim, 16)), int(np.percentile(sim, 84))],
+                "ci_95": [int(np.percentile(sim, 2.5)), int(np.percentile(sim, 97.5))],
+                "n_districts": n_districts,
+                "n_competitive": int(((districts["proba_dem"] - 0.5).abs() < 0.15).sum()),
+            }
+        )
 
     if name == "get_competitive_districts":
         n = inputs.get("n", 10)
         comp = (
-            districts
-            .assign(closeness=lambda df: (df["proba_dem"] - 0.5).abs())
+            districts.assign(closeness=lambda df: (df["proba_dem"] - 0.5).abs())
             .sort_values("closeness")
             .head(n)
         )
         rows = []
         for r in comp.to_dict("records"):
             proba = float(r["proba_dem"])
-            rows.append({
-                "label": r["label"],
-                "proba_dem_pct": round(proba * 100, 1),
-                "lean": "Dem" if proba >= 0.5 else "Rep",
-                "incumbent": str(r.get("district_incumbent", "unknown")).title(),
-                "is_open": bool(r.get("is_open", False)),
-            })
+            rows.append(
+                {
+                    "label": r["label"],
+                    "proba_dem_pct": round(proba * 100, 1),
+                    "lean": "Dem" if proba >= 0.5 else "Rep",
+                    "incumbent": str(r.get("district_incumbent", "unknown")).title(),
+                    "is_open": bool(r.get("is_open", False)),
+                }
+            )
         return json.dumps(rows)
 
     if name == "get_district_detail":
@@ -134,17 +150,21 @@ def _run_tool(name: str, inputs: dict, forecast: ForecastResult) -> str:
 
     if name == "get_state_summary":
         state = inputs["state"].upper()
-        state_df = districts[districts[Col.STATE] == state].sort_values("proba_dem", ascending=False)
+        state_df = districts[districts[Col.STATE] == state].sort_values(
+            "proba_dem", ascending=False
+        )
         if state_df.empty:
             return json.dumps({"error": f"No districts found for state {state}"})
         rows = []
         for r in state_df.to_dict("records"):
             proba = float(r["proba_dem"])
-            rows.append({
-                "label": r["label"],
-                "proba_dem_pct": round(proba * 100, 1),
-                "lean": "Dem" if proba >= 0.5 else "Rep",
-            })
+            rows.append(
+                {
+                    "label": r["label"],
+                    "proba_dem_pct": round(proba * 100, 1),
+                    "lean": "Dem" if proba >= 0.5 else "Rep",
+                }
+            )
         return json.dumps({"state": state, "n_districts": len(rows), "districts": rows})
 
     return json.dumps({"error": f"Unknown tool: {name}"})
@@ -153,6 +173,7 @@ def _run_tool(name: str, inputs: dict, forecast: ForecastResult) -> str:
 def run_agent(user_question: str, forecast: ForecastResult, api_key: str) -> str:
     """Run one agentic turn: the model decides which tools to call, calls them, returns the final answer."""
     from groq import Groq
+
     client = Groq(api_key=api_key)
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": SYSTEM},
@@ -172,18 +193,20 @@ def run_agent(user_question: str, forecast: ForecastResult, api_key: str) -> str
         if not message.tool_calls:
             return message.content or "No response generated."
 
-        messages.append({
-            "role": "assistant",
-            "content": message.content,
-            "tool_calls": [
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {"name": tc.function.name, "arguments": tc.function.arguments},
-                }
-                for tc in message.tool_calls
-            ],
-        })
+        messages.append(
+            {
+                "role": "assistant",
+                "content": message.content,
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                    }
+                    for tc in message.tool_calls
+                ],
+            }
+        )
         for tc in message.tool_calls:
             inputs = json.loads(tc.function.arguments)
             result = _run_tool(tc.function.name, inputs, forecast)

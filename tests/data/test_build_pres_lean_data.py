@@ -1,4 +1,5 @@
 """Tests for src/data/build_pres_lean_data.py. Network calls mocked, no real fetches."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock

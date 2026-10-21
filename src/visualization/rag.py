@@ -20,18 +20,34 @@ DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 
 def _district_to_text(row: dict | pd.Series) -> str:
     """Convert a district row to a searchable text document."""
-    label = row.get("label", f"{row.get('state_po','?')}-{row.get('district','?')}")
+    label = row.get("label", f"{row.get('state_po', '?')}-{row.get('district', '?')}")
     proba = row.get("proba_dem", 0.5)
-    lean_str = "leans Democratic" if proba >= 0.6 else "leans Republican" if proba <= 0.4 else "is a toss-up"
+    lean_str = (
+        "leans Democratic"
+        if proba >= 0.6
+        else "leans Republican"
+        if proba <= 0.4
+        else "is a toss-up"
+    )
     inc = str(row.get("district_incumbent", "unknown")).title()
-    open_seat = "This is an open seat (no incumbent running)." if row.get("is_open", False) else f"The incumbent is {inc}."
+    open_seat = (
+        "This is an open seat (no incumbent running)."
+        if row.get("is_open", False)
+        else f"The incumbent is {inc}."
+    )
     dem_lean_hist = row.get("dem_lean", None)
-    hist_str = f"Historically, Democrats win about {dem_lean_hist*100:.1f}% of the two-party vote here." if dem_lean_hist and not np.isnan(float(dem_lean_hist)) else ""
+    hist_str = (
+        f"Historically, Democrats win about {dem_lean_hist * 100:.1f}% of the two-party vote here."
+        if dem_lean_hist and not np.isnan(float(dem_lean_hist))
+        else ""
+    )
     cook = row.get("cook_rating", None)
-    cook_str = f"Cook Political Report rates this district: {cook}." if cook and str(cook) != "nan" else ""
+    cook_str = (
+        f"Cook Political Report rates this district: {cook}." if cook and str(cook) != "nan" else ""
+    )
 
     return (
-        f"District {label}: The model gives Democrats a {proba*100:.1f}% win probability. "
+        f"District {label}: The model gives Democrats a {proba * 100:.1f}% win probability. "
         f"This district {lean_str}. {open_seat} {hist_str} {cook_str}"
     ).strip()
 
@@ -41,7 +57,11 @@ def build_index(districts: pd.DataFrame, persist: bool = True) -> object:
     """Build a ChromaDB collection from district fact sheets. Returns the collection."""
     import chromadb
 
-    client = chromadb.PersistentClient(path=str(DataFile.CHROMA)) if persist else chromadb.EphemeralClient()
+    client = (
+        chromadb.PersistentClient(path=str(DataFile.CHROMA))
+        if persist
+        else chromadb.EphemeralClient()
+    )
 
     # Delete existing collection to allow rebuild
     try:
@@ -60,11 +80,13 @@ def build_index(districts: pd.DataFrame, persist: bool = True) -> object:
         label = str(row.get("label", row.get("district", "unknown")))
         docs.append(text)
         ids.append(label)
-        metas.append({
-            "state": str(row.get("state_po", "")),
-            "district": int(row.get("district", 0)),
-            "proba_dem": float(row.get("proba_dem", 0.5)),
-        })
+        metas.append(
+            {
+                "state": str(row.get("state_po", "")),
+                "district": int(row.get("district", 0)),
+                "proba_dem": float(row.get("proba_dem", 0.5)),
+            }
+        )
 
     collection.add(documents=docs, ids=ids, metadatas=metas)  # type: ignore[arg-type]
     logger.info("RAG index built: %d district documents", len(docs))
@@ -74,6 +96,7 @@ def build_index(districts: pd.DataFrame, persist: bool = True) -> object:
 def load_index() -> object:
     """Load persisted ChromaDB collection. Raises if not built yet."""
     import chromadb
+
     client = chromadb.PersistentClient(path=str(DataFile.CHROMA))
     return client.get_collection("districts")
 
@@ -99,6 +122,7 @@ def rag_answer(query: str, collection: object | None = None, api_key: str | None
     context = "\n".join(f"- {c['text']}" for c in chunks)
 
     from groq import Groq
+
     client = Groq(api_key=api_key)
     response = client.chat.completions.create(
         model=os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL),

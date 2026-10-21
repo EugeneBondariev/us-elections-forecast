@@ -98,8 +98,7 @@ class BayesianElectionModel:
             import pytensor.tensor as pt
         except ImportError as exc:
             raise ImportError(
-                "PyMC is required for BayesianElectionModel. "
-                "Install it with: pip install pymc"
+                "PyMC is required for BayesianElectionModel. Install it with: pip install pymc"
             ) from exc
 
         n_obs, n_features = X.shape
@@ -138,11 +137,7 @@ class BayesianElectionModel:
             )
             beta = pm.Normal("beta", mu=0, sigma=0.5, shape=n_features)
 
-            logit_p = (
-                alpha_national
-                + alpha_district[district_idx]
-                + pt.dot(X_const, beta)
-            )
+            logit_p = alpha_national + alpha_district[district_idx] + pt.dot(X_const, beta)
             p = pm.Deterministic("p", pm.math.sigmoid(logit_p))
             pm.Bernoulli("y", p=p, observed=y_vals)
 
@@ -201,11 +196,14 @@ class BayesianElectionModel:
         """ArviZ parameter summary for national-level parameters and feature coefficients."""
         import arviz as az
 
-        return cast(pd.DataFrame, az.summary(
-            self._trace,
-            var_names=["alpha_national", "sigma_alpha", "beta"],
-            round_to=4,
-        ))
+        return cast(
+            pd.DataFrame,
+            az.summary(
+                self._trace,
+                var_names=["alpha_national", "sigma_alpha", "beta"],
+                round_to=4,
+            ),
+        )
 
     def save(self, path: Path) -> None:
         """Persist trace (.nc) and metadata (.json) alongside it."""
@@ -216,8 +214,7 @@ class BayesianElectionModel:
         scaler: StandardScaler = self._scaler
         meta = {
             "district_map": {
-                f"{state}-{district}": idx
-                for (state, district), idx in self._district_map.items()
+                f"{state}-{district}": idx for (state, district), idx in self._district_map.items()
             },
             "n_districts": self._n_districts,
             "feature_names": self._feature_names,
@@ -253,7 +250,7 @@ class BayesianElectionModel:
         scale_ = np.array(meta["scaler_scale"], dtype=float)
         scaler.mean_ = mean_
         scaler.scale_ = scale_
-        scaler.var_ = scale_ ** 2
+        scaler.var_ = scale_**2
         scaler.n_features_in_ = len(mean_)
         obj._scaler = scaler
 
@@ -276,7 +273,7 @@ class BayesianElectionModel:
         posterior = self._trace.posterior  # type: ignore[union-attr]
 
         # Flatten chain × draw into one samples dimension
-        alpha_national = posterior["alpha_national"].values.reshape(-1)   # (S,)
+        alpha_national = posterior["alpha_national"].values.reshape(-1)  # (S,)
         alpha_district = posterior["alpha_district"].values.reshape(-1, self._n_districts)  # (S, D)
         beta = posterior["beta"].values.reshape(-1, len(self._feature_names))  # (S, F)
 
@@ -286,12 +283,12 @@ class BayesianElectionModel:
         district_effect = np.where(
             district_idx[:, None] == -1,
             0.0,
-            alpha_district[np.newaxis, :, :].reshape(n_samples, self._n_districts)[
-                :, np.maximum(district_idx, 0)
-            ].T,
+            alpha_district[np.newaxis, :, :]
+            .reshape(n_samples, self._n_districts)[:, np.maximum(district_idx, 0)]
+            .T,
         )  # shape (n_obs, n_samples)
 
-        feature_effect = X_scaled @ beta.T   # (n_obs, n_samples)
+        feature_effect = X_scaled @ beta.T  # (n_obs, n_samples)
         logit_p = alpha_national[np.newaxis, :] + district_effect + feature_effect
         return 1.0 / (1.0 + np.exp(-logit_p))
 
@@ -307,7 +304,5 @@ class BayesianElectionModel:
         pairs = list(
             zip(district_ids[state_col].astype(str), district_ids[district_col].astype(int))
         )
-        district_idx = np.array(
-            [self._district_map.get(p, -1) for p in pairs], dtype=int
-        )
+        district_idx = np.array([self._district_map.get(p, -1) for p in pairs], dtype=int)
         return X_scaled, district_idx

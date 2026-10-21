@@ -1,4 +1,5 @@
 """Unit tests for src.data.candidate_nlp. No network access, no files on disk."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -21,6 +22,7 @@ from src.data.candidate_nlp import (
 # ---------------------------------------------------------------------------
 # Fixture
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def fec_df() -> pd.DataFrame:
@@ -90,6 +92,7 @@ def fec_df() -> pd.DataFrame:
 # compute_experience_cycles
 # ---------------------------------------------------------------------------
 
+
 class TestComputeExperienceCycles:
     def test_compute_experience_cycles_multi_cycle(self, fec_df: pd.DataFrame) -> None:
         result = compute_experience_cycles(fec_df)
@@ -114,6 +117,7 @@ class TestComputeExperienceCycles:
 # select_top_candidates
 # ---------------------------------------------------------------------------
 
+
 class TestSelectTopCandidates:
     def test_select_top_candidates_one_per_group(self, fec_df: pd.DataFrame) -> None:
         with_exp = compute_experience_cycles(fec_df)
@@ -124,8 +128,12 @@ class TestSelectTopCandidates:
     def test_select_top_candidates_highest_receipts(self, fec_df: pd.DataFrame) -> None:
         # Add a lower-receipts DEM to CA-1 2022 to make the selection non-trivial
         extra_row = {
-            "year": 2022, "state_po": "CA", "district": 1, "party": "DEM",
-            "candidate_id": "H0CA01999", "candidate_name": "Low Raiser",
+            "year": 2022,
+            "state_po": "CA",
+            "district": 1,
+            "party": "DEM",
+            "candidate_id": "H0CA01999",
+            "candidate_name": "Low Raiser",
             "receipts": 50_000,
             "individual_receipts": 35_000,
             "individual_itemized_contributions": 25_000,
@@ -138,8 +146,10 @@ class TestSelectTopCandidates:
         with_exp = compute_experience_cycles(augmented)
         top = select_top_candidates(with_exp)
         ca1_2022_dem = top[
-            (top["year"] == 2022) & (top["state_po"] == "CA")
-            & (top["district"] == 1) & (top["party"] == "DEM")
+            (top["year"] == 2022)
+            & (top["state_po"] == "CA")
+            & (top["district"] == 1)
+            & (top["party"] == "DEM")
         ]
         assert len(ca1_2022_dem) == 1
         assert ca1_2022_dem.iloc[0]["receipts"] == 700_000
@@ -153,6 +163,7 @@ class TestSelectTopCandidates:
 # ---------------------------------------------------------------------------
 # compute_receipts_rank
 # ---------------------------------------------------------------------------
+
 
 class TestComputeReceiptsRank:
     def test_compute_receipts_rank_range(self, fec_df: pd.DataFrame) -> None:
@@ -178,6 +189,7 @@ class TestComputeReceiptsRank:
 # ---------------------------------------------------------------------------
 # build_candidate_descriptions
 # ---------------------------------------------------------------------------
+
 
 class TestBuildCandidateDescriptions:
     def _get_candidates(self, fec_df: pd.DataFrame) -> pd.DataFrame:
@@ -215,6 +227,7 @@ class TestBuildCandidateDescriptions:
 # tfidf_components
 # ---------------------------------------------------------------------------
 
+
 class TestTfidfComponents:
     def _get_descriptions(self, fec_df: pd.DataFrame) -> pd.Series:
         with_exp = compute_experience_cycles(fec_df)
@@ -239,6 +252,7 @@ class TestTfidfComponents:
 # compute_quality_scores
 # ---------------------------------------------------------------------------
 
+
 class TestComputeQualityScores:
     def test_compute_quality_scores_range(self, fec_df: pd.DataFrame) -> None:
         with_exp = compute_experience_cycles(fec_df)
@@ -252,6 +266,7 @@ class TestComputeQualityScores:
 # build_candidate_quality (integration over synthetic data)
 # ---------------------------------------------------------------------------
 
+
 class TestBuildCandidateQuality:
     def test_build_candidate_quality_output_columns(
         self, fec_df: pd.DataFrame, tmp_path: Path
@@ -260,7 +275,9 @@ class TestBuildCandidateQuality:
         fec_df.to_csv(csv_path, index=False)
         result = build_candidate_quality(fec_raw_path=csv_path)
         expected_cols = {
-            "year", "state_po", "district",
+            "year",
+            "state_po",
+            "district",
             "candidate_quality_dem_share",
             "experience_cycles_dem",
             "experience_cycles_rep",
@@ -284,12 +301,20 @@ class TestBuildCandidateQuality:
         rows = []
 
         def _row(
-            year: int, state: str, district: int, party: str,
-            cid: str, receipts: float,
+            year: int,
+            state: str,
+            district: int,
+            party: str,
+            cid: str,
+            receipts: float,
         ) -> dict:
             return {
-                "year": year, "state_po": state, "district": district,
-                "party": party, "candidate_id": cid, "candidate_name": cid,
+                "year": year,
+                "state_po": state,
+                "district": district,
+                "party": party,
+                "candidate_id": cid,
+                "candidate_name": cid,
                 "receipts": receipts,
                 "individual_receipts": receipts * 0.7,
                 "individual_itemized_contributions": receipts * 0.5,
@@ -339,6 +364,7 @@ class TestBuildCandidateQuality:
 # ---------------------------------------------------------------------------
 # load_candidate_quality
 # ---------------------------------------------------------------------------
+
 
 class TestLoadCandidateQuality:
     def test_load_candidate_quality_returns_none_if_missing(self) -> None:

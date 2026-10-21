@@ -1,4 +1,5 @@
 """Unit tests for src.data.build_generic_ballot. No real HTTP calls — all mocked."""
+
 from __future__ import annotations
 
 import csv
@@ -24,17 +25,28 @@ def _fte_csv(rows: list[dict]) -> str:
 
 
 def _row(subgroup: str, date: str, dem: float, rep: float) -> dict:
-    return {"subgroup": subgroup, "modeldate": date, "dem_estimate": str(dem), "rep_estimate": str(rep)}
+    return {
+        "subgroup": subgroup,
+        "modeldate": date,
+        "dem_estimate": str(dem),
+        "rep_estimate": str(rep),
+    }
 
 
 class TestFetch538:
     def test_returns_fte_label_on_success(self):
-        with patch("src.data.build_generic_ballot._fetch", return_value=_fte_csv([_row("All polls", "11/1/2006", 52.0, 45.0)])):
+        with patch(
+            "src.data.build_generic_ballot._fetch",
+            return_value=_fte_csv([_row("All polls", "11/1/2006", 52.0, 45.0)]),
+        ):
             _, label = _fetch_538()
         assert label == "FiveThirtyEight"
 
     def test_returns_margin_for_year(self):
-        with patch("src.data.build_generic_ballot._fetch", return_value=_fte_csv([_row("All polls", "11/1/2006", 52.0, 45.0)])):
+        with patch(
+            "src.data.build_generic_ballot._fetch",
+            return_value=_fte_csv([_row("All polls", "11/1/2006", 52.0, 45.0)]),
+        ):
             result, _ = _fetch_538()
         assert result[2006] == pytest.approx(7.0, abs=0.1)
 
@@ -116,8 +128,7 @@ class TestFetch2026Wiki:
 
     def test_returns_none_when_no_matching_table(self):
         html = (
-            "<table><tr><th>Unrelated</th><th>Data</th></tr>"
-            "<tr><td>1</td><td>2</td></tr></table>"
+            "<table><tr><th>Unrelated</th><th>Data</th></tr><tr><td>1</td><td>2</td></tr></table>"
         )
         with patch("src.data.build_generic_ballot._fetch", return_value=html):
             assert _fetch_2026_wiki() is None

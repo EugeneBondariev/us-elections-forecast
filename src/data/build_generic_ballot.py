@@ -16,6 +16,7 @@ Data sources:
 Run:
     python -m src.data.build_generic_ballot
 """
+
 from __future__ import annotations
 
 import csv
@@ -39,15 +40,25 @@ _FTE_URL = (
     "https://raw.githubusercontent.com/fivethirtyeight/data/master/"
     "congress-generic-ballot/generic_topline_historical.csv"
 )
-_WIKI_URL = (
-    "https://en.wikipedia.org/wiki/2026_United_States_House_of_Representatives_elections"
-)
+_WIKI_URL = "https://en.wikipedia.org/wiki/2026_United_States_House_of_Representatives_elections"
 
 # Gallup-era pre-computed values (not machine-readable from a clean source).
 _HARDCODED: dict[int, float] = {
-    1976: 14, 1978: 9, 1980: -5, 1982: 12, 1984: 9,
-    1986: 10, 1988: 4, 1990: 8, 1992: 12, 1994: -7,
-    1996: 0, 1998: 1, 2000: 1, 2002: -2, 2004: 1,
+    1976: 14,
+    1978: 9,
+    1980: -5,
+    1982: 12,
+    1984: 9,
+    1986: 10,
+    1988: 4,
+    1990: 8,
+    1992: 12,
+    1994: -7,
+    1996: 0,
+    1998: 1,
+    2000: 1,
+    2002: -2,
+    2004: 1,
 }
 
 ELECTION_YEARS_538 = list(range(2006, 2025, 2))
@@ -66,7 +77,9 @@ def _fetch_538() -> tuple[dict[int, float], str]:
         raw = _fetch(_FTE_URL)
     except Exception as exc:
         logger.info("FiveThirtyEight fetch failed: %s — falling back to constants.py", exc)
-        return {y: GENERIC_BALLOT[y] for y in ELECTION_YEARS_538 if y in GENERIC_BALLOT}, "constants.py"
+        return {
+            y: GENERIC_BALLOT[y] for y in ELECTION_YEARS_538 if y in GENERIC_BALLOT
+        }, "constants.py"
 
     ensure(DataFile.GENERIC_BALLOT_RAW).write_text(raw, encoding="utf-8")
     logger.info("Saved raw 538 generic ballot to %s", DataFile.GENERIC_BALLOT_RAW)
@@ -75,7 +88,9 @@ def _fetch_538() -> tuple[dict[int, float], str]:
         df = pd.read_csv(io.StringIO(raw))
     except Exception as exc:
         logger.info("FiveThirtyEight CSV parse failed: %s — falling back to constants.py", exc)
-        return {y: GENERIC_BALLOT[y] for y in ELECTION_YEARS_538 if y in GENERIC_BALLOT}, "constants.py"
+        return {
+            y: GENERIC_BALLOT[y] for y in ELECTION_YEARS_538 if y in GENERIC_BALLOT
+        }, "constants.py"
 
     required = {"modeldate", "dem_estimate", "rep_estimate"}
     if not required.issubset(df.columns):
@@ -83,7 +98,9 @@ def _fetch_538() -> tuple[dict[int, float], str]:
             "FiveThirtyEight CSV missing expected columns — falling back. Columns: %s",
             list(df.columns),
         )
-        return {y: GENERIC_BALLOT[y] for y in ELECTION_YEARS_538 if y in GENERIC_BALLOT}, "constants.py"
+        return {
+            y: GENERIC_BALLOT[y] for y in ELECTION_YEARS_538 if y in GENERIC_BALLOT
+        }, "constants.py"
 
     # Prefer likely-voter subgroup; fall back to all polls if absent.
     if "subgroup" in df.columns:
@@ -134,9 +151,7 @@ def _fetch_2026_wiki() -> float | None:
             continue
 
         # Find margin column or compute from dem/rep columns
-        margin_col = next(
-            (df.columns[i] for i, c in enumerate(cols_lower) if "margin" in c), None
-        )
+        margin_col = next((df.columns[i] for i, c in enumerate(cols_lower) if "margin" in c), None)
         if margin_col is not None:
             # Parse margin strings like "Democrats +8.2%" or "+8.2"
             margin_vals = df[margin_col].astype(str)
@@ -148,7 +163,9 @@ def _fetch_2026_wiki() -> float | None:
                     num = float(m.group(2))
                     return num if party.startswith("dem") else -num
             # Try plain numeric margin
-            numeric = pd.to_numeric(margin_vals.str.extract(r"([+-]?\d+\.?\d*)")[0], errors="coerce")
+            numeric = pd.to_numeric(
+                margin_vals.str.extract(r"([+-]?\d+\.?\d*)")[0], errors="coerce"
+            )
             valid = numeric.dropna()
             if not valid.empty:
                 return round(float(valid.iloc[-1]), 1)

@@ -21,6 +21,7 @@ Output
 data/interim/census_acs.csv  —  state_po, district, pct_bachelor_plus, pct_non_white,
                                  median_income, median_age
 """
+
 from __future__ import annotations
 
 import json
@@ -48,17 +49,17 @@ _DEFAULT_YEAR = 2022  # most recent completed ACS cycle
 
 # ACS variable codes and short names
 _VARS: dict[str, str] = {
-    "B15003_022E": "bachelor",        # bachelor's degree (age 25+)
-    "B15003_023E": "master",          # master's degree
-    "B15003_024E": "professional",    # professional school degree
-    "B15003_025E": "doctorate",       # doctorate degree
-    "B15003_001E": "educ_total",      # total pop 25+ (education denominator)
-    "B19013_001E": "median_income",   # median household income ($)
-    "B02001_001E": "pop_total",       # total population
-    "B02001_002E": "pop_white",       # white alone
-    "B01002_001E": "median_age",      # median age
+    "B15003_022E": "bachelor",  # bachelor's degree (age 25+)
+    "B15003_023E": "master",  # master's degree
+    "B15003_024E": "professional",  # professional school degree
+    "B15003_025E": "doctorate",  # doctorate degree
+    "B15003_001E": "educ_total",  # total pop 25+ (education denominator)
+    "B19013_001E": "median_income",  # median household income ($)
+    "B02001_001E": "pop_total",  # total population
+    "B02001_002E": "pop_white",  # white alone
+    "B01002_001E": "median_age",  # median age
 }
-_MISSING_SENTINEL = -666666666       # Census API uses this for suppressed/missing
+_MISSING_SENTINEL = -666666666  # Census API uses this for suppressed/missing
 
 
 def _parse_district_code(code: str) -> int:
@@ -149,18 +150,21 @@ def build_census_features(raw_df: pd.DataFrame) -> pd.DataFrame:
     df[Col.PCT_BACHELOR_PLUS] = degree_sum.where(df["educ_total"] > 0) / df["educ_total"]
 
     non_white = (df["pop_total"] - df["pop_white"]) / df["pop_total"]
-    df[Col.PCT_NON_WHITE] = (
-        non_white.where(df["pop_total"] > 0).clip(lower=0.0, upper=1.0)
-    )
+    df[Col.PCT_NON_WHITE] = non_white.where(df["pop_total"] > 0).clip(lower=0.0, upper=1.0)
 
     df[Col.MEDIAN_INCOME] = df["median_income"].where(df["median_income"].notna())
     df[Col.MEDIAN_AGE] = df["median_age"].where(df["median_age"].notna())
 
-    result = df[[
-        Col.STATE, Col.DISTRICT,
-        Col.PCT_BACHELOR_PLUS, Col.PCT_NON_WHITE,
-        Col.MEDIAN_INCOME, Col.MEDIAN_AGE,
-    ]].copy()
+    result = df[
+        [
+            Col.STATE,
+            Col.DISTRICT,
+            Col.PCT_BACHELOR_PLUS,
+            Col.PCT_NON_WHITE,
+            Col.MEDIAN_INCOME,
+            Col.MEDIAN_AGE,
+        ]
+    ].copy()
     result = result[result[Col.STATE].notna()].reset_index(drop=True)
     return result
 
@@ -172,6 +176,7 @@ def load_census(cache_path: Path) -> pd.DataFrame | None:
         return None
     df = pd.read_csv(cache_path)
     from src.data.validators import validate_census
+
     validate_census(df)
     return df
 
@@ -180,6 +185,7 @@ def main() -> None:
     import os
 
     from dotenv import load_dotenv
+
     load_dotenv()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     api_key = os.getenv("CENSUS_API_KEY")

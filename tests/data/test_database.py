@@ -1,5 +1,6 @@
 """Round-trip tests for src/database.py forecast persistence. Uses a temp SQLite
 file so no real data files or shared state are needed."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -7,10 +8,12 @@ import pandas as pd
 
 from src.data.database import load_latest_forecast, save_forecast
 
-_DISTRICTS = pd.DataFrame([
-    {"label": "PA-7", "state_po": "PA", "district": 7, "proba_dem": 0.55},
-    {"label": "AZ-6", "state_po": "AZ", "district": 6, "proba_dem": 0.42},
-])
+_DISTRICTS = pd.DataFrame(
+    [
+        {"label": "PA-7", "state_po": "PA", "district": 7, "proba_dem": 0.55},
+        {"label": "AZ-6", "state_po": "AZ", "district": 6, "proba_dem": 0.42},
+    ]
+)
 
 _RESULT = {
     "n_districts": 2,

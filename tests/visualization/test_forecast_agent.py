@@ -1,4 +1,5 @@
 """Tests for src/visualization/forecast_agent.py — Groq client is mocked, no real API calls."""
+
 from __future__ import annotations
 
 import json
@@ -11,12 +12,26 @@ import pandas as pd
 from src.constants import Col
 from src.visualization.forecast_agent import _run_tool, run_agent
 
-_DISTRICTS = pd.DataFrame([
-    {"label": "PA-7", Col.STATE: "PA", Col.DISTRICT: 7, "proba_dem": 0.55,
-     "district_incumbent": "DEMOCRAT", "is_open": False},
-    {"label": "AZ-6", Col.STATE: "AZ", Col.DISTRICT: 6, "proba_dem": 0.42,
-     "district_incumbent": "REPUBLICAN", "is_open": True},
-])
+_DISTRICTS = pd.DataFrame(
+    [
+        {
+            "label": "PA-7",
+            Col.STATE: "PA",
+            Col.DISTRICT: 7,
+            "proba_dem": 0.55,
+            "district_incumbent": "DEMOCRAT",
+            "is_open": False,
+        },
+        {
+            "label": "AZ-6",
+            Col.STATE: "AZ",
+            Col.DISTRICT: 6,
+            "proba_dem": 0.42,
+            "district_incumbent": "REPUBLICAN",
+            "is_open": True,
+        },
+    ]
+)
 
 _FORECAST = {
     "seats_sim": np.full(10_000, 215),
@@ -59,17 +74,21 @@ def _mock_tool_call(call_id: str, name: str, arguments: dict):
 def test_run_agent_executes_tool_call_then_returns_final_answer(monkeypatch):
     tool_call_response = MagicMock()
     tool_call_response.choices = [
-        MagicMock(message=MagicMock(
-            content=None,
-            tool_calls=[_mock_tool_call("call_1", "get_forecast_summary", {})],
-        ))
+        MagicMock(
+            message=MagicMock(
+                content=None,
+                tool_calls=[_mock_tool_call("call_1", "get_forecast_summary", {})],
+            )
+        )
     ]
     final_response = MagicMock()
     final_response.choices = [
-        MagicMock(message=MagicMock(
-            content="Democrats are projected to win 215 seats.",
-            tool_calls=None,
-        ))
+        MagicMock(
+            message=MagicMock(
+                content="Democrats are projected to win 215 seats.",
+                tool_calls=None,
+            )
+        )
     ]
 
     mock_client = MagicMock()
@@ -94,7 +113,9 @@ def test_run_agent_executes_tool_call_then_returns_final_answer(monkeypatch):
 def test_run_agent_returns_directly_when_no_tool_call_needed(monkeypatch):
     final_response = MagicMock()
     final_response.choices = [
-        MagicMock(message=MagicMock(content="I need more specifics to answer that.", tool_calls=None))
+        MagicMock(
+            message=MagicMock(content="I need more specifics to answer that.", tool_calls=None)
+        )
     ]
     mock_client = MagicMock()
     mock_client.chat.completions.create.return_value = final_response

@@ -1,4 +1,5 @@
 """Tests for src/data/build_approval_history.py. All synthetic data, no network calls."""
+
 from __future__ import annotations
 
 import datetime
@@ -74,7 +75,9 @@ class TestSelectReadings:
     def test_reading_within_gap_threshold_is_accepted(self):
         election = _election_date(2024)
         close_date = election - datetime.timedelta(days=MAX_PLAUSIBLE_GAP_DAYS - 1)
-        all_rows = _rows((close_date.strftime("%m/%d/%Y"), close_date.strftime("%m/%d/%Y"), 50, 45, 5))
+        all_rows = _rows(
+            (close_date.strftime("%m/%d/%Y"), close_date.strftime("%m/%d/%Y"), 50, 45, 5)
+        )
         results = select_readings(all_rows, [2024])
         assert results[0]["status"] == "ok"
 
@@ -115,9 +118,9 @@ class TestSelectReadings:
         """Regression guard: must pick the row closest to the election, not an
         arbitrary/earlier one that also satisfies end_date < election_date."""
         all_rows = _rows(
-            ("01/01/2016", "01/10/2016", 50, 45, 5),   # far from the election
-            ("10/20/2016", "10/27/2016", 53, 45, 2),   # close to the election
-            ("06/01/2016", "06/10/2016", 48, 47, 5),   # also far, different direction
+            ("01/01/2016", "01/10/2016", 50, 45, 5),  # far from the election
+            ("10/20/2016", "10/27/2016", 53, 45, 2),  # close to the election
+            ("06/01/2016", "06/10/2016", 48, 47, 5),  # also far, different direction
         )
         results = select_readings(all_rows, [2016])
         assert results[0]["row"]["end"] == "10/27/2016"
@@ -152,6 +155,7 @@ class TestParseHtmlTable:
         df = _parse_html_table(html)
         assert len(df) == 1
         assert df.iloc[0]["unsure"] == 10
+
     def test_parses_table_with_extra_demographic_columns(self):
         """The real UCSB pages have Democrats/Independents/Republicans-approving
         columns after the 5 we need - selection must be by column name, not position."""
@@ -187,6 +191,8 @@ class TestParseHtmlTable:
         assert df.iloc[0]["approve"] == 41
 
     def test_raises_when_no_matching_table_found(self):
-        html = "<table><tr><th>Nothing</th><th>Relevant</th></tr><tr><td>1</td><td>2</td></tr></table>"
+        html = (
+            "<table><tr><th>Nothing</th><th>Relevant</th></tr><tr><td>1</td><td>2</td></tr></table>"
+        )
         with pytest.raises(ValueError, match="No table"):
             _parse_html_table(html)

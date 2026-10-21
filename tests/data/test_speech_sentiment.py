@@ -1,4 +1,5 @@
 """Tests for src/data/speech_sentiment.py. No network access — all mocked."""
+
 from __future__ import annotations
 
 import json
@@ -49,6 +50,7 @@ class TestScoreSentiment:
         result = score_sentiment(titles)
         # Both individual scores are non-zero; the mean must sit between the two
         from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
         sia = SentimentIntensityAnalyzer()
         s1 = sia.polarity_scores(titles[0])["compound"]
         s2 = sia.polarity_scores(titles[1])["compound"]
@@ -129,12 +131,14 @@ class TestLoadSpeechSentiment:
 
     def test_loads_valid_csv(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "speech_sentiment.csv"
-        pd.DataFrame({
-            "state_po": ["CA", "TX"],
-            "district": [1, 7],
-            "speech_sentiment": [0.12, -0.05],
-            "speech_count": [10, 8],
-        }).to_csv(csv_path, index=False)
+        pd.DataFrame(
+            {
+                "state_po": ["CA", "TX"],
+                "district": [1, 7],
+                "speech_sentiment": [0.12, -0.05],
+                "speech_count": [10, 8],
+            }
+        ).to_csv(csv_path, index=False)
 
         with patch("src.data.validators.validate_speech_sentiment", return_value=None):
             result = load_speech_sentiment(cache_path=csv_path)

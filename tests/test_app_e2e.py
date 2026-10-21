@@ -23,6 +23,7 @@ Run directly:
 or:
     make test-e2e
 """
+
 from __future__ import annotations
 
 import socket
@@ -85,10 +86,17 @@ def real_data_present():
 def streamlit_server(real_data_present):
     proc = subprocess.Popen(
         [
-            sys.executable, "-m", "streamlit", "run", "app.py",
-            f"--server.port={STREAMLIT_PORT}", "--server.headless=true",
+            sys.executable,
+            "-m",
+            "streamlit",
+            "run",
+            "app.py",
+            f"--server.port={STREAMLIT_PORT}",
+            "--server.headless=true",
         ],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=_REPO_ROOT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        cwd=_REPO_ROOT,
     )
     try:
         if not _wait_for_port(STREAMLIT_PORT, timeout=30):
@@ -101,8 +109,19 @@ def streamlit_server(real_data_present):
 @pytest.fixture(scope="module")
 def api_server(real_data_present):
     proc = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "api:app", "--host", "127.0.0.1", "--port", str(API_PORT)],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=_REPO_ROOT,
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "api:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(API_PORT),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        cwd=_REPO_ROOT,
     )
     try:
         # Longer timeout: if no cached forecast exists yet, startup itself trains

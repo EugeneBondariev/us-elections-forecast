@@ -1,4 +1,5 @@
 """Unit tests for src.data.build_indicators. No real FRED API calls — all mocked."""
+
 from __future__ import annotations
 
 import csv

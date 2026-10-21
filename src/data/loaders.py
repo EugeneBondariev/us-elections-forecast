@@ -59,16 +59,38 @@ def load_pres_lean(path_2008_2020: Path, path_2020_2024: Path) -> pd.DataFrame:
         df[Col.DISTRICT] = [p[1] for p in parsed]
         return df
 
-    df1 = _load_and_parse(path_2008_2020, [0, 1], [
-        "dist", "inc", "party",
-        "biden_20", "trump_20", "clinton_16", "trump_16",
-        "obama_12", "romney_12", "obama_08", "mccain_08",
-    ])
-    df2 = _load_and_parse(path_2020_2024, [0, 1, 2], [
-        "dist", "inc", "party",
-        "harris_24", "trump_24", "margin_24",
-        "biden_20b", "trump_20b", "margin_20",
-    ])
+    df1 = _load_and_parse(
+        path_2008_2020,
+        [0, 1],
+        [
+            "dist",
+            "inc",
+            "party",
+            "biden_20",
+            "trump_20",
+            "clinton_16",
+            "trump_16",
+            "obama_12",
+            "romney_12",
+            "obama_08",
+            "mccain_08",
+        ],
+    )
+    df2 = _load_and_parse(
+        path_2020_2024,
+        [0, 1, 2],
+        [
+            "dist",
+            "inc",
+            "party",
+            "harris_24",
+            "trump_24",
+            "margin_24",
+            "biden_20b",
+            "trump_20b",
+            "margin_20",
+        ],
+    )
 
     year_col_map = {"obama_08": 2008, "obama_12": 2012, "clinton_16": 2016, "biden_20": 2020}
     df1_long = df1[[Col.STATE, Col.DISTRICT] + list(year_col_map.keys())].melt(
@@ -262,6 +284,7 @@ def load_census() -> pd.DataFrame | None:
 
     df = pd.read_csv(path, dtype={Col.DISTRICT: int})
     from src.data.validators import validate_census
+
     validate_census(df)
     return df
 
@@ -277,6 +300,7 @@ def load_candidate_quality() -> pd.DataFrame | None:
 
     df = pd.read_csv(path, dtype={Col.DISTRICT: int, Col.YEAR: int})
     from src.data.validators import validate_candidate_quality
+
     validate_candidate_quality(df)
     return df
 
@@ -291,6 +315,7 @@ def load_district_analytics() -> pd.DataFrame | None:
         return None
     df = pd.read_csv(path, dtype={Col.DISTRICT: int, Col.YEAR: int})
     from src.data.validators import validate_district_analytics
+
     validate_district_analytics(df)
     return df
 
@@ -305,6 +330,7 @@ def load_gerrymandering() -> pd.DataFrame | None:
         return None
     df = pd.read_csv(path, dtype={Col.DISTRICT: int})
     from src.data.validators import validate_gerrymandering
+
     validate_gerrymandering(df)
     return df
 
@@ -319,6 +345,7 @@ def load_speech_sentiment() -> pd.DataFrame | None:
         return None
     df = pd.read_csv(path, dtype={Col.DISTRICT: int})
     from src.data.validators import validate_speech_sentiment
+
     validate_speech_sentiment(df)
     return df
 

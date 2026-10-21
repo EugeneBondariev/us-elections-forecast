@@ -18,6 +18,7 @@ async def lifespan(app: FastAPI):
     app.state.forecast = result
     yield
 
+
 app = FastAPI(title="US House Forecast 2026", lifespan=lifespan)
 
 
@@ -36,12 +37,14 @@ def verify_refresh_key(x_api_key: str | None = Header(default=None)) -> None:
 def health(request: Request):
     return {"status": "ok", "cache_ready": hasattr(request.app.state, "forecast")}
 
+
 @app.get("/refresh", dependencies=[Depends(verify_refresh_key)])
 def refresh(request: Request):
     result = run_forecast()
     save_forecast(result)
     request.app.state.forecast = result
     return {"status": "refreshed"}
+
 
 @app.get("/forecast")
 def forecast(request: Request):
@@ -55,10 +58,12 @@ def forecast(request: Request):
         "n_districts": result["n_districts"],
     }
 
+
 @app.get("/districts")
 def districts(request: Request):
     df = request.app.state.forecast["districts"]
     return df[["label", "proba_dem", "district_incumbent"]].to_dict(orient="records")
+
 
 @app.get("/districts/{state}/{district_num}")
 def district_detail(state: str, district_num: int, request: Request):

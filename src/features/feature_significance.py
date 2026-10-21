@@ -225,11 +225,8 @@ def main() -> None:
     print(f"\n{'=' * 70}")
     print("SUMMARY")
     print("=" * 70)
-    print(
-        f"  Significant continuous features (p<{ALPHA}): "
-        f"{n_sig_cont}/{len(continuous_features)}"
-    )
-    print(f"  Significant binary features     (p<{ALPHA}): " f"{n_sig_bin}/{len(binary_features)}")
+    print(f"  Significant continuous features (p<{ALPHA}): {n_sig_cont}/{len(continuous_features)}")
+    print(f"  Significant binary features     (p<{ALPHA}): {n_sig_bin}/{len(binary_features)}")
 
     # ── Save chart ────────────────────────────────────────────────────────────
     save_significance_chart(cont_results, bin_results, OUTPUT_PATH)

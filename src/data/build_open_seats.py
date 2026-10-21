@@ -9,6 +9,7 @@ Data source:
 Run:
     python -m src.data.build_open_seats
 """
+
 from __future__ import annotations
 
 import csv
@@ -23,29 +24,64 @@ from src.paths import DataFile, ensure
 logger = logging.getLogger(__name__)
 
 _UA = "Mozilla/5.0 (compatible; us-elections-forecast/1.0; educational use)"
-_WIKI_URL = (
-    "https://en.wikipedia.org/wiki/2026_United_States_House_of_Representatives_elections"
-)
+_WIKI_URL = "https://en.wikipedia.org/wiki/2026_United_States_House_of_Representatives_elections"
 
 # Only the 50 US states (exclude DC, territories)
 _US_STATES: frozenset[str] = frozenset(_STATE_ABBR.values())
 
 _ORDINAL_MAP: dict[str, int] = {
-    "first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5,
-    "sixth": 6, "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10,
-    "eleventh": 11, "twelfth": 12, "thirteenth": 13, "fourteenth": 14,
-    "fifteenth": 15, "sixteenth": 16, "seventeenth": 17, "eighteenth": 18,
-    "nineteenth": 19, "twentieth": 20, "twenty-first": 21, "twenty-second": 22,
-    "twenty-third": 23, "twenty-fourth": 24, "twenty-fifth": 25,
-    "twenty-sixth": 26, "twenty-seventh": 27, "twenty-eighth": 28,
-    "twenty-ninth": 29, "thirtieth": 30, "thirty-first": 31,
-    "thirty-second": 32, "thirty-third": 33, "thirty-fourth": 34,
-    "thirty-fifth": 35, "thirty-sixth": 36, "thirty-seventh": 37,
-    "thirty-eighth": 38, "thirty-ninth": 39, "fortieth": 40,
-    "forty-first": 41, "forty-second": 42, "forty-third": 43,
-    "forty-fourth": 44, "forty-fifth": 45, "forty-sixth": 46,
-    "forty-seventh": 47, "forty-eighth": 48, "forty-ninth": 49,
-    "fiftieth": 50, "fifty-first": 51, "fifty-second": 52,
+    "first": 1,
+    "second": 2,
+    "third": 3,
+    "fourth": 4,
+    "fifth": 5,
+    "sixth": 6,
+    "seventh": 7,
+    "eighth": 8,
+    "ninth": 9,
+    "tenth": 10,
+    "eleventh": 11,
+    "twelfth": 12,
+    "thirteenth": 13,
+    "fourteenth": 14,
+    "fifteenth": 15,
+    "sixteenth": 16,
+    "seventeenth": 17,
+    "eighteenth": 18,
+    "nineteenth": 19,
+    "twentieth": 20,
+    "twenty-first": 21,
+    "twenty-second": 22,
+    "twenty-third": 23,
+    "twenty-fourth": 24,
+    "twenty-fifth": 25,
+    "twenty-sixth": 26,
+    "twenty-seventh": 27,
+    "twenty-eighth": 28,
+    "twenty-ninth": 29,
+    "thirtieth": 30,
+    "thirty-first": 31,
+    "thirty-second": 32,
+    "thirty-third": 33,
+    "thirty-fourth": 34,
+    "thirty-fifth": 35,
+    "thirty-sixth": 36,
+    "thirty-seventh": 37,
+    "thirty-eighth": 38,
+    "thirty-ninth": 39,
+    "fortieth": 40,
+    "forty-first": 41,
+    "forty-second": 42,
+    "forty-third": 43,
+    "forty-fourth": 44,
+    "forty-fifth": 45,
+    "forty-sixth": 46,
+    "forty-seventh": 47,
+    "forty-eighth": 48,
+    "forty-ninth": 49,
+    "fiftieth": 50,
+    "fifty-first": 51,
+    "fifty-second": 52,
 }
 
 
@@ -86,7 +122,9 @@ def _parse_district(text: str) -> tuple[str, int] | None:
             return (abbr, int(m.group(2)))
 
     # "State's Nth" (ordinal word form)
-    m = re.match(r"^(.+?)(?:'s?)?\s+(\w[\w-]*)(?:\s+congressional\s+district)?$", text, re.IGNORECASE)
+    m = re.match(
+        r"^(.+?)(?:'s?)?\s+(\w[\w-]*)(?:\s+congressional\s+district)?$", text, re.IGNORECASE
+    )
     if m:
         abbr = _STATE_ABBR.get(m.group(1).strip())
         dist_word = m.group(2).strip().lower().rstrip("stndrdth")
@@ -107,9 +145,7 @@ def _fetch_html() -> str:
         return resp.read().decode("utf-8")
 
 
-_TITLE_RE = re.compile(
-    r"^(.+?)'s (?:(\d+)(?:st|nd|rd|th)|at-large) congressional district$"
-)
+_TITLE_RE = re.compile(r"^(.+?)'s (?:(\d+)(?:st|nd|rd|th)|at-large) congressional district$")
 
 
 def _parse_title_attr(title: str) -> tuple[str, int] | None:
@@ -240,6 +276,7 @@ def _write(seats: set[tuple[str, int]]) -> None:
 
     # Log by state for review
     from collections import defaultdict
+
     by_state: dict[str, list[int]] = defaultdict(list)
     for state_po, district in rows:
         by_state[state_po].append(district)

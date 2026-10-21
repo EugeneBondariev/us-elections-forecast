@@ -1,4 +1,5 @@
 """Tests for src/rag.py — chromadb/groq clients are mocked, no network calls."""
+
 from __future__ import annotations
 
 import sys
@@ -31,7 +32,12 @@ def test_retrieve_uses_passed_collection():
     result = retrieve("competitive districts in PA", collection=mock_collection)
 
     assert result == [
-        {"text": "District PA-7: Democrats favored.", "state": "PA", "district": 7, "proba_dem": 0.55}
+        {
+            "text": "District PA-7: Democrats favored.",
+            "state": "PA",
+            "district": 7,
+            "proba_dem": 0.55,
+        }
     ]
     mock_collection.query.assert_called_once_with(
         query_texts=["competitive districts in PA"], n_results=5

@@ -81,7 +81,9 @@ def validate_fundraising() -> bool:
         paths=[DataFile.FUNDRAISING],
         skip_reason="optional, not present",
         load=_load_fundraising,
-        ok_detail=lambda df: f"{len(df):,} district-year rows, {int(df['year'].min())}-{int(df['year'].max())}",
+        ok_detail=lambda df: (
+            f"{len(df):,} district-year rows, {int(df['year'].min())}-{int(df['year'].max())}"
+        ),
     )
 
 
@@ -94,7 +96,9 @@ def validate_required() -> bool:
                 paths=[DataFile.HOUSE],
                 skip_reason="not downloaded",
                 load=lambda: load_clean_house_data(DataFile.HOUSE),
-                ok_detail=lambda df: f"{len(df):,} rows, years {df['year'].min()}-{df['year'].max()}",
+                ok_detail=lambda df: (
+                    f"{len(df):,} rows, years {df['year'].min()}-{df['year'].max()}"
+                ),
                 min_rows=20_000,
             ),
             _validate_file(

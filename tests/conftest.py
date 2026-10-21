@@ -4,7 +4,10 @@ from src.features.features import build_dataset
 from src.paths import DataFile
 
 _REQUIRED_FOR_BUILD_DATASET = [
-    DataFile.HOUSE, DataFile.APPROVAL, DataFile.PRES_08_20, DataFile.PRES_20_24,
+    DataFile.HOUSE,
+    DataFile.APPROVAL,
+    DataFile.PRES_08_20,
+    DataFile.PRES_20_24,
 ]
 
 
@@ -34,5 +37,6 @@ def forecast_result(real_data):
     import pandas as pd
 
     from src.models.forecast import run_forecast
+
     with patch("src.models.forecast.explain_districts", return_value=pd.DataFrame()):
         return run_forecast()

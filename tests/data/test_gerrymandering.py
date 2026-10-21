@@ -1,4 +1,5 @@
 """Unit tests for src/data/gerrymandering.py. No network access, no disk I/O."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -26,6 +27,7 @@ _skip_no_geopandas = pytest.mark.skipif(
 # Synthetic GeoDataFrame helper
 # ---------------------------------------------------------------------------
 
+
 def _make_gdf(n: int = 4) -> "GeoDataFrame":
     """Build a minimal GeoDataFrame with square districts for testing.
 
@@ -49,12 +51,18 @@ def _make_gdf(n: int = 4) -> "GeoDataFrame":
 # TestBuildCompactnessFeatures
 # ---------------------------------------------------------------------------
 
+
 @_skip_no_geopandas
 class TestBuildCompactnessFeatures:
     def test_output_columns(self) -> None:
         gdf = _make_gdf()
         result = build_compactness_features(gdf=gdf)
-        assert list(result.columns) == ["state_po", "district", "polsby_popper", "district_area_km2"]
+        assert list(result.columns) == [
+            "state_po",
+            "district",
+            "polsby_popper",
+            "district_area_km2",
+        ]
 
     def test_polsby_popper_range(self) -> None:
         gdf = _make_gdf()
@@ -106,6 +114,7 @@ class TestBuildCompactnessFeatures:
 # TestLoadGerrymandering
 # ---------------------------------------------------------------------------
 
+
 class TestLoadGerrymandering:
     def test_returns_none_when_absent(self) -> None:
         result = load_gerrymandering(cache_path=Path("/nonexistent/x.csv"))
@@ -113,12 +122,14 @@ class TestLoadGerrymandering:
 
     def test_loads_valid_csv(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "g.csv"
-        df_in = pd.DataFrame({
-            "state_po": ["CA"] * 5,
-            "district": list(range(1, 6)),
-            "polsby_popper": [0.3, 0.5, 0.7, 0.2, 0.8],
-            "district_area_km2": [1000.0, 2000.0, 1500.0, 800.0, 3000.0],
-        })
+        df_in = pd.DataFrame(
+            {
+                "state_po": ["CA"] * 5,
+                "district": list(range(1, 6)),
+                "polsby_popper": [0.3, 0.5, 0.7, 0.2, 0.8],
+                "district_area_km2": [1000.0, 2000.0, 1500.0, 800.0, 3000.0],
+            }
+        )
         df_in.to_csv(csv_path, index=False)
 
         with patch("src.data.validators.validate_gerrymandering", return_value=None):
@@ -126,5 +137,10 @@ class TestLoadGerrymandering:
 
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 5
-        assert list(result.columns) == ["state_po", "district", "polsby_popper", "district_area_km2"]
+        assert list(result.columns) == [
+            "state_po",
+            "district",
+            "polsby_popper",
+            "district_area_km2",
+        ]
         assert result["district"].dtype == int

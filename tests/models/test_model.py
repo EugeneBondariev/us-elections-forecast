@@ -4,6 +4,7 @@ from src.models.model import build_calibrated_pipeline, feature_weights, train
 
 # --- existing ---
 
+
 def test_predictions_are_binary(real_data):
     pipeline = train(real_data["X"], real_data["y"])
     pred, _ = build_pred_2026(real_data["winners"], real_data["dems_reps"], real_data["X"].columns)
@@ -24,6 +25,7 @@ def test_feature_weights_keys_match_columns(real_data):
 
 # --- walk_forward_cv ---
 
+
 def test_walk_forward_cv_returns_dataframe(real_data):
     result = walk_forward_cv(real_data["X"], real_data["y"], real_data["years"])
     assert isinstance(result, __import__("pandas").DataFrame)
@@ -31,11 +33,19 @@ def test_walk_forward_cv_returns_dataframe(real_data):
 
 def test_walk_forward_cv_expected_columns(real_data):
     result = walk_forward_cv(real_data["X"], real_data["y"], real_data["years"])
-    assert set(result.columns) == {"year", "actual_dem", "predicted_dem", "seat_error", "district_accuracy"}
+    assert set(result.columns) == {
+        "year",
+        "actual_dem",
+        "predicted_dem",
+        "seat_error",
+        "district_accuracy",
+    }
 
 
 def test_walk_forward_cv_no_test_before_start(real_data):
-    result = walk_forward_cv(real_data["X"], real_data["y"], real_data["years"], start_test_year=2010)
+    result = walk_forward_cv(
+        real_data["X"], real_data["y"], real_data["years"], start_test_year=2010
+    )
     assert (result["year"] >= 2010).all()
 
 
@@ -51,6 +61,7 @@ def test_walk_forward_cv_district_accuracy_reasonable(real_data):
 
 
 # --- calibrated pipeline ---
+
 
 def test_calibrated_pipeline_probabilities_in_range(real_data):
     pipeline = build_calibrated_pipeline()

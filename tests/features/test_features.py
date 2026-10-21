@@ -13,10 +13,22 @@ class TestBuildDemsReps:
             dem_v = round(dem_share * 100)
             rep_v = 100 - dem_v
             rows += [
-                {Col.YEAR: year, Col.STATE: state_po, Col.DISTRICT: district,
-                 Col.PARTY: Val.DEMOCRAT,   Col.CANDIDATE_VOTES: dem_v, Col.TOTAL_VOTES: 100},
-                {Col.YEAR: year, Col.STATE: state_po, Col.DISTRICT: district,
-                 Col.PARTY: Val.REPUBLICAN, Col.CANDIDATE_VOTES: rep_v, Col.TOTAL_VOTES: 100},
+                {
+                    Col.YEAR: year,
+                    Col.STATE: state_po,
+                    Col.DISTRICT: district,
+                    Col.PARTY: Val.DEMOCRAT,
+                    Col.CANDIDATE_VOTES: dem_v,
+                    Col.TOTAL_VOTES: 100,
+                },
+                {
+                    Col.YEAR: year,
+                    Col.STATE: state_po,
+                    Col.DISTRICT: district,
+                    Col.PARTY: Val.REPUBLICAN,
+                    Col.CANDIDATE_VOTES: rep_v,
+                    Col.TOTAL_VOTES: 100,
+                },
             ]
         return pd.DataFrame(rows)
 
@@ -48,12 +60,18 @@ class TestBuildFeatureMatrix:
 
     def test_expected_columns(self, real_data):
         required = {
-            Col.DEM_LEAN, Col.DEM_LEAN_TREND, Col.NET_PRES_APPROVAL,
-            Col.GENERIC_BALLOT, Col.IS_INCUMBENT, Col.REDISTRICTING,
+            Col.DEM_LEAN,
+            Col.DEM_LEAN_TREND,
+            Col.NET_PRES_APPROVAL,
+            Col.GENERIC_BALLOT,
+            Col.IS_INCUMBENT,
+            Col.REDISTRICTING,
             Col.INC_X_BALLOT,
-            Col.ECON_GROWTH, Col.UNEMPLOYMENT,
+            Col.ECON_GROWTH,
+            Col.UNEMPLOYMENT,
             Col.STATE_PARTISAN_LEAN,
-            "nation_incumbent_party_REPUBLICAN", "district_incumbent_party_REPUBLICAN",
+            "nation_incumbent_party_REPUBLICAN",
+            "district_incumbent_party_REPUBLICAN",
         }
         assert required.issubset(set(real_data["X"].columns))
 
@@ -93,7 +111,9 @@ class TestBuildFeatureMatrix:
 
 class TestBuildPred2026:
     def test_returns_tuple(self, real_data):
-        result = build_pred_2026(real_data["winners"], real_data["dems_reps"], real_data["X"].columns)
+        result = build_pred_2026(
+            real_data["winners"], real_data["dems_reps"], real_data["X"].columns
+        )
         assert isinstance(result, tuple) and len(result) == 2
 
     def test_district_ids_aligned(self, real_data):

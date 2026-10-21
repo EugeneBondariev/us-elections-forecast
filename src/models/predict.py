@@ -98,7 +98,11 @@ def _log_feature_stability(fi: pd.DataFrame) -> None:
     for col in fi.mean().sort_values(ascending=False).index:
         logger.info(
             "  %-45s  %5.1f  %5.1f  %5.1f  %5.1f",
-            col, fi[col].min(), fi[col].max(), fi[col].mean(), fi[col].std(),
+            col,
+            fi[col].min(),
+            fi[col].max(),
+            fi[col].mean(),
+            fi[col].std(),
         )
 
 
@@ -108,7 +112,11 @@ def _log_tossup_skew(ts: pd.DataFrame) -> None:
     for row in ts.itertuples(index=False):
         logger.info(
             "  %4d  %8d  %8d  %6.1f%%  %+6.1f%%",
-            row.year, row.n_tossup, row.dem_wins, row.dem_pct, row.skew,
+            row.year,
+            row.n_tossup,
+            row.dem_wins,
+            row.dem_pct,
+            row.skew,
         )
 
 
@@ -192,7 +200,9 @@ def main() -> None:
         mlflow.log_metric("mean_wf_accuracy", wf["district_accuracy"].mean())
         mlflow.log_metric("mean_abs_seat_error", wf["seat_error"].abs().mean())
 
-        pipeline = train(X, y, sample_weight=compute_sample_weights(years), y_vote_share=ds.y_vote_share)
+        pipeline = train(
+            X, y, sample_weight=compute_sample_weights(years), y_vote_share=ds.y_vote_share
+        )
         # redirect_stderr: MLflow's internal eprint() writes to sys.stderr when a
         # registered model already exists; on Windows that raises OSError when stderr
         # is a log file.
@@ -214,9 +224,13 @@ def main() -> None:
             )
         logger.info("Model logged to MLflow registry as 'us-house-stacking-ensemble'")
         pred_2026, district_ids = build_pred_2026(
-            winners, dems_reps, X.columns,
-            pres_lean=pres_lean, fundraising=fundraising,
-            census=ds.census, candidate_quality=ds.candidate_quality,
+            winners,
+            dems_reps,
+            X.columns,
+            pres_lean=pres_lean,
+            fundraising=fundraising,
+            census=ds.census,
+            candidate_quality=ds.candidate_quality,
             district_analytics=ds.district_analytics,
             gerrymandering=ds.gerrymandering,
             speech_sentiment=ds.speech_sentiment,

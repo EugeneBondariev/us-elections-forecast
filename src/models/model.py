@@ -3,6 +3,7 @@
 Defines the sklearn pipelines (LR, GBM, RF) and the stacking ensemble used throughout
 the project. Evaluation lives in evaluation.py; simulation in simulation.py.
 """
+
 from __future__ import annotations
 
 import json
@@ -79,6 +80,7 @@ _GBM_DEFAULTS = {
 def _gbm_params() -> dict[str, Any]:
     """Return tuned params from disk if available, else hardcoded defaults."""
     from src.paths import DataFile
+
     if DataFile.BEST_PARAMS.exists():
         with open(DataFile.BEST_PARAMS) as f:
             params = json.load(f)
@@ -217,16 +219,16 @@ class VoteShareRegressor:
             self._bootstrap.append((scaler, lgbm))
         return self
 
-    def predict_ci(
-        self, X: pd.DataFrame, alpha: float = 0.05
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def predict_ci(self, X: pd.DataFrame, alpha: float = 0.05) -> tuple[np.ndarray, np.ndarray]:
         """Return (lo, hi) vote-share CI at (1-alpha) coverage using bootstrap models."""
         if not self._bootstrap:
             raise RuntimeError("Call fit_bootstrap() before predict_ci()")
-        preds = np.column_stack([
-            np.clip(np.asarray(lgbm.predict(scaler.transform(X)), dtype=float), 0.0, 1.0)
-            for scaler, lgbm in self._bootstrap
-        ])
+        preds = np.column_stack(
+            [
+                np.clip(np.asarray(lgbm.predict(scaler.transform(X)), dtype=float), 0.0, 1.0)
+                for scaler, lgbm in self._bootstrap
+            ]
+        )
         lo = np.percentile(preds, 100 * alpha / 2, axis=1)
         hi = np.percentile(preds, 100 * (1 - alpha / 2), axis=1)
         return lo, hi
@@ -236,7 +238,9 @@ class VoteShareRegressor:
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         assert self._scaler is not None and self._lgbm is not None
-        p = np.clip(np.asarray(self._lgbm.predict(self._scaler.transform(X)), dtype=float), 0.0, 1.0)
+        p = np.clip(
+            np.asarray(self._lgbm.predict(self._scaler.transform(X)), dtype=float), 0.0, 1.0
+        )
         return np.column_stack([1.0 - p, p])
 
 
@@ -259,9 +263,7 @@ def train(
     binary labels. Both expose predict_proba so downstream code is unchanged.
     """
     if y_vote_share is not None:
-        logger.info(
-            "Training VoteShareRegressor on %d samples, %d features", len(X), X.shape[1]
-        )
+        logger.info("Training VoteShareRegressor on %d samples, %d features", len(X), X.shape[1])
         return VoteShareRegressor().fit(X, y_vote_share, sample_weight=sample_weight)
     logger.info("Training stacking ensemble on %d samples, %d features", len(X), X.shape[1])
     model = build_stacking_ensemble()

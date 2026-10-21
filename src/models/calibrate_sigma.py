@@ -7,6 +7,7 @@ Writes models/calibrated_sigma.json. src.model.load_simulation_params() picks it
 automatically, so run_forecast() (used by app.py, api.py, predict.py) uses the
 calibrated values on the next run.
 """
+
 import json
 import logging
 
@@ -28,16 +29,22 @@ def main() -> None:
 
     logger.info("Saved calibrated simulation params -> %s", DataFile.CALIBRATED_SIGMA)
     logger.info("  sigma_national = %.4f", result["sigma_national"])
-    logger.info("  sigma_district = %.4f (held fixed — see calibrate_national_sigma docstring)",
-                result["sigma_district"])
+    logger.info(
+        "  sigma_district = %.4f (held fixed — see calibrate_national_sigma docstring)",
+        result["sigma_district"],
+    )
     logger.info("  concentration  = %.1f", result.get("concentration", float("nan")))
     logger.info("  blend_weight   = %.2f", result.get("blend_weight", float("nan")))
-    logger.info("  target seat-count std = %.2f (from %d walk-forward years)",
-                result["target_std"], result["n_years"])
+    logger.info(
+        "  target seat-count std = %.2f (from %d walk-forward years)",
+        result["target_std"],
+        result["n_years"],
+    )
     if "sigma_low" in result:
         logger.info(
             "  jackknife 95%% CI for sigma_national: [%.4f, %.4f]",
-            result.get("sigma_low"), result.get("sigma_high"),
+            result.get("sigma_low"),
+            result.get("sigma_high"),
         )
 
 

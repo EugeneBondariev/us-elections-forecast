@@ -37,6 +37,7 @@ as missing, not silently skipped or guessed at.
 Run from project root:
     python -m src.data.build_approval_history
 """
+
 import datetime
 import re
 import sys
@@ -145,23 +146,38 @@ def select_readings(
         election = _election_date(year)
         candidates = all_rows[all_rows["end_date"] < pd.Timestamp(election)]
         if candidates.empty:
-            results.append({
-                "year": year, "election_date": election,
-                "row": None, "gap_days": None, "status": "no_candidate",
-            })
+            results.append(
+                {
+                    "year": year,
+                    "election_date": election,
+                    "row": None,
+                    "gap_days": None,
+                    "status": "no_candidate",
+                }
+            )
             continue
         best = candidates.loc[candidates["end_date"].idxmax()]  # type: ignore[call-overload]
         gap_days = (pd.Timestamp(election) - best["end_date"]).days
         if gap_days > max_gap_days:
-            results.append({
-                "year": year, "election_date": election,
-                "row": best, "gap_days": gap_days, "status": "stale",
-            })
+            results.append(
+                {
+                    "year": year,
+                    "election_date": election,
+                    "row": best,
+                    "gap_days": gap_days,
+                    "status": "stale",
+                }
+            )
             continue
-        results.append({
-            "year": year, "election_date": election,
-            "row": best, "gap_days": gap_days, "status": "ok",
-        })
+        results.append(
+            {
+                "year": year,
+                "election_date": election,
+                "row": best,
+                "gap_days": gap_days,
+                "status": "ok",
+            }
+        )
     return results
 
 
@@ -179,7 +195,9 @@ def main() -> None:
             print(f"  {slug}: 0 usable rows")
             continue
         frames.append(df)
-        print(f"  {slug}: {len(df)} rows, {df['end_date'].min().date()} to {df['end_date'].max().date()}")
+        print(
+            f"  {slug}: {len(df)} rows, {df['end_date'].min().date()} to {df['end_date'].max().date()}"
+        )
 
     if not frames:
         print("No data fetched from any page - aborting.")
@@ -227,8 +245,10 @@ def main() -> None:
             " in the same 5-column tab-separated format, before the pipeline will run."
         )
 
-    print("\nRemember: data/interim/Approval-Ratings-for-POTUS-raw.xls is for local use only - "
-          "never commit it, mirror it, or upload it anywhere public.")
+    print(
+        "\nRemember: data/interim/Approval-Ratings-for-POTUS-raw.xls is for local use only - "
+        "never commit it, mirror it, or upload it anywhere public."
+    )
     sys.exit(0 if not missing else 1)
 
 

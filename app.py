@@ -59,7 +59,9 @@ ci_68_lo = int(np.percentile(sim, 16))
 ci_68_hi = int(np.percentile(sim, 84))
 n_competitive = int(((districts["proba_dem"] - 0.5).abs() < COMPETITIVE_MARGIN).sum())
 
-tab_overview, tab_districts, tab_map, tab_ask, tab_tools = st.tabs(["Overview", "Districts", "Map", "Ask", "Tools"])
+tab_overview, tab_districts, tab_map, tab_ask, tab_tools = st.tabs(
+    ["Overview", "Districts", "Map", "Ask", "Tools"]
+)
 
 with tab_overview:
     c1, c2, c3, c4 = st.columns(4)
@@ -69,32 +71,42 @@ with tab_overview:
     c4.metric("Competitive (35–65% Dem)", n_competitive)
 
     st.subheader("Seat distribution — 10,000 simulations")
-    fig = go.Figure(go.Histogram(
-        x=sim,
-        xbins=dict(start=sim.min()-0.5, end=sim.max()+0.5, size=1),
-        marker_color=["#3366cc" if x >= DEM_MAJORITY_SEATS else "#cc3333" for x in range(int(sim.min()), int(sim.max())+1)],
-    ))
+    fig = go.Figure(
+        go.Histogram(
+            x=sim,
+            xbins=dict(start=sim.min() - 0.5, end=sim.max() + 0.5, size=1),
+            marker_color=[
+                "#3366cc" if x >= DEM_MAJORITY_SEATS else "#cc3333"
+                for x in range(int(sim.min()), int(sim.max()) + 1)
+            ],
+        )
+    )
     fig.add_vline(x=DEM_MAJORITY_SEATS - 0.5, line_dash="dash", line_color="black")
-    fig.update_layout(showlegend=False, xaxis_title="Dem Seats", yaxis_title="Simulations",
-                      margin=dict(l=20,r=20,t=20,b=20), height=300)
+    fig.update_layout(
+        showlegend=False,
+        xaxis_title="Dem Seats",
+        yaxis_title="Simulations",
+        margin=dict(l=20, r=20, t=20, b=20),
+        height=300,
+    )
     st.plotly_chart(fig, width="stretch")
 
     st.subheader("Competitive districts (35–65% Dem win probability)")
     comp = (
-        districts
-        .assign(margin=lambda df: (df["proba_dem"] - 0.5).abs())
+        districts.assign(margin=lambda df: (df["proba_dem"] - 0.5).abs())
         .query("margin < @COMPETITIVE_MARGIN")
-        .sort_values("margin")
-        [["label", "proba_dem", "district_incumbent", "is_open"]]
+        .sort_values("margin")[["label", "proba_dem", "district_incumbent", "is_open"]]
         .copy()
     )
     comp["Dem win %"] = (comp["proba_dem"] * 100).round(1)
     comp["Lean"] = np.where(comp["proba_dem"] >= 0.5, "Dem", "Rep")
-    comp = comp.rename(columns={
-        "label": "District",
-        "district_incumbent": "Incumbent party",
-        "is_open": "Open seat",
-    })
+    comp = comp.rename(
+        columns={
+            "label": "District",
+            "district_incumbent": "Incumbent party",
+            "is_open": "Open seat",
+        }
+    )
     st.dataframe(
         comp[["District", "Dem win %", "Lean", "Incumbent party", "Open seat"]],
         width="stretch",
@@ -161,14 +173,19 @@ with tab_districts:
 
         with dcol2:
             row = sel
-            fig2 = go.Figure(go.Bar(
-                x=[row["proba_dem"]],
-                orientation="h",
-                marker_color="#3366cc" if row["proba_dem"] >= 0.5 else "#cc3333",
-            ))
-            fig2.update_layout(xaxis=dict(range=[0,1], title="P(Dem win)"),
-                               height=80, margin=dict(l=0,r=0,t=0,b=0),
-                               showlegend=False)
+            fig2 = go.Figure(
+                go.Bar(
+                    x=[row["proba_dem"]],
+                    orientation="h",
+                    marker_color="#3366cc" if row["proba_dem"] >= 0.5 else "#cc3333",
+                )
+            )
+            fig2.update_layout(
+                xaxis=dict(range=[0, 1], title="P(Dem win)"),
+                height=80,
+                margin=dict(l=0, r=0, t=0, b=0),
+                showlegend=False,
+            )
             st.plotly_chart(fig2, width="stretch")
 
             if "shap_values" in data:
@@ -176,12 +193,14 @@ with tab_districts:
                 row_pos = event.selection.rows[0]
                 if row_pos < len(shap_df):
                     sv = shap_df.iloc[row_pos].sort_values(key=abs, ascending=False).head(5)
-                    fig_shap = go.Figure(go.Bar(
-                        x=sv.values,
-                        y=sv.index,
-                        orientation="h",
-                        marker_color=["#3366cc" if v > 0 else "#cc3333" for v in sv.values],
-                    ))
+                    fig_shap = go.Figure(
+                        go.Bar(
+                            x=sv.values,
+                            y=sv.index,
+                            orientation="h",
+                            marker_color=["#3366cc" if v > 0 else "#cc3333" for v in sv.values],
+                        )
+                    )
                     fig_shap.update_layout(
                         title="Top SHAP drivers",
                         height=250,
@@ -191,13 +210,9 @@ with tab_districts:
                     st.plotly_chart(fig_shap, width="stretch")
 
 with tab_map:
-    state_agg = (
-        districts
-        .groupby("state_po", as_index=False)
-        .agg(
-            mean_proba_dem=("proba_dem", "mean"),
-            n_competitive=("proba_dem", lambda s: int(((s - 0.5).abs() < COMPETITIVE_MARGIN).sum())),
-        )
+    state_agg = districts.groupby("state_po", as_index=False).agg(
+        mean_proba_dem=("proba_dem", "mean"),
+        n_competitive=("proba_dem", lambda s: int(((s - 0.5).abs() < COMPETITIVE_MARGIN).sum())),
     )
 
     fig_map = px.choropleth(
@@ -215,17 +230,14 @@ with tab_map:
     st.plotly_chart(fig_map, width="stretch")
 
     st.subheader("Most competitive states")
-    top_competitive = (
-        state_agg
-        .sort_values("n_competitive", ascending=False)
-        .head(5)
-        .copy()
-    )
+    top_competitive = state_agg.sort_values("n_competitive", ascending=False).head(5).copy()
     top_competitive["Avg Dem %"] = (top_competitive["mean_proba_dem"] * 100).round(1)
-    top_competitive = top_competitive.rename(columns={
-        "state_po": "State",
-        "n_competitive": "Competitive districts",
-    })
+    top_competitive = top_competitive.rename(
+        columns={
+            "state_po": "State",
+            "n_competitive": "Competitive districts",
+        }
+    )
     st.dataframe(
         top_competitive[["State", "Avg Dem %", "Competitive districts"]],
         width="content",
@@ -272,13 +284,34 @@ with tab_tools:
     st.subheader("Pipeline tools")
 
     _SCRIPTS = {
-        "Run full analysis":       ("src.visualization.run_analysis", "Runs all 6 diagnostic scripts. Logs saved to logs/analysis/."),
-        "Train & predict (MLflow)":("src.models.predict",             "Full training run with walk-forward CV, bootstrap CI, and 2026 forecast. Logged to MLflow."),
-        "Hyperparameter tuning":   ("src.models.tune",                "Optuna tuning for LightGBM (500 trials). Saves best params to config/best_params_lgbm.json."),
-        "Calibrate sigma":         ("src.models.calibrate_sigma",     "Fits Monte Carlo sigma_national to walk-forward residuals. Saves to data/calibrated_sigma.json."),
-        "Rebuild RAG index":       ("src.visualization.build_rag_index", "Rebuilds the ChromaDB vector index from the current forecast."),
-        "Fetch economic indicators":("src.data.build_indicators",    "Downloads latest FRED GDP and unemployment data to data/interim/indicators.csv."),
-        "Parse Cook ratings":      ("src.data.parse_cook",            "Parses Cook Political Report CSV into data/cook.csv."),
+        "Run full analysis": (
+            "src.visualization.run_analysis",
+            "Runs all 6 diagnostic scripts. Logs saved to logs/analysis/.",
+        ),
+        "Train & predict (MLflow)": (
+            "src.models.predict",
+            "Full training run with walk-forward CV, bootstrap CI, and 2026 forecast. Logged to MLflow.",
+        ),
+        "Hyperparameter tuning": (
+            "src.models.tune",
+            "Optuna tuning for LightGBM (500 trials). Saves best params to config/best_params_lgbm.json.",
+        ),
+        "Calibrate sigma": (
+            "src.models.calibrate_sigma",
+            "Fits Monte Carlo sigma_national to walk-forward residuals. Saves to data/calibrated_sigma.json.",
+        ),
+        "Rebuild RAG index": (
+            "src.visualization.build_rag_index",
+            "Rebuilds the ChromaDB vector index from the current forecast.",
+        ),
+        "Fetch economic indicators": (
+            "src.data.build_indicators",
+            "Downloads latest FRED GDP and unemployment data to data/interim/indicators.csv.",
+        ),
+        "Parse Cook ratings": (
+            "src.data.parse_cook",
+            "Parses Cook Political Report CSV into data/cook.csv.",
+        ),
     }
 
     for label, (module, description) in _SCRIPTS.items():

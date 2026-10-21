@@ -2,6 +2,7 @@
 Unit tests for src.models.model that run without any files in data/.
 All fixtures are synthetic hand-crafted DataFrames / arrays.
 """
+
 from unittest.mock import patch
 
 import numpy as np
@@ -10,6 +11,7 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 # 1. WeightedPipeline routes sample_weight correctly
 # ---------------------------------------------------------------------------
+
 
 def test_weighted_pipeline_accepts_sample_weight():
     from src.models.model import build_lr_pipeline
@@ -26,12 +28,13 @@ def test_weighted_pipeline_accepts_sample_weight():
 # 2. compute_sample_weights gives more weight to recent years
 # ---------------------------------------------------------------------------
 
+
 def test_sample_weights_recency():
     from src.models.model import compute_sample_weights
 
     years = pd.Series([2010, 2012, 2014, 2016, 2018, 2020, 2022, 2024])
     w = compute_sample_weights(years)
-    assert w[-1] > w[0]          # most recent > oldest
+    assert w[-1] > w[0]  # most recent > oldest
     assert len(w) == len(years)
     assert (w > 0).all()
 
@@ -39,6 +42,7 @@ def test_sample_weights_recency():
 # ---------------------------------------------------------------------------
 # 3. simulate_election returns correct shape and range
 # ---------------------------------------------------------------------------
+
 
 def test_simulate_election_shape():
     from src.models.simulation import simulate_election
@@ -54,6 +58,7 @@ def test_simulate_election_shape():
 # 4. bayesian_simulate returns correct shape
 # ---------------------------------------------------------------------------
 
+
 def test_bayesian_simulate_shape():
     from src.models.simulation import bayesian_simulate
 
@@ -67,6 +72,7 @@ def test_bayesian_simulate_shape():
 # ---------------------------------------------------------------------------
 # 5. feature_weights returns sorted dict summing to ~100
 # ---------------------------------------------------------------------------
+
 
 def test_feature_weights_sum():
     from src.models.model import build_lr_pipeline, feature_weights
@@ -87,6 +93,7 @@ def test_feature_weights_sum():
 # 6. bootstrap_ci returns expected keys and valid ranges
 # ---------------------------------------------------------------------------
 
+
 def test_bootstrap_ci_keys():
     from src.models.evaluation import bootstrap_ci
 
@@ -98,8 +105,12 @@ def test_bootstrap_ci_keys():
     years = pd.Series([2000] * 50 + [2002] * 50)
     result = bootstrap_ci(X, y, years, n_bootstrap=10)
     expected_keys = {
-        "accuracy_mean", "accuracy_low", "accuracy_high",
-        "seat_error_mean", "seat_error_low", "seat_error_high",
+        "accuracy_mean",
+        "accuracy_low",
+        "accuracy_high",
+        "seat_error_mean",
+        "seat_error_low",
+        "seat_error_high",
     }
     assert set(result.keys()) == expected_keys
     assert 0 <= result["accuracy_mean"] <= 1
@@ -109,6 +120,7 @@ def test_bootstrap_ci_keys():
 # ---------------------------------------------------------------------------
 # 7. walk_forward_cv produces reasonable output on toy data
 # ---------------------------------------------------------------------------
+
 
 def test_walk_forward_cv_toy():
     from src.models.evaluation import walk_forward_cv
@@ -129,6 +141,7 @@ def test_walk_forward_cv_toy():
 # 8. stacking ensemble trains and predicts
 # ---------------------------------------------------------------------------
 
+
 def test_stacking_ensemble_trains():
     from src.models.model import build_stacking_ensemble
 
@@ -145,6 +158,7 @@ def test_stacking_ensemble_trains():
 # ---------------------------------------------------------------------------
 # 9. feature_weights works with StackingClassifier (GBM branch)
 # ---------------------------------------------------------------------------
+
 
 def test_feature_weights_stacking_ensemble():
     from src.models.model import build_stacking_ensemble, feature_weights
@@ -167,6 +181,7 @@ def test_feature_weights_stacking_ensemble():
 # ---------------------------------------------------------------------------
 # 10. simulate_election is deterministic with a fixed seed
 # ---------------------------------------------------------------------------
+
 
 def test_simulate_election_deterministic():
     from src.models.simulation import simulate_election
@@ -198,6 +213,7 @@ def _make_walk_forward_frame(n_years=6, n_per_year=60, seed=0):
 # 11. walk_forward_probas returns one (proba, actual) pair per test year
 # ---------------------------------------------------------------------------
 
+
 def test_walk_forward_probas_shapes():
     from src.models.evaluation import walk_forward_probas
 
@@ -213,6 +229,7 @@ def test_walk_forward_probas_shapes():
 # 12. walk_forward_calibration returns Brier score / log loss per year
 # ---------------------------------------------------------------------------
 
+
 def test_walk_forward_calibration_columns_and_bounds():
     from src.models.evaluation import walk_forward_calibration
 
@@ -227,6 +244,7 @@ def test_walk_forward_calibration_columns_and_bounds():
 # 13. calibrate_national_sigma: too few years falls back to the documented default
 # ---------------------------------------------------------------------------
 
+
 def test_calibrate_national_sigma_falls_back_with_too_few_years():
     from src.models.simulation import calibrate_national_sigma
 
@@ -239,6 +257,7 @@ def test_calibrate_national_sigma_falls_back_with_too_few_years():
 # ---------------------------------------------------------------------------
 # 14. calibrate_national_sigma: with enough years, returns a positive, bounded sigma
 # ---------------------------------------------------------------------------
+
 
 def test_calibrate_national_sigma_returns_bounded_value_with_enough_years():
     from src.models.simulation import calibrate_national_sigma
@@ -257,6 +276,7 @@ def test_calibrate_national_sigma_returns_bounded_value_with_enough_years():
 # history) inflated plain std enough to pin calibrate_national_sigma at its
 # search ceiling every time, confirmed by running it against real data.
 # ---------------------------------------------------------------------------
+
 
 def test_robust_std_resists_single_outlier():
     from src.models.simulation import _robust_std
@@ -288,13 +308,20 @@ def test_robust_std_matches_plain_std_for_symmetric_normal_data():
 # 16. load_simulation_params: defaults when no calibrated file exists, else reads it
 # ---------------------------------------------------------------------------
 
+
 def test_load_simulation_params_defaults_when_file_absent(tmp_path, monkeypatch):
     from src.models.simulation import load_simulation_params
     from src.paths import DataFile
 
     monkeypatch.setattr(DataFile, "CALIBRATED_SIGMA", tmp_path / "nonexistent.json")
     result = load_simulation_params()
-    assert result == {"sigma_national": 0.25, "sigma_district": 0.15, "blend_weight": 0.5, "concentration": 15.0, "hetero_k": 1.0}
+    assert result == {
+        "sigma_national": 0.25,
+        "sigma_district": 0.15,
+        "blend_weight": 0.5,
+        "concentration": 15.0,
+        "hetero_k": 1.0,
+    }
 
 
 def test_load_simulation_params_reads_calibrated_file(tmp_path, monkeypatch):
@@ -304,17 +331,33 @@ def test_load_simulation_params_reads_calibrated_file(tmp_path, monkeypatch):
     from src.paths import DataFile
 
     path = tmp_path / "calibrated_sigma.json"
-    path.write_text(json.dumps({"sigma_national": 0.4, "sigma_district": 0.15, "blend_weight": 0.75, "concentration": 30.0}))
+    path.write_text(
+        json.dumps(
+            {
+                "sigma_national": 0.4,
+                "sigma_district": 0.15,
+                "blend_weight": 0.75,
+                "concentration": 30.0,
+            }
+        )
+    )
     monkeypatch.setattr(DataFile, "CALIBRATED_SIGMA", path)
 
     result = load_simulation_params()
     # Old JSON without hetero_k must fall back to default 1.0
-    assert result == {"sigma_national": 0.4, "sigma_district": 0.15, "blend_weight": 0.75, "concentration": 30.0, "hetero_k": 1.0}
+    assert result == {
+        "sigma_national": 0.4,
+        "sigma_district": 0.15,
+        "blend_weight": 0.75,
+        "concentration": 30.0,
+        "hetero_k": 1.0,
+    }
 
 
 # ---------------------------------------------------------------------------
 # 17. VoteShareRegressor: predict_proba shape, probabilities in [0,1], train()
 # ---------------------------------------------------------------------------
+
 
 def test_vote_share_regressor_predict_proba_shape():
     import numpy as np
@@ -365,6 +408,7 @@ def test_train_uses_vote_share_when_provided():
 # 18. Jackknife CI: compute_ci=True adds sigma_low/sigma_high to result
 # ---------------------------------------------------------------------------
 
+
 def test_jackknife_ci_added_when_requested():
     from unittest.mock import patch
 
@@ -380,9 +424,13 @@ def test_jackknife_ci_added_when_requested():
 
     with patch("src.models.simulation.walk_forward_probas", return_value=fake_folds):
         result = calibrate_national_sigma(
-            pd.DataFrame(), pd.Series(dtype=float), pd.Series(dtype=int),
+            pd.DataFrame(),
+            pd.Series(dtype=float),
+            pd.Series(dtype=int),
             exclude_years=frozenset(),
-            n=100, seed=0, compute_ci=True,
+            n=100,
+            seed=0,
+            compute_ci=True,
         )
 
     assert "sigma_low" in result, "sigma_low missing when compute_ci=True"
@@ -404,9 +452,13 @@ def test_jackknife_ci_absent_when_not_requested():
 
     with patch("src.models.simulation.walk_forward_probas", return_value=fake_folds):
         result = calibrate_national_sigma(
-            pd.DataFrame(), pd.Series(dtype=float), pd.Series(dtype=int),
+            pd.DataFrame(),
+            pd.Series(dtype=float),
+            pd.Series(dtype=int),
             exclude_years=frozenset(),
-            n=100, seed=0, compute_ci=False,
+            n=100,
+            seed=0,
+            compute_ci=False,
         )
 
     assert "sigma_low" not in result
@@ -416,6 +468,7 @@ def test_jackknife_ci_absent_when_not_requested():
 # ---------------------------------------------------------------------------
 # 19. VoteShareRegressor.fit_bootstrap / predict_ci: shape, bounds, raises
 # ---------------------------------------------------------------------------
+
 
 def test_vote_share_regressor_predict_ci_shape():
     import numpy as np
@@ -450,6 +503,7 @@ def test_vote_share_regressor_predict_ci_raises_without_bootstrap():
     reg = VoteShareRegressor().fit(X, y_vs)
 
     import pytest
+
     with pytest.raises(RuntimeError, match="fit_bootstrap"):
         reg.predict_ci(X)
 
