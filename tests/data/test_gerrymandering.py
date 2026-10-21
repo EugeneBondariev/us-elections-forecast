@@ -41,7 +41,7 @@ def _make_gdf(n: int = 4) -> "GeoDataFrame":
     state_fps = ["06"] * n
     cd_fps = [f"{i + 1:02d}" for i in range(n)]
     return gpd.GeoDataFrame(
-        {"STATEFP": state_fps, "CD118FP": cd_fps},
+        {"STATE": state_fps, "CD119": cd_fps},
         geometry=geometries,
         crs="EPSG:4326",
     )
@@ -90,7 +90,7 @@ class TestBuildCompactnessFeatures:
         # Mix: one CA district + one PR district
         geometries = [box(0, 0, 1, 1), box(1, 0, 2, 1)]
         gdf = gpd.GeoDataFrame(
-            {"STATEFP": ["06", "72"], "CD118FP": ["01", "01"]},
+            {"STATE": ["06", "72"], "CD119": ["01", "01"]},
             geometry=geometries,
             crs="EPSG:4326",
         )

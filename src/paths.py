@@ -85,8 +85,8 @@ class DataFile:
     # external/ — Congress.gov member list cache (raw API response, no transformation)
     CONGRESS_MEMBERS_CACHE = EXTERNAL_DIR / "congress_members_119.json"
 
-    # external/ — Census TIGER/Line shapefile zip (raw geometry, no transformation)
-    TIGER_SHAPEFILE = EXTERNAL_DIR / "tl_2022_us_cd118.zip"
+    # external/ — Census TIGERweb 119th Congress GeoJSON cache (raw geometry, no transformation)
+    TIGER_GEOJSON = EXTERNAL_DIR / "tiger_cd119.geojson"
 
     # processed/ — derived artifacts the app/API read at runtime. Safe to delete.
     DB = PROCESSED_DIR / "elections.db"
