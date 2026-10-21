@@ -44,7 +44,6 @@ __all__ = [
     "fetch_member_bills",
     "score_sentiment",
     "build_speech_features",
-    "load_speech_sentiment",
 ]
 
 _BASE_URL = "https://api.congress.gov/v3"
@@ -171,24 +170,6 @@ def build_speech_features(
         df["speech_sentiment"].min(),
         df["speech_sentiment"].max(),
     )
-    return df
-
-
-def load_speech_sentiment(cache_path: Path | None = None) -> pd.DataFrame | None:
-    """Load the speech sentiment CSV, or return None if the file is absent.
-
-    Validates the loaded DataFrame against SpeechSentimentSchema before returning.
-    Pass cache_path to override the default DataFile.SPEECH_SENTIMENT location
-    (useful in tests).
-    """
-    path = cache_path if cache_path is not None else DataFile.SPEECH_SENTIMENT
-    if not Path(path).exists():
-        logger.info("Speech sentiment file not found at %s — skipping feature", path)
-        return None
-    df = pd.read_csv(path, dtype={"district": int})
-    from src.data import validators
-
-    validators.validate_speech_sentiment(df)
     return df
 
 

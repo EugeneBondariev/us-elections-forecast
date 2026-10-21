@@ -21,7 +21,6 @@ from __future__ import annotations
 import io
 import json
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -37,7 +36,6 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "fetch_tiger_geodataframe",
     "build_compactness_features",
-    "load_gerrymandering",
 ]
 
 _TIGERWEB_URL = (
@@ -144,19 +142,6 @@ def build_compactness_features(gdf: GeoDataFrame, fips_map: dict[str, str]) -> p
         result["polsby_popper"].max(),
     )
     return result
-
-
-def load_gerrymandering(cache_path: Path | None = None) -> pd.DataFrame | None:
-    """Load gerrymandering features from disk, validating with pandera schema."""
-    path = cache_path or DataFile.GERRYMANDERING
-    if not Path(path).exists():
-        logger.info("gerrymandering.csv absent — compactness features will be skipped")
-        return None
-    df = pd.read_csv(path, dtype={"district": int})
-    from src.data.validators import validate_gerrymandering
-
-    validate_gerrymandering(df)
-    return df
 
 
 def main() -> None:

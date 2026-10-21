@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
 import pytest
 
@@ -11,7 +9,6 @@ from src.constants import Col
 from src.data.census import (
     _parse_district_code,
     build_census_features,
-    load_census,
     parse_census_response,
 )
 
@@ -258,13 +255,3 @@ def test_build_census_features_no_extra_rows(raw_response: list[list[str]]) -> N
     features = build_census_features(parsed)
     # 4 valid US-state rows in; same 4 rows out
     assert len(features) == len(parsed)
-
-
-# ---------------------------------------------------------------------------
-# load_census
-# ---------------------------------------------------------------------------
-
-
-def test_load_census_returns_none_if_missing() -> None:
-    result = load_census(Path("nonexistent/path.csv"))
-    assert result is None

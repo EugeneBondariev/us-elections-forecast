@@ -6,14 +6,12 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import pytest
 
 from src.data.speech_sentiment import (
     build_speech_features,
     fetch_house_members,
     fetch_member_bills,
-    load_speech_sentiment,
     score_sentiment,
 )
 
@@ -121,28 +119,4 @@ class TestBuildSpeechFeatures:
         members = [_make_member("CA", 1), _make_member("NY", 5, "B000002")]
         with patch("src.data.speech_sentiment.fetch_member_bills", return_value=[]):
             result = build_speech_features(members=members)
-        assert result["district"].dtype == int
-
-
-class TestLoadSpeechSentiment:
-    def test_returns_none_when_absent(self) -> None:
-        result = load_speech_sentiment(cache_path=Path("/nonexistent/x.csv"))
-        assert result is None
-
-    def test_loads_valid_csv(self, tmp_path: Path) -> None:
-        csv_path = tmp_path / "speech_sentiment.csv"
-        pd.DataFrame(
-            {
-                "state_po": ["CA", "TX"],
-                "district": [1, 7],
-                "speech_sentiment": [0.12, -0.05],
-                "speech_count": [10, 8],
-            }
-        ).to_csv(csv_path, index=False)
-
-        with patch("src.data.validators.validate_speech_sentiment", return_value=None):
-            result = load_speech_sentiment(cache_path=csv_path)
-
-        assert isinstance(result, pd.DataFrame)
-        assert len(result) == 2
         assert result["district"].dtype == int

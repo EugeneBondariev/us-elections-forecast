@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from pathlib import Path
 
 import pandas as pd
 
@@ -31,7 +30,6 @@ __all__ = [
     "compute_win_streak",
     "compute_swing_volatility",
     "build_district_analytics",
-    "load_district_analytics",
 ]
 
 _WIN_STREAK = "win_streak"
@@ -146,22 +144,6 @@ def build_district_analytics(dems_reps: pd.DataFrame) -> pd.DataFrame:
         result["district"].max(),
     )
     return result
-
-
-def load_district_analytics(cache_path: Path | None = None) -> pd.DataFrame | None:
-    """Load district analytics from disk, validating with pandera schema."""
-    path = cache_path if cache_path is not None else DataFile.DISTRICT_ANALYTICS
-    if not path.exists():
-        logger.info(
-            "District analytics cache not found: %s — skipping analytics features",
-            path,
-        )
-        return None
-    df = pd.read_csv(path, dtype={"district": int, "year": int})
-    from src.data.validators import validate_district_analytics
-
-    validate_district_analytics(df)
-    return df
 
 
 def main() -> None:

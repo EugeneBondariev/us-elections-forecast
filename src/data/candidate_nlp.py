@@ -53,7 +53,6 @@ __all__ = [
     "embedding_components",
     "compute_quality_scores",
     "build_candidate_quality",
-    "load_candidate_quality",
 ]
 
 _KEY_COLS = [Col.YEAR, Col.STATE, Col.DISTRICT, Col.PARTY]
@@ -248,14 +247,6 @@ def build_candidate_quality(
             Col.EXPERIENCE_CYCLES_REP,
         ]
     ]
-
-
-def load_candidate_quality(path: Path) -> pd.DataFrame | None:
-    """Load candidate_quality.csv from disk, or return None if not present."""
-    if not path.exists():
-        logger.info("candidate_quality.csv not found — skipping")
-        return None
-    return pd.read_csv(path)
 
 
 def main() -> None:

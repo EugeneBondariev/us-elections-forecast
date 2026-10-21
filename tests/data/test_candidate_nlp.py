@@ -14,7 +14,6 @@ from src.data.candidate_nlp import (
     compute_experience_cycles,
     compute_quality_scores,
     compute_receipts_rank,
-    load_candidate_quality,
     select_top_candidates,
     tfidf_components,
 )
@@ -359,14 +358,3 @@ class TestBuildCandidateQuality:
             f"Veteran dem_share={veteran_row['candidate_quality_dem_share'].iloc[0]:.4f} "
             f"should exceed rookie dem_share={rookie_row['candidate_quality_dem_share'].iloc[0]:.4f}"
         )
-
-
-# ---------------------------------------------------------------------------
-# load_candidate_quality
-# ---------------------------------------------------------------------------
-
-
-class TestLoadCandidateQuality:
-    def test_load_candidate_quality_returns_none_if_missing(self) -> None:
-        result = load_candidate_quality(Path("nonexistent.csv"))
-        assert result is None

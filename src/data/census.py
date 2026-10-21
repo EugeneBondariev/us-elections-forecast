@@ -40,7 +40,6 @@ __all__ = [
     "fetch_census_acs",
     "parse_census_response",
     "build_census_features",
-    "load_census",
 ]
 
 _BASE_URL = "https://api.census.gov/data"
@@ -167,18 +166,6 @@ def build_census_features(raw_df: pd.DataFrame) -> pd.DataFrame:
     ].copy()
     result = result[result[Col.STATE].notna()].reset_index(drop=True)
     return result
-
-
-def load_census(cache_path: Path) -> pd.DataFrame | None:
-    """Load census features from disk, validating with pandera schema."""
-    if not cache_path.exists():
-        logger.info("Census cache not found: %s — skipping census features", cache_path)
-        return None
-    df = pd.read_csv(cache_path)
-    from src.data.validators import validate_census
-
-    validate_census(df)
-    return df
 
 
 def main() -> None:

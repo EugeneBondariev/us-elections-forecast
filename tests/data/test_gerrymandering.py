@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import math
-from pathlib import Path
 from typing import TYPE_CHECKING
-from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -14,7 +12,7 @@ import pytest
 if TYPE_CHECKING:
     from geopandas import GeoDataFrame
 
-from src.data.gerrymandering import build_compactness_features, load_gerrymandering
+from src.data.gerrymandering import build_compactness_features
 
 _GEOPANDAS_AVAILABLE = importlib.util.find_spec("geopandas") is not None
 _skip_no_geopandas = pytest.mark.skipif(
@@ -108,39 +106,3 @@ class TestBuildCompactnessFeatures:
         result = build_compactness_features(gdf=gdf, fips_map={"06": "CA"})
         pairs = list(zip(result["state_po"], result["district"]))
         assert pairs == sorted(pairs)
-
-
-# ---------------------------------------------------------------------------
-# TestLoadGerrymandering
-# ---------------------------------------------------------------------------
-
-
-class TestLoadGerrymandering:
-    def test_returns_none_when_absent(self) -> None:
-        result = load_gerrymandering(cache_path=Path("/nonexistent/x.csv"))
-        assert result is None
-
-    def test_loads_valid_csv(self, tmp_path: Path) -> None:
-        csv_path = tmp_path / "g.csv"
-        df_in = pd.DataFrame(
-            {
-                "state_po": ["CA"] * 5,
-                "district": list(range(1, 6)),
-                "polsby_popper": [0.3, 0.5, 0.7, 0.2, 0.8],
-                "district_area_km2": [1000.0, 2000.0, 1500.0, 800.0, 3000.0],
-            }
-        )
-        df_in.to_csv(csv_path, index=False)
-
-        with patch("src.data.validators.validate_gerrymandering", return_value=None):
-            result = load_gerrymandering(cache_path=csv_path)
-
-        assert isinstance(result, pd.DataFrame)
-        assert len(result) == 5
-        assert list(result.columns) == [
-            "state_po",
-            "district",
-            "polsby_popper",
-            "district_area_km2",
-        ]
-        assert result["district"].dtype == int
