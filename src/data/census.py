@@ -30,8 +30,10 @@ from pathlib import Path
 
 import pandas as pd
 import requests
+from pandera.typing import DataFrame
 
 from src.constants import Col
+from src.data.validators import CensusSchema
 from src.paths import DataFile, ensure
 
 logger = logging.getLogger(__name__)
@@ -141,7 +143,7 @@ def parse_census_response(raw: list[list[str]], fips_map: dict[str, str]) -> pd.
     return df
 
 
-def build_census_features(raw_df: pd.DataFrame) -> pd.DataFrame:
+def build_census_features(raw_df: pd.DataFrame) -> DataFrame[CensusSchema]:
     """Compute derived demographic features from the parsed ACS DataFrame."""
     df = raw_df.copy()
 
@@ -165,7 +167,7 @@ def build_census_features(raw_df: pd.DataFrame) -> pd.DataFrame:
         ]
     ].copy()
     result = result[result[Col.STATE].notna()].reset_index(drop=True)
-    return result
+    return result  # type: ignore[return-value]
 
 
 def main() -> None:

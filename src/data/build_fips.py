@@ -15,7 +15,9 @@ import logging
 
 import pandas as pd
 import requests
+from pandera.typing import DataFrame
 
+from src.data.validators import FipsStatesSchema
 from src.paths import DataFile, ensure
 
 logger = logging.getLogger(__name__)
@@ -78,7 +80,7 @@ _FIFTY_STATE_FIPS = {
 }
 
 
-def fetch_fips_mapping() -> pd.DataFrame:
+def fetch_fips_mapping() -> DataFrame[FipsStatesSchema]:
     """Download the DOT FIPS table and return a 50-row state-level DataFrame."""
     logger.info("Fetching US DOT FIPS reference table")
     resp = requests.get(_DOT_URL, timeout=30)
@@ -99,7 +101,7 @@ def fetch_fips_mapping() -> pd.DataFrame:
     states["state_name"] = states["state_name"].str.title()
     states = states[states["fips"].isin(_FIFTY_STATE_FIPS)].reset_index(drop=True)
     logger.info("Fetched %d state FIPS codes", len(states))
-    return states
+    return states  # type: ignore[return-value]
 
 
 def main() -> None:

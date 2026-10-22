@@ -15,7 +15,7 @@ from typing import Optional
 
 import pandas as pd
 import pandera.pandas as pa
-from pandera.typing import Series
+from pandera.typing import DataFrame, Series
 
 from src.constants import Col
 
@@ -67,6 +67,16 @@ logger = logging.getLogger(__name__)
 
 
 class HouseDataSchema(pa.DataFrameModel):
+    """Raw MIT Election Lab House returns after filtering to general-election rows.
+
+    `year` — election year [1976, 2030]
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `party` — candidate party label (DEMOCRAT, REPUBLICAN, or other)
+    `candidatevotes` — votes received by this candidate [0, ∞)
+    `totalvotes` — total votes cast in the district (> 0)
+    """
+
     year: Series[int] = pa.Field(ge=1976, le=2030, alias=Col.YEAR)
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
     district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
@@ -85,7 +95,15 @@ class HouseDataSchema(pa.DataFrameModel):
 
 
 class TopCandidatesSchema(pa.DataFrameModel):
-    """One row per (year, state_po, district, party) — highest-vote candidate only."""
+    """One row per (year, state_po, district, party) — highest-vote candidate only.
+
+    `year` — election year [1976, 2030]
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `party` — candidate party label
+    `candidatevotes` — votes received by the top candidate [0, ∞)
+    `totalvotes` — total votes cast in the district (> 0)
+    """
 
     year: Series[int] = pa.Field(ge=1976, le=2030, alias=Col.YEAR)
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
@@ -100,7 +118,18 @@ class TopCandidatesSchema(pa.DataFrameModel):
 
 
 class DemsRepsSchema(pa.DataFrameModel):
-    """Dem/Rep top-candidate merge with rolling vote-share features."""
+    """Dem/Rep top-candidate merge with rolling vote-share features.
+
+    `year` — election year [1976, 2030]
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `dem_votes` — Democratic candidate vote total [0, ∞)
+    `rep_votes` — Republican candidate vote total [0, ∞) (optional)
+    `dem_vote_share` — Dem votes / total votes [0, 1] (optional)
+    `dem_lean` — district-level Democratic lean relative to national (optional)
+    `dem_lean_trend` — cycle-over-cycle change in dem_lean (optional)
+    `prev_dem_vote_share` — prior-cycle dem_vote_share [0, 1] (optional)
+    """
 
     year: Series[int] = pa.Field(ge=1976, le=2030, alias=Col.YEAR)
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
@@ -120,7 +149,12 @@ class DemsRepsSchema(pa.DataFrameModel):
 
 
 class ApprovalDataSchema(pa.DataFrameModel):
-    """Approval after sign-adjustment — positive values = Dem-favorable."""
+    """Presidential approval ratings after sign-adjustment — positive values = Dem-favorable.
+
+    `year` — election year [1976, 2030]
+    `pres_approval` — sign-adjusted approval rating (positive when Dem president)
+    `pres_disapproval` — sign-adjusted disapproval rating (negative when Dem president)
+    """
 
     year: Series[int] = pa.Field(ge=1976, le=2030, alias=Col.YEAR)
     pres_approval: Series[float] = pa.Field(alias=Col.PRES_APPROVAL)
@@ -132,7 +166,40 @@ class ApprovalDataSchema(pa.DataFrameModel):
 
 
 class WinnersSchema(pa.DataFrameModel):
-    """District-level winners with structural and economic features."""
+    """District-level election winners merged with structural, economic, and demographic features.
+
+    `year` — election year [1976, 2030]
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `party` — winning party label
+    `candidatevotes` — winner's vote total [0, ∞)
+    `totalvotes` — total votes cast in the district (> 0)
+    `vote_share` — winner's share of total votes [0, 1]
+    `dem_lean` — district-level Democratic lean relative to national (optional)
+    `dem_lean_trend` — cycle-over-cycle change in dem_lean (optional)
+    `dem_vote_share` — Dem share of total votes [0, 1] (optional)
+    `prev_dem_vote_share` — prior-cycle dem_vote_share [0, 1] (optional)
+    `pres_approval` — sign-adjusted presidential approval
+    `pres_disapproval` — sign-adjusted presidential disapproval
+    `generic_ballot` — Dem minus Rep generic ballot margin (pp)
+    `econ_growth` — real GDP growth rate in election year
+    `unemployment` — unemployment rate in election year
+    `is_incumbent_on_ballot` — 1.0 if incumbent ran, 0.0 otherwise (optional)
+    `redistricting` — 1 if district redrawn since prior cycle, else 0 (optional)
+    `pres_lean` — district presidential lean from prior cycle [0, 1] (optional)
+    `fundraising_dem_share` — Dem share of total campaign receipts [0, 1] (optional)
+    `large_donor_dem_share` — Dem share of itemized contributions [0, 1] (optional)
+    `pac_dem_share` — Dem share of PAC contributions [0, 1] (optional)
+    `spending_dem_share` — Dem share of total disbursements [0, 1] (optional)
+    `surplus_dem_share` — Dem share of receipts-minus-disbursements surplus (optional)
+    `pct_bachelor_plus` — share of district adults with a bachelor's degree or higher [0, 1] (optional)
+    `pct_non_white` — share of district population identifying as non-white [0, 1] (optional)
+    `median_income` — median household income in dollars [0, ∞) (optional)
+    `median_age` — median age of district residents [0, 120] (optional)
+    `candidate_quality_dem_share` — Dem share of combined candidate quality score [0, 1] (optional)
+    `experience_cycles_dem` — Democratic candidate's prior election cycles [0, ∞) (optional)
+    `experience_cycles_rep` — Republican candidate's prior election cycles [0, ∞) (optional)
+    """
 
     year: Series[int] = pa.Field(ge=1976, le=2030, alias=Col.YEAR)
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
@@ -200,7 +267,13 @@ class WinnersSchema(pa.DataFrameModel):
 
 
 class FeatureMatrixSchema(pa.DataFrameModel):
-    """Schema for the feature matrix X before model training."""
+    """Feature matrix passed to the model at training and prediction time.
+
+    `dem_lean` — district-level Democratic lean relative to national (optional)
+    `prev_dem_vote_share` — prior-cycle Dem vote share [0, 1] (optional)
+    `net_pres_approval` — sign-adjusted net presidential approval (approval minus disapproval)
+    `state_partisan_lean` — state-level partisan lean derived from presidential results (optional)
+    """
 
     dem_lean: Series[float] = pa.Field(nullable=True, alias=Col.DEM_LEAN)
     prev_dem_vote_share: Series[float] = pa.Field(
@@ -215,9 +288,16 @@ class FeatureMatrixSchema(pa.DataFrameModel):
 
 
 class ApprovalSchema(pa.DataFrameModel):
-    """Schema for raw approval ratings — 0-100 scale, validated BEFORE the
-    Dem/Rep sign-flip in loaders.load_approval, while the numbers still mean
-    exactly what they say on the source spreadsheet."""
+    """Raw presidential approval ratings on the 0–100 scale, before the Dem/Rep sign-flip.
+
+    Validated before `loaders.load_approval` applies the sign adjustment, while the
+    numbers still mean exactly what they say on the source spreadsheet.
+
+    `year` — election year [1976, 2030]
+    `pres_approval` — raw approval percentage [0, 100]
+    `pres_disapproval` — raw disapproval percentage [0, 100]
+    `unsure` — raw unsure/no-opinion percentage [0, 100]
+    """
 
     year: Series[int] = pa.Field(ge=1976, le=2030, alias=Col.YEAR)
     pres_approval: Series[float] = pa.Field(ge=0, le=100, alias=Col.PRES_APPROVAL)
@@ -230,6 +310,14 @@ class ApprovalSchema(pa.DataFrameModel):
 
 
 class PresLeanSchema(pa.DataFrameModel):
+    """Presidential vote share by congressional district, one row per district-election-year.
+
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `pres_year` — presidential election year [2008, 2030]
+    `pres_lean` — Democratic presidential candidate's share of the two-party vote [0, 1]
+    """
+
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
     district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
     pres_year: Series[int] = pa.Field(ge=2008, le=2030)
@@ -241,6 +329,13 @@ class PresLeanSchema(pa.DataFrameModel):
 
 
 class CookCsvSchema(pa.DataFrameModel):
+    """Cook Political Report district ratings converted to a Democratic win probability.
+
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `cook_prob` — implied Democratic win probability derived from Cook rating [0, 1]
+    """
+
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
     district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
     cook_prob: Series[float] = pa.Field(ge=0, le=1, alias=Col.COOK_PROB)
@@ -251,6 +346,18 @@ class CookCsvSchema(pa.DataFrameModel):
 
 
 class FundraisingSchema(pa.DataFrameModel):
+    """FEC campaign finance features expressed as Dem share of combined Dem+Rep totals.
+
+    `year` — election cycle year [1980, 2030]
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number [0, 99]; codes > 53 are non-voting delegate races
+    `fundraising_dem_share` — Dem share of total receipts [0, 1]
+    `large_donor_dem_share` — Dem share of itemized (>=200) individual contributions [0, 1]
+    `pac_dem_share` — Dem share of PAC and party committee contributions [0, 1]
+    `spending_dem_share` — Dem share of total disbursements [0, 1]
+    `surplus_dem_share` — Dem share of receipts-minus-disbursements; unbounded (can be < 0 or > 1)
+    """
+
     year: Series[int] = pa.Field(ge=1980, le=2030, alias=Col.YEAR)
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
     # le=99 not le=53: raw FEC data includes non-voting delegate/territory candidates
@@ -271,7 +378,15 @@ class FundraisingSchema(pa.DataFrameModel):
 
 
 class CensusSchema(pa.DataFrameModel):
-    """ACS 5-year demographic features per congressional district."""
+    """ACS 5-year demographic features per congressional district.
+
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `pct_bachelor_plus` — share of adults (25+) with a bachelor's degree or higher [0, 1] (optional)
+    `pct_non_white` — share of total population identifying as non-white [0, 1] (optional)
+    `median_income` — median household income in dollars [0, ∞) (optional)
+    `median_age` — median age of district residents [0, 120] (optional)
+    """
 
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
     district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
@@ -288,7 +403,15 @@ class CensusSchema(pa.DataFrameModel):
 
 
 class CandidateQualitySchema(pa.DataFrameModel):
-    """Candidate quality features derived from FEC history and NLP."""
+    """Candidate quality features derived from FEC filing history and NLP analysis.
+
+    `year` — election cycle year [1980, 2030]
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number [0, 99]; codes > 53 are non-voting delegate races
+    `candidate_quality_dem_share` — Dem share of combined candidate quality score [0, 1]
+    `experience_cycles_dem` — number of prior election cycles the Democratic candidate has run [0, ∞)
+    `experience_cycles_rep` — number of prior election cycles the Republican candidate has run [0, ∞)
+    """
 
     year: Series[int] = pa.Field(ge=1980, le=2030, alias=Col.YEAR)
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
@@ -303,7 +426,12 @@ class CandidateQualitySchema(pa.DataFrameModel):
 
 
 class PollAggregatesSchema(pa.DataFrameModel):
-    """Weighted generic-ballot aggregate with uncertainty estimate per cycle."""
+    """Weighted generic-ballot aggregate with uncertainty estimate, one row per election cycle.
+
+    `year` — election cycle year [2006, 2030]
+    `generic_ballot` — house-effects-corrected Dem minus Rep margin in percentage points [-30, 30]
+    `generic_ballot_sigma` — weighted standard deviation of adjusted polls (uncertainty estimate) [0, ∞)
+    """
 
     year: Series[int] = pa.Field(ge=2006, le=2030, alias=Col.YEAR)
     generic_ballot: Series[float] = pa.Field(ge=-30, le=30, alias=Col.GENERIC_BALLOT)
@@ -315,7 +443,13 @@ class PollAggregatesSchema(pa.DataFrameModel):
 
 
 class GerrymanderingSchema(pa.DataFrameModel):
-    """Polsby-Popper compactness scores from Census TIGER shapefiles."""
+    """Polsby-Popper compactness scores derived from Census TIGER shapefiles.
+
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `polsby_popper` — Polsby-Popper compactness score; 1.0 = perfect circle, 0.0 = maximally irregular [0, 1]
+    `district_area_km2` — district area in square kilometres [0, ∞)
+    """
 
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
     district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
@@ -327,7 +461,9 @@ class GerrymanderingSchema(pa.DataFrameModel):
         strict = False
 
 
-def validate_gerrymandering(df: pd.DataFrame, min_rows: int = 400) -> pd.DataFrame:
+def validate_gerrymandering(
+    df: pd.DataFrame, min_rows: int = 400
+) -> DataFrame[GerrymanderingSchema]:
     """Validate gerrymandering compactness features. Raises on failure."""
     if len(df) < min_rows:
         raise ValueError(
@@ -344,10 +480,10 @@ def validate_gerrymandering(df: pd.DataFrame, min_rows: int = 400) -> pd.DataFra
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
-def validate_house_data(df: pd.DataFrame) -> pd.DataFrame:
+def validate_house_data(df: pd.DataFrame) -> DataFrame[HouseDataSchema]:
     """Validate raw house data. Raises pandera.errors.SchemaErrors on failure."""
     try:
         HouseDataSchema.validate(df, lazy=True)
@@ -359,10 +495,10 @@ def validate_house_data(df: pd.DataFrame) -> pd.DataFrame:
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
-def validate_feature_matrix(X: pd.DataFrame) -> pd.DataFrame:
+def validate_feature_matrix(X: pd.DataFrame) -> DataFrame[FeatureMatrixSchema]:
     """Validate feature matrix before training. Raises pandera.errors.SchemaErrors on failure."""
     try:
         FeatureMatrixSchema.validate(X, lazy=True)
@@ -370,10 +506,10 @@ def validate_feature_matrix(X: pd.DataFrame) -> pd.DataFrame:
     except pa.errors.SchemaErrors as e:
         logger.error("Feature matrix validation FAILED: %d issue(s)", len(e.failure_cases))
         raise
-    return X
+    return X  # type: ignore[return-value]
 
 
-def validate_approval_data(df: pd.DataFrame, tolerance: float = 5.0) -> pd.DataFrame:
+def validate_approval_data(df: pd.DataFrame, tolerance: float = 5.0) -> DataFrame[ApprovalSchema]:
     """Validate raw approval ratings before the sign-flip. Raises on failure.
 
     Catches the kind of mistake that's easy to make when hand-copying cells from a
@@ -402,10 +538,12 @@ def validate_approval_data(df: pd.DataFrame, tolerance: float = 5.0) -> pd.DataF
         )
 
     logger.info("Approval data validation passed (%d rows)", len(df))
-    return df
+    return df  # type: ignore[return-value]
 
 
-def validate_approval_coverage(df: pd.DataFrame, required_years: set[int]) -> pd.DataFrame:
+def validate_approval_coverage(
+    df: pd.DataFrame, required_years: set[int]
+) -> DataFrame[ApprovalSchema]:
     """Validate that approval data has exactly one row per required year. Raises on failure.
 
     Separate from validate_approval_data because this needs to know which years the
@@ -432,10 +570,10 @@ def validate_approval_coverage(df: pd.DataFrame, required_years: set[int]) -> pd
         )
 
     logger.info("Approval data coverage validated (%d required years present)", len(required_years))
-    return df
+    return df  # type: ignore[return-value]
 
 
-def validate_pres_lean(df: pd.DataFrame, min_rows: int = 400) -> pd.DataFrame:
+def validate_pres_lean(df: pd.DataFrame, min_rows: int = 400) -> DataFrame[PresLeanSchema]:
     """Validate presidential lean data. Raises on failure."""
     if len(df) < min_rows:
         raise ValueError(
@@ -451,10 +589,10 @@ def validate_pres_lean(df: pd.DataFrame, min_rows: int = 400) -> pd.DataFrame:
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
-def validate_cook_csv(df: pd.DataFrame, min_districts: int = 100) -> pd.DataFrame:
+def validate_cook_csv(df: pd.DataFrame, min_districts: int = 100) -> DataFrame[CookCsvSchema]:
     """Validate parsed Cook CSV. Raises on failure."""
     if len(df) < min_districts:
         raise ValueError(
@@ -471,10 +609,10 @@ def validate_cook_csv(df: pd.DataFrame, min_districts: int = 100) -> pd.DataFram
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
-def validate_fundraising(df: pd.DataFrame, min_rows: int = 500) -> pd.DataFrame:
+def validate_fundraising(df: pd.DataFrame, min_rows: int = 500) -> DataFrame[FundraisingSchema]:
     """Validate fundraising CSV. Raises on failure."""
     if len(df) < min_rows:
         raise ValueError(f"Fundraising data too small: {len(df)} rows (expected >= {min_rows})")
@@ -488,10 +626,10 @@ def validate_fundraising(df: pd.DataFrame, min_rows: int = 500) -> pd.DataFrame:
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
-def validate_census(df: pd.DataFrame, min_rows: int = 400) -> pd.DataFrame:
+def validate_census(df: pd.DataFrame, min_rows: int = 400) -> DataFrame[CensusSchema]:
     """Validate ACS census features. Raises on failure."""
     if len(df) < min_rows:
         raise ValueError(
@@ -508,10 +646,10 @@ def validate_census(df: pd.DataFrame, min_rows: int = 400) -> pd.DataFrame:
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
-def validate_candidate_quality(df: pd.DataFrame) -> pd.DataFrame:
+def validate_candidate_quality(df: pd.DataFrame) -> DataFrame[CandidateQualitySchema]:
     """Validate candidate quality features. Raises on failure."""
     try:
         CandidateQualitySchema.validate(df, lazy=True)
@@ -523,10 +661,10 @@ def validate_candidate_quality(df: pd.DataFrame) -> pd.DataFrame:
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
-def validate_poll_aggregates(df: pd.DataFrame) -> pd.DataFrame:
+def validate_poll_aggregates(df: pd.DataFrame) -> DataFrame[PollAggregatesSchema]:
     """Validate poll aggregate features. Raises on failure."""
     try:
         PollAggregatesSchema.validate(df, lazy=True)
@@ -538,11 +676,17 @@ def validate_poll_aggregates(df: pd.DataFrame) -> pd.DataFrame:
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
 class SpeechSentimentSchema(pa.DataFrameModel):
-    """Per-district VADER sentiment and bill activity from Congress.gov (2026 cycle only)."""
+    """Per-district VADER sentiment and bill activity from Congress.gov for the 2026 cycle.
+
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `speech_sentiment` — mean VADER compound score across sponsored bill titles [-1, 1]
+    `speech_count` — number of sponsored bill titles scored [0, ∞)
+    """
 
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
     district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
@@ -554,7 +698,7 @@ class SpeechSentimentSchema(pa.DataFrameModel):
         strict = False
 
 
-def validate_speech_sentiment(df: pd.DataFrame) -> pd.DataFrame:
+def validate_speech_sentiment(df: pd.DataFrame) -> DataFrame[SpeechSentimentSchema]:
     """Validate Congress.gov speech sentiment features. Raises on failure."""
     try:
         SpeechSentimentSchema.validate(df, lazy=True)
@@ -566,11 +710,18 @@ def validate_speech_sentiment(df: pd.DataFrame) -> pd.DataFrame:
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
 class SpeechSentimentHistSchema(pa.DataFrameModel):
-    """Historical per-district VADER sentiment from Congress.gov (congresses 113–118)."""
+    """Historical per-district VADER sentiment from Congress.gov, congresses 113–118.
+
+    `year` — election year corresponding to the congress [2014, 2024]
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `speech_sentiment` — mean VADER compound score across sponsored bill titles [-1, 1]
+    `speech_count` — number of sponsored bill titles scored [0, ∞)
+    """
 
     year: Series[int] = pa.Field(ge=2014, le=2024)
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
@@ -583,7 +734,7 @@ class SpeechSentimentHistSchema(pa.DataFrameModel):
         strict = False
 
 
-def validate_speech_sentiment_hist(df: pd.DataFrame) -> pd.DataFrame:
+def validate_speech_sentiment_hist(df: pd.DataFrame) -> DataFrame[SpeechSentimentHistSchema]:
     """Validate historical Congress.gov speech sentiment. Raises on failure."""
     try:
         SpeechSentimentHistSchema.validate(df, lazy=True)
@@ -595,11 +746,18 @@ def validate_speech_sentiment_hist(df: pd.DataFrame) -> pd.DataFrame:
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
 class DistrictAnalyticsSchema(pa.DataFrameModel):
-    """Per-district-year inertia features from SQLite window queries on election history."""
+    """Per-district-year political inertia features from SQLite window queries on election history.
+
+    `year` — election year [1976, 2030]
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `win_streak` — number of consecutive prior cycles won by the same party (0 = first observed cycle) [0, 20]
+    `swing_volatility` — population std-dev of dem_vote_share over the 4 prior cycles; NULL when fewer than 4 prior cycles available [0, ∞) (optional)
+    """
 
     year: Series[int] = pa.Field(ge=1976, le=2030, alias=Col.YEAR)
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
@@ -612,7 +770,7 @@ class DistrictAnalyticsSchema(pa.DataFrameModel):
         strict = False
 
 
-def validate_district_analytics(df: pd.DataFrame) -> pd.DataFrame:
+def validate_district_analytics(df: pd.DataFrame) -> DataFrame[DistrictAnalyticsSchema]:
     """Validate district analytics features. Raises on failure."""
     try:
         DistrictAnalyticsSchema.validate(df, lazy=True)
@@ -624,11 +782,16 @@ def validate_district_analytics(df: pd.DataFrame) -> pd.DataFrame:
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
 class FipsStatesSchema(pa.DataFrameModel):
-    """50 US state FIPS codes → postal abbreviations and full state names."""
+    """Mapping of FIPS codes to postal abbreviations and full names for the 50 US states.
+
+    `fips` — two-digit zero-padded FIPS state code (e.g. "06" for California)
+    `state_po` — two-letter uppercase postal abbreviation (e.g. "CA")
+    `state_name` — title-cased full state name (e.g. "California")
+    """
 
     fips: Series[str] = pa.Field(str_matches=r"^[0-9]{2}$")
     state_po: Series[str] = pa.Field(str_matches=r"^[A-Z]{2}$")
@@ -638,7 +801,7 @@ class FipsStatesSchema(pa.DataFrameModel):
         strict = True
 
 
-def validate_fips_states(df: pd.DataFrame) -> pd.DataFrame:
+def validate_fips_states(df: pd.DataFrame) -> DataFrame[FipsStatesSchema]:
     """Validate FIPS states mapping. Raises on failure."""
     if len(df) != 50:
         raise ValueError(f"Expected 50 states, got {len(df)}")
@@ -652,11 +815,17 @@ def validate_fips_states(df: pd.DataFrame) -> pd.DataFrame:
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
 class BillEmbeddingsSchema(pa.DataFrameModel):
-    """K-Means cluster labels derived from bill title embeddings, per district-year."""
+    """K-Means cluster labels derived from bill title embeddings, one row per district-year.
+
+    `year` — election year [2014, 2030]
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `bill_topic_cluster` — K-Means cluster index assigned to the district's bill titles [0, ∞)
+    """
 
     year: Series[int] = pa.Field(ge=2014, le=2030)
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
@@ -668,7 +837,7 @@ class BillEmbeddingsSchema(pa.DataFrameModel):
         strict = False
 
 
-def validate_bill_embeddings(df: pd.DataFrame) -> pd.DataFrame:
+def validate_bill_embeddings(df: pd.DataFrame) -> DataFrame[BillEmbeddingsSchema]:
     """Validate bill embeddings cluster output. Raises on failure."""
     try:
         BillEmbeddingsSchema.validate(df, lazy=True)
@@ -680,11 +849,21 @@ def validate_bill_embeddings(df: pd.DataFrame) -> pd.DataFrame:
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
 class PolicyTopicsCongressSchema(pa.DataFrameModel):
-    """Per-district Groq-classified policy topic fractions for a single congress (no year)."""
+    """Per-district Groq-classified policy topic fractions for a single congress, without a year column.
+
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `topic_healthcare` — fraction of sponsored bills classified as healthcare [0, 1]
+    `topic_economy` — fraction of sponsored bills classified as economy [0, 1]
+    `topic_defense` — fraction of sponsored bills classified as defense [0, 1]
+    `topic_education` — fraction of sponsored bills classified as education [0, 1]
+    `topic_environment` — fraction of sponsored bills classified as environment [0, 1]
+    `topic_social` — fraction of sponsored bills classified as social policy [0, 1]
+    """
 
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
     district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
@@ -701,7 +880,18 @@ class PolicyTopicsCongressSchema(pa.DataFrameModel):
 
 
 class PolicyTopicsSchema(pa.DataFrameModel):
-    """Per-district-year Groq-classified policy topic fractions."""
+    """Per-district-year Groq-classified policy topic fractions from Congress.gov bill titles.
+
+    `year` — election year [2014, 2030]
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `topic_healthcare` — fraction of sponsored bills classified as healthcare [0, 1]
+    `topic_economy` — fraction of sponsored bills classified as economy [0, 1]
+    `topic_defense` — fraction of sponsored bills classified as defense [0, 1]
+    `topic_education` — fraction of sponsored bills classified as education [0, 1]
+    `topic_environment` — fraction of sponsored bills classified as environment [0, 1]
+    `topic_social` — fraction of sponsored bills classified as social policy [0, 1]
+    """
 
     year: Series[int] = pa.Field(ge=2014, le=2030)
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
@@ -718,7 +908,7 @@ class PolicyTopicsSchema(pa.DataFrameModel):
         strict = False
 
 
-def validate_policy_topics(df: pd.DataFrame) -> pd.DataFrame:
+def validate_policy_topics(df: pd.DataFrame) -> DataFrame[PolicyTopicsSchema]:
     """Validate policy topics output. Raises on failure."""
     try:
         PolicyTopicsSchema.validate(df, lazy=True)
@@ -730,11 +920,16 @@ def validate_policy_topics(df: pd.DataFrame) -> pd.DataFrame:
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
 class RatingsEnsembleSchema(pa.DataFrameModel):
-    """Multi-rater consensus probability from the Wikipedia ratings table (2026 only)."""
+    """Multi-rater consensus Democratic win probability from the Wikipedia ratings table (2026 only).
+
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `ratings_ensemble_prob` — ensemble probability of a Democratic win, averaged across raters [0, 1]
+    """
 
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
     district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
@@ -745,7 +940,9 @@ class RatingsEnsembleSchema(pa.DataFrameModel):
         strict = False
 
 
-def validate_ratings_ensemble(df: pd.DataFrame, min_districts: int = 50) -> pd.DataFrame:
+def validate_ratings_ensemble(
+    df: pd.DataFrame, min_districts: int = 50
+) -> DataFrame[RatingsEnsembleSchema]:
     """Validate ratings ensemble output. Raises on failure."""
     if len(df) < min_districts:
         raise ValueError(
@@ -761,11 +958,18 @@ def validate_ratings_ensemble(df: pd.DataFrame, min_districts: int = 50) -> pd.D
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]
 
 
 class CosponsorshipCongressSchema(pa.DataFrameModel):
-    """Per-district cosponsorship network features for a single congress (no year)."""
+    """Per-district cosponsorship network features for a single congress, without a year column.
+
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `cosponsor_reach` — number of unique other members who cosponsored this member's bills [0, ∞)
+    `bipartisan_cosponsor_pct` — fraction of cosponsors from the opposing party [0, 1]
+    `cosponsored_count` — number of other members' bills this member cosponsored [0, ∞)
+    """
 
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
     district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
@@ -779,7 +983,15 @@ class CosponsorshipCongressSchema(pa.DataFrameModel):
 
 
 class CosponsorshipSchema(pa.DataFrameModel):
-    """Per-district-year cosponsorship network features from Congress.gov."""
+    """Per-district-year cosponsorship network features from Congress.gov.
+
+    `year` — election year [2014, 2030]
+    `state_po` — two-letter postal state abbreviation
+    `district` — congressional district number; 0 = at-large [0, 53]
+    `cosponsor_reach` — number of unique other members who cosponsored this member's bills [0, ∞)
+    `bipartisan_cosponsor_pct` — fraction of cosponsors from the opposing party [0, 1]
+    `cosponsored_count` — number of other members' bills this member cosponsored [0, ∞)
+    """
 
     year: Series[int] = pa.Field(ge=2014, le=2030)
     state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
@@ -793,7 +1005,7 @@ class CosponsorshipSchema(pa.DataFrameModel):
         strict = False
 
 
-def validate_cosponsorship(df: pd.DataFrame) -> pd.DataFrame:
+def validate_cosponsorship(df: pd.DataFrame) -> DataFrame[CosponsorshipSchema]:
     """Validate cosponsorship network features. Raises on failure."""
     try:
         CosponsorshipSchema.validate(df, lazy=True)
@@ -805,4 +1017,4 @@ def validate_cosponsorship(df: pd.DataFrame) -> pd.DataFrame:
             e.failure_cases.head(10).to_string(),
         )
         raise
-    return df
+    return df  # type: ignore[return-value]

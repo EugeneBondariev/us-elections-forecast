@@ -19,8 +19,10 @@ import logging
 import sqlite3
 
 import pandas as pd
+from pandera.typing import DataFrame
 
 from src.constants import Col
+from src.data.validators import DistrictAnalyticsSchema
 from src.paths import DataFile, ensure
 
 logger = logging.getLogger(__name__)
@@ -110,7 +112,7 @@ def compute_swing_volatility(conn: sqlite3.Connection) -> pd.DataFrame:
     return pd.read_sql(sql=_SQL_SWING_VOL, con=conn)
 
 
-def build_district_analytics(dems_reps: pd.DataFrame) -> pd.DataFrame:
+def build_district_analytics(dems_reps: pd.DataFrame) -> DataFrame[DistrictAnalyticsSchema]:
     """Compute win_streak and swing_volatility for every district-year row."""
     conn = build_analytics_db(dems_reps)
     streak_df = compute_win_streak(conn)
@@ -143,7 +145,7 @@ def build_district_analytics(dems_reps: pd.DataFrame) -> pd.DataFrame:
         result["district"].min(),
         result["district"].max(),
     )
-    return result
+    return result  # type: ignore[return-value]
 
 
 def main() -> None:

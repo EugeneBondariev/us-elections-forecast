@@ -16,8 +16,21 @@ from src.constants import (
 )
 from src.data.validators import (
     ApprovalDataSchema,
+    BillEmbeddingsSchema,
+    CandidateQualitySchema,
+    CensusSchema,
+    CookCsvSchema,
+    CosponsorshipSchema,
+    DistrictAnalyticsSchema,
+    GerrymanderingSchema,
     HouseDataSchema,
+    PolicyTopicsSchema,
+    PresLeanSchema,
+    RatingsEnsembleSchema,
+    SpeechSentimentHistSchema,
+    SpeechSentimentSchema,
     validate_approval_data,
+    validate_cook_csv,
     validate_house_data,
     validate_pres_lean,
 )
@@ -83,7 +96,7 @@ def load_state_names() -> dict[str, str]:
     return dict(zip(df["state_name"], df["state_po"]))
 
 
-def load_pres_lean(path_2008_2020: Path, path_2020_2024: Path) -> pd.DataFrame:
+def load_pres_lean(path_2008_2020: Path, path_2020_2024: Path) -> DataFrame[PresLeanSchema]:
     """Parse presidential results by district from two Downballot CSVs.
 
     Returns long-format DataFrame: state_po, district, pres_year, pres_lean (Dem fraction 0-1).
@@ -156,7 +169,7 @@ def load_pres_lean(path_2008_2020: Path, path_2020_2024: Path) -> pd.DataFrame:
     )
     logger.info("Loaded presidential lean: %d district-year records", len(result))
     validate_pres_lean(result)
-    return result
+    return result  # type: ignore[return-value]
 
 
 def load_clean_house_data(path: Path) -> DataFrame[HouseDataSchema]:
@@ -215,14 +228,16 @@ def load_clean_house_data(path: Path) -> DataFrame[HouseDataSchema]:
     return df  # type: ignore[return-value]
 
 
-def load_cook_ratings(path: Path) -> pd.DataFrame:
+def load_cook_ratings(path: Path) -> DataFrame[CookCsvSchema]:
     """Load Cook Political cook.csv; return empty DataFrame with correct columns if file is absent."""
     if not path.exists():
         logger.info("cook.csv not found at %s — skipping Cook blend", path)
-        return pd.DataFrame(columns=[Col.STATE, Col.DISTRICT, Col.COOK_PROB])
+        return pd.DataFrame(columns=[Col.STATE, Col.DISTRICT, Col.COOK_PROB])  # type: ignore[return-value]
     df = pd.read_csv(path, dtype={Col.DISTRICT: int})
     logger.info("Loaded Cook ratings: %d districts", len(df))
-    return df[[Col.STATE, Col.DISTRICT, Col.COOK_PROB]]
+    df = df[[Col.STATE, Col.DISTRICT, Col.COOK_PROB]]
+    validate_cook_csv(df, min_districts=0)
+    return df  # type: ignore[return-value]
 
 
 def load_approval(path: Path) -> DataFrame[ApprovalDataSchema]:
@@ -315,7 +330,7 @@ def load_poll_sigma() -> dict[int, float]:
     return result
 
 
-def load_census() -> pd.DataFrame | None:
+def load_census() -> DataFrame[CensusSchema] | None:
     """Load ACS census features from disk; return None if file is absent."""
     from src.paths import DataFile
 
@@ -328,10 +343,10 @@ def load_census() -> pd.DataFrame | None:
     from src.data.validators import validate_census
 
     validate_census(df)
-    return df
+    return df  # type: ignore[return-value]
 
 
-def load_candidate_quality() -> pd.DataFrame | None:
+def load_candidate_quality() -> DataFrame[CandidateQualitySchema] | None:
     """Load candidate quality features from disk; return None if file is absent."""
     from src.paths import DataFile
 
@@ -344,10 +359,10 @@ def load_candidate_quality() -> pd.DataFrame | None:
     from src.data.validators import validate_candidate_quality
 
     validate_candidate_quality(df)
-    return df
+    return df  # type: ignore[return-value]
 
 
-def load_district_analytics() -> pd.DataFrame | None:
+def load_district_analytics() -> DataFrame[DistrictAnalyticsSchema] | None:
     """Load SQL-derived win_streak/swing_volatility features; return None if absent."""
     from src.paths import DataFile
 
@@ -359,10 +374,10 @@ def load_district_analytics() -> pd.DataFrame | None:
     from src.data.validators import validate_district_analytics
 
     validate_district_analytics(df)
-    return df
+    return df  # type: ignore[return-value]
 
 
-def load_gerrymandering() -> pd.DataFrame | None:
+def load_gerrymandering() -> DataFrame[GerrymanderingSchema] | None:
     """Load Polsby-Popper compactness features; return None if absent."""
     from src.paths import DataFile
 
@@ -374,10 +389,10 @@ def load_gerrymandering() -> pd.DataFrame | None:
     from src.data.validators import validate_gerrymandering
 
     validate_gerrymandering(df)
-    return df
+    return df  # type: ignore[return-value]
 
 
-def load_speech_sentiment() -> pd.DataFrame | None:
+def load_speech_sentiment() -> DataFrame[SpeechSentimentSchema] | None:
     """Load Congress.gov speech sentiment features; return None if absent."""
     from src.paths import DataFile
 
@@ -389,10 +404,10 @@ def load_speech_sentiment() -> pd.DataFrame | None:
     from src.data.validators import validate_speech_sentiment
 
     validate_speech_sentiment(df)
-    return df
+    return df  # type: ignore[return-value]
 
 
-def load_speech_sentiment_hist() -> pd.DataFrame | None:
+def load_speech_sentiment_hist() -> DataFrame[SpeechSentimentHistSchema] | None:
     """Load historical Congress.gov speech sentiment (congresses 113–118); return None if absent."""
     from src.paths import DataFile
 
@@ -406,10 +421,10 @@ def load_speech_sentiment_hist() -> pd.DataFrame | None:
     from src.data.validators import validate_speech_sentiment_hist
 
     validate_speech_sentiment_hist(df)
-    return df
+    return df  # type: ignore[return-value]
 
 
-def load_bill_embeddings() -> pd.DataFrame | None:
+def load_bill_embeddings() -> DataFrame[BillEmbeddingsSchema] | None:
     """Load K-Means district topic clusters; return None if absent."""
     from src.paths import DataFile
 
@@ -421,10 +436,10 @@ def load_bill_embeddings() -> pd.DataFrame | None:
     from src.data.validators import validate_bill_embeddings
 
     validate_bill_embeddings(df)
-    return df
+    return df  # type: ignore[return-value]
 
 
-def load_policy_topics() -> pd.DataFrame | None:
+def load_policy_topics() -> DataFrame[PolicyTopicsSchema] | None:
     """Load Groq-classified policy topic fractions; return None if absent."""
     from src.paths import DataFile
 
@@ -436,10 +451,10 @@ def load_policy_topics() -> pd.DataFrame | None:
     from src.data.validators import validate_policy_topics
 
     validate_policy_topics(df)
-    return df
+    return df  # type: ignore[return-value]
 
 
-def load_ratings_ensemble() -> pd.DataFrame | None:
+def load_ratings_ensemble() -> DataFrame[RatingsEnsembleSchema] | None:
     """Load multi-rater ensemble probabilities (2026 only); return None if absent."""
     from src.paths import DataFile
 
@@ -451,10 +466,10 @@ def load_ratings_ensemble() -> pd.DataFrame | None:
     from src.data.validators import validate_ratings_ensemble
 
     validate_ratings_ensemble(df)
-    return df
+    return df  # type: ignore[return-value]
 
 
-def load_cosponsorship() -> pd.DataFrame | None:
+def load_cosponsorship() -> DataFrame[CosponsorshipSchema] | None:
     """Load cosponsorship network features; return None if absent."""
     from src.paths import DataFile
 
@@ -466,7 +481,7 @@ def load_cosponsorship() -> pd.DataFrame | None:
     from src.data.validators import validate_cosponsorship
 
     validate_cosponsorship(df)
-    return df
+    return df  # type: ignore[return-value]
 
 
 def load_open_seats(year: int = 2026) -> set[tuple[str, int]]:

@@ -31,7 +31,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import requests
+from pandera.typing import DataFrame
 
+from src.data.validators import PollAggregatesSchema
 from src.paths import DataFile, ensure
 
 logger = logging.getLogger(__name__)
@@ -222,7 +224,7 @@ def aggregate_year(
 def build_poll_aggregates(
     polls: pd.DataFrame,
     years: list[int] | None = None,
-) -> pd.DataFrame:
+) -> DataFrame[PollAggregatesSchema]:
     """Aggregate polls for each election cycle and return a year-level summary DataFrame."""
     if years is None:
         years_in_polls = set(polls["year"].unique())
@@ -237,7 +239,7 @@ def build_poll_aggregates(
             logger.warning("Skipping year %d: %s", year, exc)
 
     result = pd.DataFrame(rows, columns=["year", "generic_ballot", "generic_ballot_sigma"])
-    return result.sort_values(by="year", ignore_index=True)
+    return result.sort_values(by="year", ignore_index=True)  # type: ignore[return-value]
 
 
 def fetch_generic_ballot_polls(

@@ -34,7 +34,9 @@ from pathlib import Path
 
 import pandas as pd
 import requests
+from pandera.typing import DataFrame
 
+from src.data.validators import SpeechSentimentSchema
 from src.paths import DataFile, ensure
 
 logger = logging.getLogger(__name__)
@@ -147,7 +149,7 @@ def build_speech_features(
     api_key: str | None = None,
     state_name_map: dict[str, str] | None = None,
     log_prefix: str = "",
-) -> pd.DataFrame:
+) -> DataFrame[SpeechSentimentSchema]:
     """Build per-district sentiment and activity features from member bill titles.
 
     Congress.gov member dicts contain: bioguideId, state (full state name), district
@@ -197,7 +199,7 @@ def build_speech_features(
 
     df = pd.DataFrame(rows)
     if df.empty:
-        return pd.DataFrame(columns=["state_po", "district", "speech_sentiment", "speech_count"])
+        return pd.DataFrame(columns=["state_po", "district", "speech_sentiment", "speech_count"])  # type: ignore[return-value]
     df["district"] = df["district"].astype(int)
     # Multiple members may have served the same district in the 119th Congress
     # (resignation + special election replacement). Average their sentiments.
@@ -210,7 +212,7 @@ def build_speech_features(
         df["speech_sentiment"].min(),
         df["speech_sentiment"].max(),
     )
-    return df
+    return df  # type: ignore[return-value]
 
 
 def build_historical_speech_features(

@@ -29,8 +29,10 @@ from typing import Any
 
 import pandas as pd
 import requests
+from pandera.typing import DataFrame
 
 from src.constants import Col
+from src.data.validators import FundraisingSchema, validate_fundraising
 from src.paths import ensure
 from src.types import FECCandidateRecord
 
@@ -231,7 +233,7 @@ def fetch_and_cache(
     api_key: str,
     years: list[int] | None = None,
     raw_path: Path | None = None,
-) -> pd.DataFrame:
+) -> DataFrame[FundraisingSchema]:
     """Fetch House fundraising totals from FEC API and cache to CSV."""
     from src.paths import DataFile
 
@@ -249,7 +251,7 @@ def fetch_and_cache(
 
     if not all_records:
         logger.warning("No records fetched")
-        return existing
+        return existing  # type: ignore[return-value]
 
     _save_raw(all_records, raw_path)
 
@@ -265,14 +267,14 @@ def fetch_and_cache(
 
     result.to_csv(ensure(cache_path), index=False)
     logger.info("Cached %d district-year records → %s", len(result), cache_path)
-    return result
+    return result  # type: ignore[return-value]
 
 
 def load_fundraising(
     cache_path: Path,
     api_key: str | None = None,
     years: list[int] | None = None,
-) -> pd.DataFrame | None:
+) -> DataFrame[FundraisingSchema] | None:
     """Load fundraising data from cache if available, otherwise fetch from FEC API.
 
     Returns None if no API key is provided and no cache exists — callers treat
@@ -280,7 +282,9 @@ def load_fundraising(
     """
     if cache_path.exists():
         logger.info("Loading fundraising from cache: %s", cache_path)
-        return pd.read_csv(cache_path)
+        df = pd.read_csv(cache_path)
+        validate_fundraising(df, min_rows=0)
+        return df  # type: ignore[return-value]
 
     if api_key is None:
         api_key = os.getenv("DATA_GOV_API_KEY") or os.getenv("FEC_API_KEY")
@@ -289,4 +293,4 @@ def load_fundraising(
         return None
 
     logger.info("Fetching fundraising data from FEC API for years %s", years or DEFAULT_YEARS)
-    return fetch_and_cache(cache_path, api_key, years)
+    return fetch_and_cache(cache_path=cache_path, api_key=api_key, years=years)
