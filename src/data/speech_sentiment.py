@@ -36,7 +36,7 @@ import pandas as pd
 import requests
 from pandera.typing import DataFrame
 
-from src.data.validators import SpeechSentimentSchema
+from src.data.validators import SpeechSentimentHistSchema, SpeechSentimentSchema
 from src.paths import DataFile, ensure
 
 logger = logging.getLogger(__name__)
@@ -220,7 +220,7 @@ def build_historical_speech_features(
     end_congress: int = _DEFAULT_CONGRESS - 1,
     api_key: str | None = None,
     state_name_map: dict[str, str] | None = None,
-) -> pd.DataFrame:
+) -> DataFrame[SpeechSentimentHistSchema]:
     """Build speech sentiment for historical election cycles.
 
     Loops start_congress–end_congress, fetches members and their sponsored bills,
@@ -277,10 +277,10 @@ def build_historical_speech_features(
         frames.append(df)
         logger.info("Congress %d: %d districts, cached -> %s", congress, len(df), cache)
     if not frames:
-        return pd.DataFrame(
+        return pd.DataFrame(  # type: ignore[return-value]
             columns=["year", "state_po", "district", "speech_sentiment", "speech_count"]
         )
-    return pd.concat(frames, ignore_index=True)
+    return pd.concat(frames, ignore_index=True)  # type: ignore[arg-type]
 
 
 def main() -> None:

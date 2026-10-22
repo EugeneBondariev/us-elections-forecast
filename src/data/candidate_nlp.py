@@ -35,11 +35,13 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from pandera.typing import DataFrame
 from scipy.stats import rankdata
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from src.constants import Col
+from src.data.validators import CandidateQualitySchema
 from src.paths import DataFile, ensure
 
 logger = logging.getLogger(__name__)
@@ -199,7 +201,7 @@ def compute_quality_scores(candidates: pd.DataFrame, use_embeddings: bool = Fals
 def build_candidate_quality(
     fec_raw_path: Path,
     use_embeddings: bool = False,
-) -> pd.DataFrame:
+) -> DataFrame[CandidateQualitySchema]:
     """Main pipeline: FEC raw CSV → candidate quality features per (year, state, district).
 
     Returns DataFrame with year, state_po, district, candidate_quality_dem_share,
@@ -237,7 +239,7 @@ def build_candidate_quality(
         total > 0, 0.5
     )
 
-    return merged[
+    return merged[  # type: ignore[return-value]
         [
             Col.YEAR,
             Col.STATE,

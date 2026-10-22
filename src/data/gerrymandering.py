@@ -23,6 +23,11 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
+import pandas as pd
+from pandera.typing import DataFrame
+
+from src.data.validators import GerrymanderingSchema
+
 if TYPE_CHECKING:
     from geopandas import GeoDataFrame
 
@@ -101,7 +106,7 @@ def fetch_tiger_geodataframe() -> GeoDataFrame:
     return gdf
 
 
-def build_compactness_features(gdf: GeoDataFrame, fips_map: dict[str, str]) -> pd.DataFrame:
+def build_compactness_features(gdf: GeoDataFrame, fips_map: dict[str, str]) -> DataFrame[GerrymanderingSchema]:
     """Compute Polsby-Popper compactness and district area from TIGERweb geometry."""
     import numpy as np
 
@@ -141,7 +146,7 @@ def build_compactness_features(gdf: GeoDataFrame, fips_map: dict[str, str]) -> p
         result["polsby_popper"].min(),
         result["polsby_popper"].max(),
     )
-    return result
+    return result  # type: ignore[return-value]
 
 
 def main() -> None:

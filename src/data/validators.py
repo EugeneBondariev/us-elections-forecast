@@ -70,10 +70,15 @@ class HouseDataSchema(pa.DataFrameModel):
     """Raw MIT Election Lab House returns after filtering to general-election rows.
 
     `year` — election year [1976, 2030]
+
     `state_po` — two-letter postal state abbreviation
+
     `district` — congressional district number; 0 = at-large [0, 53]
+
     `party` — candidate party label (DEMOCRAT, REPUBLICAN, or other)
+
     `candidatevotes` — votes received by this candidate [0, ∞)
+
     `totalvotes` — total votes cast in the district (> 0)
     """
 
@@ -98,10 +103,15 @@ class TopCandidatesSchema(pa.DataFrameModel):
     """One row per (year, state_po, district, party) — highest-vote candidate only.
 
     `year` — election year [1976, 2030]
+
     `state_po` — two-letter postal state abbreviation
+
     `district` — congressional district number; 0 = at-large [0, 53]
+
     `party` — candidate party label
+
     `candidatevotes` — votes received by the top candidate [0, ∞)
+
     `totalvotes` — total votes cast in the district (> 0)
     """
 
@@ -121,13 +131,21 @@ class DemsRepsSchema(pa.DataFrameModel):
     """Dem/Rep top-candidate merge with rolling vote-share features.
 
     `year` — election year [1976, 2030]
+
     `state_po` — two-letter postal state abbreviation
+
     `district` — congressional district number; 0 = at-large [0, 53]
+
     `dem_votes` — Democratic candidate vote total [0, ∞)
+
     `rep_votes` — Republican candidate vote total [0, ∞) (optional)
+
     `dem_vote_share` — Dem votes / total votes [0, 1] (optional)
+
     `dem_lean` — district-level Democratic lean relative to national (optional)
+
     `dem_lean_trend` — cycle-over-cycle change in dem_lean (optional)
+
     `prev_dem_vote_share` — prior-cycle dem_vote_share [0, 1] (optional)
     """
 
@@ -152,7 +170,9 @@ class ApprovalDataSchema(pa.DataFrameModel):
     """Presidential approval ratings after sign-adjustment — positive values = Dem-favorable.
 
     `year` — election year [1976, 2030]
+
     `pres_approval` — sign-adjusted approval rating (positive when Dem president)
+
     `pres_disapproval` — sign-adjusted disapproval rating (negative when Dem president)
     """
 
@@ -169,35 +189,65 @@ class WinnersSchema(pa.DataFrameModel):
     """District-level election winners merged with structural, economic, and demographic features.
 
     `year` — election year [1976, 2030]
+
     `state_po` — two-letter postal state abbreviation
+
     `district` — congressional district number; 0 = at-large [0, 53]
+
     `party` — winning party label
+
     `candidatevotes` — winner's vote total [0, ∞)
+
     `totalvotes` — total votes cast in the district (> 0)
+
     `vote_share` — winner's share of total votes [0, 1]
+
     `dem_lean` — district-level Democratic lean relative to national (optional)
+
     `dem_lean_trend` — cycle-over-cycle change in dem_lean (optional)
+
     `dem_vote_share` — Dem share of total votes [0, 1] (optional)
+
     `prev_dem_vote_share` — prior-cycle dem_vote_share [0, 1] (optional)
+
     `pres_approval` — sign-adjusted presidential approval
+
     `pres_disapproval` — sign-adjusted presidential disapproval
+
     `generic_ballot` — Dem minus Rep generic ballot margin (pp)
+
     `econ_growth` — real GDP growth rate in election year
+
     `unemployment` — unemployment rate in election year
+
     `is_incumbent_on_ballot` — 1.0 if incumbent ran, 0.0 otherwise (optional)
+
     `redistricting` — 1 if district redrawn since prior cycle, else 0 (optional)
+
     `pres_lean` — district presidential lean from prior cycle [0, 1] (optional)
+
     `fundraising_dem_share` — Dem share of total campaign receipts [0, 1] (optional)
+
     `large_donor_dem_share` — Dem share of itemized contributions [0, 1] (optional)
+
     `pac_dem_share` — Dem share of PAC contributions [0, 1] (optional)
+
     `spending_dem_share` — Dem share of total disbursements [0, 1] (optional)
+
     `surplus_dem_share` — Dem share of receipts-minus-disbursements surplus (optional)
+
     `pct_bachelor_plus` — share of district adults with a bachelor's degree or higher [0, 1] (optional)
+
     `pct_non_white` — share of district population identifying as non-white [0, 1] (optional)
+
     `median_income` — median household income in dollars [0, ∞) (optional)
+
     `median_age` — median age of district residents [0, 120] (optional)
+
     `candidate_quality_dem_share` — Dem share of combined candidate quality score [0, 1] (optional)
+
     `experience_cycles_dem` — Democratic candidate's prior election cycles [0, ∞) (optional)
+
     `experience_cycles_rep` — Republican candidate's prior election cycles [0, ∞) (optional)
     """
 
@@ -270,8 +320,11 @@ class FeatureMatrixSchema(pa.DataFrameModel):
     """Feature matrix passed to the model at training and prediction time.
 
     `dem_lean` — district-level Democratic lean relative to national (optional)
+
     `prev_dem_vote_share` — prior-cycle Dem vote share [0, 1] (optional)
+
     `net_pres_approval` — sign-adjusted net presidential approval (approval minus disapproval)
+
     `state_partisan_lean` — state-level partisan lean derived from presidential results (optional)
     """
 
@@ -294,8 +347,11 @@ class ApprovalSchema(pa.DataFrameModel):
     numbers still mean exactly what they say on the source spreadsheet.
 
     `year` — election year [1976, 2030]
+
     `pres_approval` — raw approval percentage [0, 100]
+
     `pres_disapproval` — raw disapproval percentage [0, 100]
+
     `unsure` — raw unsure/no-opinion percentage [0, 100]
     """
 
@@ -313,8 +369,11 @@ class PresLeanSchema(pa.DataFrameModel):
     """Presidential vote share by congressional district, one row per district-election-year.
 
     `state_po` — two-letter postal state abbreviation
+
     `district` — congressional district number; 0 = at-large [0, 53]
+
     `pres_year` — presidential election year [2008, 2030]
+
     `pres_lean` — Democratic presidential candidate's share of the two-party vote [0, 1]
     """
 
@@ -332,7 +391,9 @@ class CookCsvSchema(pa.DataFrameModel):
     """Cook Political Report district ratings converted to a Democratic win probability.
 
     `state_po` — two-letter postal state abbreviation
+
     `district` — congressional district number; 0 = at-large [0, 53]
+
     `cook_prob` — implied Democratic win probability derived from Cook rating [0, 1]
     """
 
@@ -349,12 +410,19 @@ class FundraisingSchema(pa.DataFrameModel):
     """FEC campaign finance features expressed as Dem share of combined Dem+Rep totals.
 
     `year` — election cycle year [1980, 2030]
+
     `state_po` — two-letter postal state abbreviation
+
     `district` — congressional district number [0, 99]; codes > 53 are non-voting delegate races
+
     `fundraising_dem_share` — Dem share of total receipts [0, 1]
+
     `large_donor_dem_share` — Dem share of itemized (>=200) individual contributions [0, 1]
+
     `pac_dem_share` — Dem share of PAC and party committee contributions [0, 1]
+
     `spending_dem_share` — Dem share of total disbursements [0, 1]
+
     `surplus_dem_share` — Dem share of receipts-minus-disbursements; unbounded (can be < 0 or > 1)
     """
 
@@ -381,10 +449,15 @@ class CensusSchema(pa.DataFrameModel):
     """ACS 5-year demographic features per congressional district.
 
     `state_po` — two-letter postal state abbreviation
+
     `district` — congressional district number; 0 = at-large [0, 53]
+
     `pct_bachelor_plus` — share of adults (25+) with a bachelor's degree or higher [0, 1] (optional)
+
     `pct_non_white` — share of total population identifying as non-white [0, 1] (optional)
+
     `median_income` — median household income in dollars [0, ∞) (optional)
+
     `median_age` — median age of district residents [0, 120] (optional)
     """
 
@@ -406,10 +479,15 @@ class CandidateQualitySchema(pa.DataFrameModel):
     """Candidate quality features derived from FEC filing history and NLP analysis.
 
     `year` — election cycle year [1980, 2030]
+
     `state_po` — two-letter postal state abbreviation
+
     `district` — congressional district number [0, 99]; codes > 53 are non-voting delegate races
+
     `candidate_quality_dem_share` — Dem share of combined candidate quality score [0, 1]
+
     `experience_cycles_dem` — number of prior election cycles the Democratic candidate has run [0, ∞)
+
     `experience_cycles_rep` — number of prior election cycles the Republican candidate has run [0, ∞)
     """
 
@@ -429,7 +507,9 @@ class PollAggregatesSchema(pa.DataFrameModel):
     """Weighted generic-ballot aggregate with uncertainty estimate, one row per election cycle.
 
     `year` — election cycle year [2006, 2030]
+
     `generic_ballot` — house-effects-corrected Dem minus Rep margin in percentage points [-30, 30]
+
     `generic_ballot_sigma` — weighted standard deviation of adjusted polls (uncertainty estimate) [0, ∞)
     """
 
@@ -822,8 +902,11 @@ class BillEmbeddingsSchema(pa.DataFrameModel):
     """K-Means cluster labels derived from bill title embeddings, one row per district-year.
 
     `year` — election year [2014, 2030]
+
     `state_po` — two-letter postal state abbreviation
+
     `district` — congressional district number; 0 = at-large [0, 53]
+
     `bill_topic_cluster` — K-Means cluster index assigned to the district's bill titles [0, ∞)
     """
 

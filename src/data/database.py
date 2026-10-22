@@ -19,8 +19,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from pandera.typing import DataFrame
 
 from src.constants import PRES_PARTY, Col, Val
+from src.data.validators import ApprovalDataSchema, HouseDataSchema
 from src.paths import DataFile, ensure
 from src.types import ForecastResult
 
@@ -88,7 +90,7 @@ def load_latest_forecast(db_path: Path = DataFile.DB) -> ForecastResult | None:
         conn.close()
 
 
-def load_house_from_db(db_path: Path) -> pd.DataFrame:
+def load_house_from_db(db_path: Path) -> DataFrame[HouseDataSchema]:
     """Load and clean house data from SQLite — same output as load_clean_house_data."""
     logger.info("Loading house data from %s (table house_results)", db_path)
 
@@ -139,10 +141,10 @@ def load_house_from_db(db_path: Path) -> pd.DataFrame:
     df[Col.PARTY] = df[Col.PARTY].replace(party_map)
     df = df.reset_index(drop=True)
     logger.info("Loaded %d rows", len(df))
-    return df
+    return df  # type: ignore[return-value]
 
 
-def load_approval_from_db(db_path: Path) -> pd.DataFrame:
+def load_approval_from_db(db_path: Path) -> DataFrame[ApprovalDataSchema]:
     """Load approval ratings from SQLite — same output as load_approval."""
     logger.info("Loading approval ratings from %s (table approval)", db_path)
 
@@ -160,4 +162,4 @@ def load_approval_from_db(db_path: Path) -> pd.DataFrame:
     sign = np.where(approval[Col.PRES_PARTY] == Val.DEMOCRAT, 1, -1)
     approval[Col.PRES_APPROVAL] = approval[Col.PRES_APPROVAL] * sign
     approval[Col.PRES_DISAPPROVAL] = approval[Col.PRES_DISAPPROVAL] * (-sign)
-    return approval[[Col.YEAR, Col.PRES_APPROVAL, Col.PRES_DISAPPROVAL]]
+    return approval[[Col.YEAR, Col.PRES_APPROVAL, Col.PRES_DISAPPROVAL]]  # type: ignore[return-value]
