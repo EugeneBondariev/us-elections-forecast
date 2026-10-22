@@ -683,6 +683,23 @@ def validate_bill_embeddings(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+class PolicyTopicsCongressSchema(pa.DataFrameModel):
+    """Per-district Groq-classified policy topic fractions for a single congress (no year)."""
+
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
+    topic_healthcare: Series[float] = pa.Field(ge=0.0, le=1.0)
+    topic_economy: Series[float] = pa.Field(ge=0.0, le=1.0)
+    topic_defense: Series[float] = pa.Field(ge=0.0, le=1.0)
+    topic_education: Series[float] = pa.Field(ge=0.0, le=1.0)
+    topic_environment: Series[float] = pa.Field(ge=0.0, le=1.0)
+    topic_social: Series[float] = pa.Field(ge=0.0, le=1.0)
+
+    class Config:
+        coerce = True
+        strict = False
+
+
 class PolicyTopicsSchema(pa.DataFrameModel):
     """Per-district-year Groq-classified policy topic fractions."""
 
@@ -745,6 +762,20 @@ def validate_ratings_ensemble(df: pd.DataFrame, min_districts: int = 50) -> pd.D
         )
         raise
     return df
+
+
+class CosponsorshipCongressSchema(pa.DataFrameModel):
+    """Per-district cosponsorship network features for a single congress (no year)."""
+
+    state_po: Series[str] = pa.Field(str_length={"min_value": 2, "max_value": 2}, alias=Col.STATE)
+    district: Series[int] = pa.Field(ge=0, le=53, alias=Col.DISTRICT)
+    cosponsor_reach: Series[int] = pa.Field(ge=0)
+    bipartisan_cosponsor_pct: Series[float] = pa.Field(ge=0.0, le=1.0)
+    cosponsored_count: Series[int] = pa.Field(ge=0)
+
+    class Config:
+        coerce = True
+        strict = False
 
 
 class CosponsorshipSchema(pa.DataFrameModel):

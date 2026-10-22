@@ -32,8 +32,10 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from pandera.typing import DataFrame
 
 from src.data.speech_sentiment import fetch_house_members
+from src.data.validators import BillEmbeddingsSchema
 from src.paths import DataFile, ensure
 
 try:
@@ -261,15 +263,13 @@ def build_all_embeddings(
     end_congress: int = _DEFAULT_CONGRESS,
     api_key: str | None = None,
     state_name_map: dict[str, str] | None = None,
-) -> pd.DataFrame:
+) -> DataFrame[BillEmbeddingsSchema]:
     """Build bill_topic_cluster for all congresses and return a combined DataFrame.
 
     K-Means is fitted on congresses 113–118 (historical) to avoid using 2026 bill
     content to define what the clusters ARE. The same model is then applied to all
     congresses including 119. Saves the fitted model to DataFile.BILL_EMBEDDINGS_MODEL
     for reproducible cluster labels on future runs.
-
-    Returns: year, state_po, district, bill_topic_cluster.
     """
     frames: list[tuple[int, pd.DataFrame]] = []
     for congress in range(start_congress, end_congress + 1):
@@ -284,7 +284,7 @@ def build_all_embeddings(
 
     if not frames:
         logger.warning("No embeddings built — check API key and caches")
-        return pd.DataFrame(columns=["year", "state_po", "district", "bill_topic_cluster"])
+        return pd.DataFrame(columns=["year", "state_po", "district", "bill_topic_cluster"])  # type: ignore[return-value]
 
     # Gather historical embeddings to fit K-Means (no leakage: exclude end_congress = 2026)
     hist_vecs: list[np.ndarray] = [
@@ -298,7 +298,7 @@ def build_all_embeddings(
 
     if not fit_vecs:
         logger.warning("No embeddings to fit K-Means on")
-        return pd.DataFrame(columns=["year", "state_po", "district", "bill_topic_cluster"])
+        return pd.DataFrame(columns=["year", "state_po", "district", "bill_topic_cluster"])  # type: ignore[return-value]
 
     X_fit: np.ndarray = np.array(fit_vecs)
     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
@@ -321,7 +321,7 @@ def build_all_embeddings(
         out["bill_topic_cluster"] = kmeans.predict(X).astype(int)
         result_frames.append(out)
 
-    return pd.concat(result_frames, ignore_index=True)
+    return pd.concat(result_frames, ignore_index=True)  # type: ignore[arg-type]
 
 
 def main() -> None:

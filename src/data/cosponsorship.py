@@ -35,9 +35,11 @@ import time
 from typing import Any
 
 import pandas as pd
+from pandera.typing import DataFrame
 
 from src.constants import Col
 from src.data.bill_embeddings import _build_bio_to_district, fetch_sponsored_bills_for_congress
+from src.data.validators import CosponsorshipCongressSchema, CosponsorshipSchema
 from src.paths import EXTERNAL_DIR, DataFile, ensure
 
 logger = logging.getLogger(__name__)
@@ -168,15 +170,12 @@ def build_cosponsorship_for_congress(
     congress: int,
     api_key: str | None = None,
     state_name_map: dict[str, str] | None = None,
-) -> pd.DataFrame:
+) -> DataFrame[CosponsorshipCongressSchema]:
     """Build cosponsorship features for all House districts in one congress.
 
     Uses the shared sponsored_bills cache (built by bill_embeddings) for the
     bill list, and a new cosponsorship_{congress}.json cache for computed features.
     Incremental: already-computed members are skipped on re-run.
-
-    Returns DataFrame: state_po, district, cosponsor_reach, bipartisan_cosponsor_pct,
-    cosponsored_count.
     """
     # Load per-congress feature cache (incremental checkpointing)
     feat_cache_path = _cosponsor_features_cache(congress)
@@ -274,7 +273,7 @@ def build_cosponsorship_for_congress(
 
     df = pd.DataFrame(rows)
     if df.empty:
-        return pd.DataFrame(
+        return pd.DataFrame(  # type: ignore[return-value]
             columns=[
                 "state_po",
                 "district",
@@ -285,7 +284,7 @@ def build_cosponsorship_for_congress(
         )
     df["district"] = df["district"].astype(int)
     logger.info("Congress %d: cosponsorship features for %d districts", congress, len(df))
-    return df
+    return df  # type: ignore[return-value]
 
 
 def build_all_cosponsorship(
@@ -293,12 +292,8 @@ def build_all_cosponsorship(
     end_congress: int = _DEFAULT_CONGRESS,
     api_key: str | None = None,
     state_name_map: dict[str, str] | None = None,
-) -> pd.DataFrame:
-    """Build cosponsorship features for all congresses.
-
-    Returns: year, state_po, district, cosponsor_reach, bipartisan_cosponsor_pct,
-    cosponsored_count.
-    """
+) -> DataFrame[CosponsorshipSchema]:
+    """Build cosponsorship features for all congresses."""
     frames: list[pd.DataFrame] = []
     for congress in range(start_congress, end_congress + 1):
         year = _ELECTION_YEAR_OFFSET + 2 * congress
@@ -312,7 +307,7 @@ def build_all_cosponsorship(
             frames.append(df)
 
     if not frames:
-        return pd.DataFrame(
+        return pd.DataFrame(  # type: ignore[return-value]
             columns=[
                 "year",
                 "state_po",
@@ -322,7 +317,7 @@ def build_all_cosponsorship(
                 Col.COSPONSORED_COUNT,
             ]
         )
-    return pd.concat(frames, ignore_index=True)
+    return pd.concat(frames, ignore_index=True)  # type: ignore[arg-type]
 
 
 def main() -> None:

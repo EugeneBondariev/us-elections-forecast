@@ -31,8 +31,10 @@ from typing import Any
 
 import pandas as pd
 from groq import Groq
+from pandera.typing import DataFrame
 
 from src.data.bill_embeddings import _build_bio_to_district, fetch_sponsored_bills_for_congress
+from src.data.validators import PolicyTopicsCongressSchema, PolicyTopicsSchema
 from src.paths import DataFile, ensure
 
 logger = logging.getLogger(__name__)
@@ -120,13 +122,11 @@ def build_policy_topics_for_congress(
     congress_api_key: str | None = None,
     state_name_map: dict[str, str] | None = None,
     groq_model: str = _GROQ_MODEL,
-) -> pd.DataFrame:
+) -> DataFrame[PolicyTopicsCongressSchema]:
     """Build per-district topic fractions for one congress.
 
     Reads sponsored bills from the shared sponsored_bills cache (built by
     bill_embeddings.py). Caches Groq results per congress so re-runs are cheap.
-
-    Returns DataFrame: state_po, district, topic_healthcare, …, topic_social.
     """
     # Load or seed per-congress cache {"{state_po}_{district}": {topic: fraction}}
     cache_path = DataFile.congress_policy_topics_cache(congress)
@@ -208,9 +208,9 @@ def build_policy_topics_for_congress(
 
     df = pd.DataFrame(rows)
     if df.empty:
-        return pd.DataFrame(columns=["state_po", "district"] + [f"topic_{k}" for k in TOPIC_KEYS])
+        return pd.DataFrame(columns=["state_po", "district"] + [f"topic_{k}" for k in TOPIC_KEYS])  # type: ignore[return-value]
     df["district"] = df["district"].astype(int)
-    return df
+    return df  # type: ignore[return-value]
 
 
 def build_all_policy_topics(
@@ -220,11 +220,8 @@ def build_all_policy_topics(
     congress_api_key: str | None = None,
     state_name_map: dict[str, str] | None = None,
     groq_model: str = _GROQ_MODEL,
-) -> pd.DataFrame:
-    """Build topic fractions for all congresses and return a combined DataFrame.
-
-    Returns: year, state_po, district, topic_healthcare, …, topic_social.
-    """
+) -> DataFrame[PolicyTopicsSchema]:
+    """Build topic fractions for all congresses and return a combined DataFrame."""
     frames: list[pd.DataFrame] = []
     for congress in range(start_congress, end_congress + 1):
         year = _ELECTION_YEAR_OFFSET + 2 * congress
@@ -241,10 +238,10 @@ def build_all_policy_topics(
             frames.append(df)
 
     if not frames:
-        return pd.DataFrame(
+        return pd.DataFrame(  # type: ignore[return-value]
             columns=["year", "state_po", "district"] + [f"topic_{k}" for k in TOPIC_KEYS]
         )
-    return pd.concat(frames, ignore_index=True)
+    return pd.concat(frames, ignore_index=True)  # type: ignore[arg-type]
 
 
 def main() -> None:
