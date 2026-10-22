@@ -153,16 +153,36 @@ def build_policy_topics_for_congress(
         district_titles.setdefault(loc, []).extend(titles)
 
     # Classify each district not already in cache
+    to_classify = [
+        (loc, t) for loc, t in district_titles.items() if f"{loc[0]}_{loc[1]}" not in cached
+    ]
+    n_total = len(district_titles)
+    n_skip = n_total - len(to_classify)
+    logger.info(
+        "Congress %d: %d districts total, %d cached, %d to classify via Groq",
+        congress,
+        n_total,
+        n_skip,
+        len(to_classify),
+    )
     newly_classified = 0
-    for (state, dist), titles in district_titles.items():
+    for (state, dist), titles in to_classify:
         cache_key = f"{state}_{dist}"
-        if cache_key in cached:
-            continue
         fractions = classify_titles_with_groq(titles=titles, api_key=groq_api_key, model=groq_model)
         cached[cache_key] = fractions
         newly_classified += 1
-        if newly_classified % 10 == 0:
-            # Checkpoint cache every 10 calls to survive interrupts
+        if newly_classified % 10 == 0 or newly_classified == len(to_classify):
+            pct = 100 * newly_classified / len(to_classify)
+            logger.info(
+                "Congress %d: classified %d/%d districts (%.0f%%) — last: %s_%s",
+                congress,
+                newly_classified,
+                len(to_classify),
+                pct,
+                state,
+                dist,
+            )
+            # Checkpoint cache to survive interrupts
             ensure(cache_path).write_text(json.dumps(cached))
         time.sleep(_RATE_LIMIT_PAUSE)
 

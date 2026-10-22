@@ -82,6 +82,7 @@ def fetch_sponsored_bills_for_congress(
 
     import requests
 
+    logger.info("Congress %d: no bills cache found, fetching from API", congress)
     members = fetch_house_members(
         congress=congress,
         api_key=api_key,
@@ -141,8 +142,14 @@ def fetch_sponsored_bills_for_congress(
         except Exception as exc:
             logger.warning("Congress %d [%d/%d] %s: %s", congress, i, len(valid), bio, exc)
             bills_by_bio[bio] = []
-        if i % 50 == 0:
-            logger.info("Congress %d: fetched %d/%d members", congress, i, len(valid))
+        if i % 25 == 0 or i == len(valid):
+            logger.info(
+                "Congress %d: fetched %d/%d members (%.0f%%)",
+                congress,
+                i,
+                len(valid),
+                100 * i / len(valid),
+            )
 
     ensure(cache_path).write_text(json.dumps(bills_by_bio))
     logger.info(

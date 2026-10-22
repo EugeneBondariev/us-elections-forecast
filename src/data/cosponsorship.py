@@ -205,12 +205,19 @@ def build_cosponsorship_for_congress(
             if bio:
                 party_by_bio[bio] = "D" if "democrat" in party_name.lower() else "R"
 
+    to_compute = [
+        (bio, bills)
+        for bio, bills in bills_by_bio.items()
+        if bio in bio_to_district and bio not in feat_cache
+    ]
+    logger.info(
+        "Congress %d: %d members in cache, %d to compute",
+        congress,
+        len(feat_cache),
+        len(to_compute),
+    )
     newly_computed = 0
-    for bio, bills in bills_by_bio.items():
-        if bio not in bio_to_district:
-            continue
-        if bio in feat_cache:
-            continue
+    for bio, bills in to_compute:
         sponsor_party = party_by_bio.get(bio, "")
         cosponsor_feats = _compute_cosponsor_features(
             bioguide_id=bio,
@@ -223,10 +230,17 @@ def build_cosponsorship_for_congress(
         time.sleep(_RATE_PAUSE)
         feat_cache[bio] = {**cosponsor_feats, "cosponsored_count": cosponsored}
         newly_computed += 1
-        if newly_computed % 25 == 0:
+        if newly_computed % 25 == 0 or newly_computed == len(to_compute):
+            pct = 100 * newly_computed / len(to_compute)
             with open(feat_cache_path, "w") as f:
                 json.dump(feat_cache, f)
-            logger.info("Congress %d: checkpoint at %d members", congress, newly_computed)
+            logger.info(
+                "Congress %d: computed %d/%d members (%.0f%%)",
+                congress,
+                newly_computed,
+                len(to_compute),
+                pct,
+            )
 
     with open(feat_cache_path, "w") as f:
         json.dump(feat_cache, f)
