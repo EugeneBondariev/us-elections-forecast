@@ -5,12 +5,19 @@
 #
 # Rooted (leading /) so these don't also match src/data/ and src/models/ -
 # those are source subpackages, not generated data, and must stay tracked.
-/data/
+/data/raw/
+/data/external/
+/data/interim/
+/data/processed/**
+!/data/processed/elections.db
+!/data/processed/chroma_db/
+!/data/processed/chroma_db/**
 /models/
 
 /logs/
 /reports/
 .env
+.streamlit/secrets.toml
 .vscode/
 .claude/
 .venv/

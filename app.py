@@ -11,6 +11,14 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+# Bridge Streamlit secrets → os.environ so os.getenv() works on Streamlit Cloud.
+for _k in ("GROQ_API_KEY",):
+    if _k not in os.environ:
+        try:
+            os.environ[_k] = st.secrets[_k]
+        except (KeyError, FileNotFoundError):
+            pass
+
 from src.constants import COMPETITIVE_MARGIN, DEM_MAJORITY_SEATS
 from src.data.database import load_latest_forecast, save_forecast
 from src.models.forecast import run_forecast
